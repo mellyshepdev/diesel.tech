@@ -28,5 +28,9 @@ export const getMakes         = ()          => api.get('/api/v1/makes');
 export const getModels        = (makeId)    => api.get(`/api/v1/makes/${makeId}/models`);
 export const getEngines       = (modelId)   => api.get(`/api/v1/models/${modelId}/engines`);
 export const getMe            = ()          => api.get('/api/v1/me');
+export const getVehicles      = ()          => api.get('/api/v1/vehicles');
+export const createVehicle    = (vehicle)   => api.post('/api/v1/vehicles', vehicle);
+export const updateVehicle    = (id, patch) => api.patch(`/api/v1/vehicles/${id}`, patch);
+export const deleteVehicle    = (id)        => api.delete(`/api/v1/vehicles/${id}`);
 
 export default api;

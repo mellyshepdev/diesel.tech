@@ -31,3 +31,8 @@ CREATE TABLE IF NOT EXISTS vehicles (
   owner        TEXT,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE engines ADD COLUMN IF NOT EXISTS horsepower INTEGER;
+ALTER TABLE engines ADD COLUMN IF NOT EXISTS torque_lb_ft INTEGER;
+ALTER TABLE engines ADD COLUMN IF NOT EXISTS displacement_liters NUMERIC(4,1);
+ALTER TABLE engines ADD COLUMN IF NOT EXISTS fuel_type TEXT NOT NULL DEFAULT 'diesel';
