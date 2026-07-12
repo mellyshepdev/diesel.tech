@@ -3,6 +3,7 @@ import pool from './pool.js';
 const FLEET = [
   { make: 'Volvo',        model: 'VNL',      engine: 'D13',           horsepower: 500, torqueLbFt: 1850, displacementLiters: 12.8 },
   { make: 'Volvo',        model: 'VNR',      engine: 'D11',           horsepower: 425, torqueLbFt: 1550, displacementLiters: 10.8 },
+  { make: 'Volvo',        model: '9700',     engine: 'D13 Coach',     horsepower: 425, torqueLbFt: 1650, displacementLiters: 12.8 },
   { make: 'Freightliner', model: 'Cascadia', engine: 'Detroit DD15',  horsepower: 505, torqueLbFt: 1850, displacementLiters: 14.8 },
   { make: 'Peterbilt',    model: '579',      engine: 'PACCAR MX-13',  horsepower: 510, torqueLbFt: 1850, displacementLiters: 12.9 },
   { make: 'Kenworth',     model: 'T680',     engine: 'PACCAR MX-13',  horsepower: 510, torqueLbFt: 1850, displacementLiters: 12.9 },
