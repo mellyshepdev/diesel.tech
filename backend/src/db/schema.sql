@@ -1,0 +1,18 @@
+CREATE TABLE IF NOT EXISTS makes (
+  id   SERIAL PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS models (
+  id      SERIAL PRIMARY KEY,
+  make_id INTEGER NOT NULL REFERENCES makes(id) ON DELETE CASCADE,
+  name    TEXT NOT NULL,
+  UNIQUE (make_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS engines (
+  id       SERIAL PRIMARY KEY,
+  model_id INTEGER NOT NULL REFERENCES models(id) ON DELETE CASCADE,
+  name     TEXT NOT NULL,
+  UNIQUE (model_id, name)
+);
