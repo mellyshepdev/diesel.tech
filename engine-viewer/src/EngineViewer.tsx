@@ -39,6 +39,9 @@ const ENGINES: Record<EngineId, EngineInfo> = {
       { label: 'Valvetrain', value: 'OHV, 4 per cyl' },
       { label: 'Cooling', value: 'Liquid Cooled' },
     ],
+    hotspotDescs: {
+      ecm: 'Volvo EMS engine management module, block-mounted with heat-sink fins. Runs injection timing, I-Shift integration, and OBD diagnostics.',
+    },
   },
   'cummins-x15': {
     maker: 'CUMMINS',
@@ -62,6 +65,7 @@ const ENGINES: Record<EngineId, EngineInfo> = {
     hotspotDescs: {
       filters: 'Fleetguard spin-on oil/fuel filtration in series configuration. Full-flow filtration ensures maximum engine protection and extended service intervals.',
       bellhousing: 'SAE #1 flywheel/bell housing mates with Eaton Cummins Endurant automated transmission. Precision-machined for zero-runout alignment.',
+      ecm: 'Cummins CM2350 electronic control module, block-mounted and fuel-cooled. Runs XPI injection, aftertreatment, and OBD diagnostics.',
     },
   },
   'paccar-mx13': {
@@ -177,7 +181,7 @@ const HOTSPOT_DATA = [
     label: 'Triple Oil Filters',
     icon: '🔧',
     pos3d: [0.33, -0.58, 0.38] as [number, number, number],
-    desc: 'Three Volvo Penta spin-on oil/fuel filters in series configuration. Full-flow filtration ensures maximum engine protection and extended service intervals.',
+    desc: 'Spin-on oil filtration: two full-flow filters plus one bypass filter. Full-flow filtration ensures maximum engine protection and extended service intervals.',
     color: '#ff9900',
   },
   {
@@ -195,6 +199,14 @@ const HOTSPOT_DATA = [
     pos3d: [-1.2, -0.28, 0] as [number, number, number],
     desc: 'SAE #1 flywheel/bell housing for direct mating with Volvo I-Shift automatic transmission. Precision-machined for zero-runout alignment.',
     color: '#ff4488',
+  },
+  {
+    id: 'ecm',
+    label: 'Engine ECM',
+    icon: '🧠',
+    pos3d: [-0.55, -0.05, -0.48] as [number, number, number],
+    desc: 'Block-mounted engine control module with fuel-cooled heat sink fins. Runs injection timing, aftertreatment, and OBD diagnostics.',
+    color: '#ffcc00',
   },
 ];
 
@@ -1365,7 +1377,7 @@ function buildVolvoD13(
   tick();
 
   // ══════════════════════════════════════
-  // 9. OIL FILTERS (3 Volvo Penta)
+  // 9. OIL FILTERS (2 full-flow + 1 bypass, spin-on)
   // ══════════════════════════════════════
   for (let i = 0; i < 3; i++) {
     const px = 0.02 + i * 0.19;
@@ -1497,6 +1509,38 @@ function buildVolvoD13(
     new THREE.Vector3(-0.3, 0.79, 0.15), new THREE.Vector3(-0.35, 0.85, 0.22), new THREE.Vector3(-0.4, 0.88, 0.3),
   ]);
   add(new THREE.TubeGeometry(breatherPath, 8, 0.018, 6, false), M.rubber, { shadow: false });
+
+  // ECM (engine control module) — finned box mounted on the cool side of the block
+  add(new THREE.BoxGeometry(0.34, 0.42, 0.06), M.darkMetal, { pos: [-0.55, -0.05, -0.42] });
+  for (let i = 0; i < 6; i++) {
+    add(new THREE.BoxGeometry(0.3, 0.045, 0.015), M.brushedMetal, { pos: [-0.55, -0.22 + i * 0.07, -0.455] });
+  }
+  // ECM harness connectors
+  add(new THREE.BoxGeometry(0.1, 0.08, 0.05), M.black, { pos: [-0.44, -0.31, -0.43] });
+  add(new THREE.BoxGeometry(0.1, 0.08, 0.05), M.black, { pos: [-0.66, -0.31, -0.43] });
+  tick();
+
+  // Water pump (front of block, gear-driven) + thermostat housing above it
+  add(new THREE.CylinderGeometry(0.09, 0.11, 0.1, 14), M.teal, { pos: [-0.98, 0.02, 0.16], rot: [0, 0, Math.PI / 2] });
+  add(new THREE.BoxGeometry(0.1, 0.12, 0.12), M.teal, { pos: [-0.95, 0.3, 0.12] });
+  // Thermostat outlet to the upper radiator hose
+  add(new THREE.CylinderGeometry(0.04, 0.04, 0.1, 10), M.brushedMetal, { pos: [-1.02, 0.36, 0.12], rot: [0, 0, Math.PI / 2] });
+  tick();
+
+  // Brake air compressor — gear-driven off the rear train
+  add(new THREE.CylinderGeometry(0.075, 0.075, 0.16, 12), M.darkMetal, { pos: [0.85, -0.35, -0.25], rot: [Math.PI / 2, 0, 0] });
+  add(new THREE.CylinderGeometry(0.05, 0.05, 0.08, 10), M.brushedMetal, { pos: [0.85, -0.21, -0.25] });
+  tick();
+
+  // Fuel filter / water separator with clear sight bowl
+  add(new THREE.CylinderGeometry(0.06, 0.06, 0.18, 16), M.white, { pos: [0.62, -0.6, 0.36] });
+  add(
+    new THREE.CylinderGeometry(0.058, 0.058, 0.06, 16),
+    new THREE.MeshStandardMaterial({ color: 0xcfe8ff, transparent: true, opacity: 0.5, roughness: 0.1 }),
+    { pos: [0.62, -0.72, 0.36] },
+  );
+  add(new THREE.CylinderGeometry(0.045, 0.045, 0.05, 12), M.darkMetal, { pos: [0.62, -0.49, 0.36] });
+  tick();
 
   // Coolant temperature sensor
   add(new THREE.CylinderGeometry(0.015, 0.015, 0.06, 8), M.chrome, { pos: [0.6, 0.37, 0.38] });
