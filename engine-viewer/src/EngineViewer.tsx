@@ -5,18 +5,116 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 // ─────────────────────────────────────────────────────────
 // Data
 // ─────────────────────────────────────────────────────────
-const ENGINE_SPECS = [
-  { label: 'Displacement', value: '12.8 L' },
-  { label: 'Configuration', value: 'Inline-6' },
-  { label: 'Peak Power', value: '500 HP' },
-  { label: 'Max Torque', value: '1,850 lb-ft' },
-  { label: 'Bore × Stroke', value: '131 × 158 mm' },
-  { label: 'Compression', value: '17.3:1' },
-  { label: 'Emission Standard', value: 'EPA 2027' },
-  { label: 'Fuel System', value: 'Common Rail DI' },
-  { label: 'Valvetrain', value: 'OHV, 4 per cyl' },
-  { label: 'Cooling', value: 'Liquid Cooled' },
-];
+export type EngineId = 'volvo-d13' | 'cummins-x15' | 'paccar-mx13' | 'paccar-mx11';
+
+interface EngineInfo {
+  maker: string;
+  makerLetter: string;
+  model: string;
+  tagline: string;
+  hp: string;
+  torque: string;
+  specs: { label: string; value: string }[];
+  /** Brand-specific overrides for shared hotspot descriptions */
+  hotspotDescs?: Record<string, string>;
+}
+
+const ENGINES: Record<EngineId, EngineInfo> = {
+  'volvo-d13': {
+    maker: 'VOLVO TRUCKS',
+    makerLetter: 'V',
+    model: 'D13',
+    tagline: '12.8L Inline-6 Diesel · EPA 2027 · Interactive 3D Model',
+    hp: '500 HP',
+    torque: '1850 lb·ft',
+    specs: [
+      { label: 'Displacement', value: '12.8 L' },
+      { label: 'Configuration', value: 'Inline-6' },
+      { label: 'Peak Power', value: '500 HP' },
+      { label: 'Max Torque', value: '1,850 lb-ft' },
+      { label: 'Bore × Stroke', value: '131 × 158 mm' },
+      { label: 'Compression', value: '17.3:1' },
+      { label: 'Emission Standard', value: 'EPA 2027' },
+      { label: 'Fuel System', value: 'Common Rail DI' },
+      { label: 'Valvetrain', value: 'OHV, 4 per cyl' },
+      { label: 'Cooling', value: 'Liquid Cooled' },
+    ],
+  },
+  'cummins-x15': {
+    maker: 'CUMMINS',
+    makerLetter: 'C',
+    model: 'X15',
+    tagline: '15.0L Inline-6 Diesel · EPA 2027 · Interactive 3D Model',
+    hp: '565 HP',
+    torque: '1850 lb·ft',
+    specs: [
+      { label: 'Displacement', value: '15.0 L' },
+      { label: 'Configuration', value: 'Inline-6' },
+      { label: 'Peak Power', value: '565 HP' },
+      { label: 'Max Torque', value: '1,850 lb-ft' },
+      { label: 'Bore × Stroke', value: '137 × 169 mm' },
+      { label: 'Compression', value: '17.3:1' },
+      { label: 'Emission Standard', value: 'EPA 2027' },
+      { label: 'Fuel System', value: 'XPI Common Rail' },
+      { label: 'Valvetrain', value: 'OHV, 4 per cyl' },
+      { label: 'Cooling', value: 'Liquid Cooled' },
+    ],
+    hotspotDescs: {
+      filters: 'Fleetguard spin-on oil/fuel filtration in series configuration. Full-flow filtration ensures maximum engine protection and extended service intervals.',
+      bellhousing: 'SAE #1 flywheel/bell housing mates with Eaton Cummins Endurant automated transmission. Precision-machined for zero-runout alignment.',
+    },
+  },
+  'paccar-mx13': {
+    maker: 'PACCAR',
+    makerLetter: 'P',
+    model: 'MX-13',
+    tagline: '12.9L Inline-6 Diesel · EPA 2027 · Interactive 3D Model',
+    hp: '510 HP',
+    torque: '1850 lb·ft',
+    specs: [
+      { label: 'Displacement', value: '12.9 L' },
+      { label: 'Configuration', value: 'Inline-6' },
+      { label: 'Peak Power', value: '510 HP' },
+      { label: 'Max Torque', value: '1,850 lb-ft' },
+      { label: 'Bore × Stroke', value: '130 × 162 mm' },
+      { label: 'Compression', value: '18.5:1' },
+      { label: 'Emission Standard', value: 'EPA 2027' },
+      { label: 'Fuel System', value: 'Common Rail DI' },
+      { label: 'Valvetrain', value: 'OHC, 4 per cyl' },
+      { label: 'Cooling', value: 'Liquid Cooled' },
+    ],
+    hotspotDescs: {
+      filters: 'PACCAR spin-on oil/fuel filters in series configuration. Full-flow filtration ensures maximum engine protection and extended service intervals.',
+      bellhousing: 'SAE #1 flywheel/bell housing for direct mating with the PACCAR TX-12 automated transmission. Precision-machined for zero-runout alignment.',
+    },
+  },
+  'paccar-mx11': {
+    maker: 'PACCAR',
+    makerLetter: 'P',
+    model: 'MX-11',
+    tagline: '10.8L Inline-6 Diesel · EPA 2027 · Interactive 3D Model',
+    hp: '430 HP',
+    torque: '1450 lb·ft',
+    specs: [
+      { label: 'Displacement', value: '10.8 L' },
+      { label: 'Configuration', value: 'Inline-6' },
+      { label: 'Peak Power', value: '430 HP' },
+      { label: 'Max Torque', value: '1,450 lb-ft' },
+      { label: 'Bore × Stroke', value: '123 × 152 mm' },
+      { label: 'Compression', value: '18.5:1' },
+      { label: 'Emission Standard', value: 'EPA 2027' },
+      { label: 'Fuel System', value: 'Common Rail DI' },
+      { label: 'Valvetrain', value: 'OHC, 4 per cyl' },
+      { label: 'Cooling', value: 'Liquid Cooled' },
+    ],
+    hotspotDescs: {
+      filters: 'PACCAR spin-on oil/fuel filters in series configuration. Full-flow filtration ensures maximum engine protection and extended service intervals.',
+      bellhousing: 'SAE #1 flywheel/bell housing for direct mating with the PACCAR TX-12 automated transmission. Precision-machined for zero-runout alignment.',
+    },
+  },
+};
+
+const ENGINE_ORDER: EngineId[] = ['volvo-d13', 'cummins-x15', 'paccar-mx13', 'paccar-mx11'];
 
 const HOTSPOT_DATA = [
   {
@@ -73,6 +171,9 @@ export default function EngineViewer() {
   const animFrameRef = useRef<number>(0);
   const clockRef = useRef(new THREE.Clock());
 
+  const [engineId, setEngineId] = useState<EngineId>('volvo-d13');
+  const engine = ENGINES[engineId];
+  const hotspots = HOTSPOT_DATA.map(h => ({ ...h, desc: engine.hotspotDescs?.[h.id] ?? h.desc }));
   const [activeHotspot, setActiveHotspot] = useState<string | null>(null);
   const [autoRotate, setAutoRotate] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
@@ -328,7 +429,7 @@ export default function EngineViewer() {
     };
   }, []);
 
-  const activeHotspotData = HOTSPOT_DATA.find(h => h.id === activeHotspot);
+  const activeHotspotData = hotspots.find(h => h.id === activeHotspot);
 
   return (
     <div className="relative w-full h-full select-none" style={{ background: '#050810' }}>
@@ -343,7 +444,7 @@ export default function EngineViewer() {
               <div className="absolute inset-0 flex items-center justify-center text-4xl">⚙️</div>
             </div>
             <div>
-              <h2 className="text-white text-2xl font-black tracking-widest uppercase">Volvo D13</h2>
+              <h2 className="text-white text-2xl font-black tracking-widest uppercase">{engine.maker} {engine.model}</h2>
               <p className="text-cyan-400 text-sm tracking-widest mt-1">3D ENGINE VIEWER</p>
             </div>
             <div className="w-72 mx-auto">
@@ -384,22 +485,38 @@ export default function EngineViewer() {
             <div className="flex items-center gap-2 mb-1">
               <div className="flex items-center gap-1.5">
                 <div className="w-5 h-5 rounded bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center">
-                  <span className="text-white text-[9px] font-black">V</span>
+                  <span className="text-white text-[9px] font-black">{engine.makerLetter}</span>
                 </div>
-                <span className="text-white font-black text-sm tracking-[0.3em] uppercase">VOLVO TRUCKS</span>
+                <span className="text-white font-black text-sm tracking-[0.3em] uppercase">{engine.maker}</span>
               </div>
             </div>
             <h1 className="text-white font-black text-4xl leading-none tracking-tight">
-              D13 <span className="text-transparent bg-clip-text" style={{ backgroundImage: 'linear-gradient(90deg, #00d4ff, #00ffaa)' }}>Engine</span>
+              {engine.model} <span className="text-transparent bg-clip-text" style={{ backgroundImage: 'linear-gradient(90deg, #00d4ff, #00ffaa)' }}>Engine</span>
             </h1>
-            <p className="text-gray-400 text-xs mt-1 tracking-widest uppercase">12.8L Inline-6 Diesel · EPA 2027 · Interactive 3D Model</p>
+            <p className="text-gray-400 text-xs mt-1 tracking-widest uppercase">{engine.tagline}</p>
+            {/* Engine selector */}
+            <div className="flex items-center gap-1.5 mt-3 pointer-events-auto">
+              {ENGINE_ORDER.map(id => (
+                <button
+                  key={id}
+                  onClick={() => { setEngineId(id); setActiveHotspot(null); }}
+                  className={`px-2.5 py-1 text-[11px] font-bold rounded border transition-all uppercase tracking-wider ${
+                    id === engineId
+                      ? 'text-cyan-300 border-cyan-400/60 bg-cyan-400/10'
+                      : 'text-gray-500 border-gray-700 hover:text-gray-300 hover:border-gray-500 bg-black/30'
+                  }`}
+                >
+                  {ENGINES[id].maker.split(' ')[0]} {ENGINES[id].model}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Right: badges */}
           <div className="hidden md:flex flex-col gap-2 items-end mt-1">
             <div className="flex items-center gap-2">
-              <span className="text-xs text-cyan-400 border border-cyan-400/40 rounded px-2 py-0.5 font-mono">500 HP</span>
-              <span className="text-xs text-green-400 border border-green-400/40 rounded px-2 py-0.5 font-mono">1850 lb·ft</span>
+              <span className="text-xs text-cyan-400 border border-cyan-400/40 rounded px-2 py-0.5 font-mono">{engine.hp}</span>
+              <span className="text-xs text-green-400 border border-green-400/40 rounded px-2 py-0.5 font-mono">{engine.torque}</span>
             </div>
             <div className="flex items-center gap-1.5 text-gray-500 text-xs">
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse inline-block" />
@@ -410,7 +527,7 @@ export default function EngineViewer() {
       </div>
 
       {/* Hotspot 2D labels */}
-      {!isLoading && HOTSPOT_DATA.map(hs => {
+      {!isLoading && hotspots.map(hs => {
         const pos = screenPositions[hs.id];
         if (!pos?.visible) return null;
         const isActive = activeHotspot === hs.id;
@@ -471,7 +588,7 @@ export default function EngineViewer() {
             <span className="text-cyan-400 text-xs font-bold tracking-widest uppercase">Specifications</span>
           </div>
           <div className="space-y-2.5">
-            {ENGINE_SPECS.map(s => (
+            {engine.specs.map(s => (
               <div key={s.label} className="flex items-center justify-between">
                 <span className="text-gray-500 text-xs">{s.label}</span>
                 <span className="text-white text-xs font-bold font-mono">{s.value}</span>
@@ -519,7 +636,7 @@ export default function EngineViewer() {
       {/* Mobile specs strip */}
       <div className="absolute bottom-20 left-4 right-4 xl:hidden pointer-events-none">
         <div className="rounded-xl p-3 grid grid-cols-4 gap-2" style={{ background: 'rgba(5,8,22,0.88)', border: '1px solid rgba(255,255,255,0.08)' }}>
-          {ENGINE_SPECS.slice(0, 4).map(s => (
+          {engine.specs.slice(0, 4).map(s => (
             <div key={s.label} className="text-center">
               <div className="text-cyan-400 text-xs font-bold font-mono">{s.value}</div>
               <div className="text-gray-600 text-[10px] mt-0.5 leading-tight">{s.label}</div>
