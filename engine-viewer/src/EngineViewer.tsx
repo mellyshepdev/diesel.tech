@@ -127,6 +127,14 @@ interface ServiceAnim {
   onDone?: () => void;
 }
 
+interface OilFlow {
+  active: boolean;
+  t: number;
+  duration: number;
+  puddleScale: number;
+  onDone?: () => void;
+}
+
 type RepairId = 'oil-change' | 'pan-gasket';
 
 const REPAIRS: { id: RepairId; icon: string; label: string; desc: string }[] = [
@@ -215,13 +223,23 @@ export default function EngineViewer() {
   const [filtersRemoved, setFiltersRemoved] = useState<boolean[]>(Array(FILTER_COUNT).fill(false));
   const [boltsRemoved, setBoltsRemoved] = useState<boolean[]>(Array(PAN_BOLT_COUNT).fill(false));
   const [panRemoved, setPanRemoved] = useState(false);
+  const [plugRemoved, setPlugRemoved] = useState(false);
+  const [oilDrained, setOilDrained] = useState(false);
+  const [draining, setDraining] = useState(false);
   const [serviceMsg, setServiceMsg] = useState('');
 
   const SERVICE_PARTS = [
     'service-oil-pan',
+    'service-drain-plug',
     ...Array.from({ length: FILTER_COUNT }, (_, i) => `service-oil-filter-${i}`),
     ...Array.from({ length: PAN_BOLT_COUNT }, (_, i) => `service-pan-bolt-${i}`),
   ];
+
+  const startOilFlow = useCallback((duration: number, puddleScale: number, onDone?: () => void) => {
+    const eg = engineGroupRef.current;
+    if (!eg) return;
+    eg.userData.oilFlow = { active: true, t: 0, duration, puddleScale, onDone } satisfies OilFlow;
+  }, []);
 
   /** Kick off a part-removal animation; returns false if the part is gone/missing. */
   const startRemoval = useCallback((name: string, opts: { vy: number; spin?: number; drop?: number }, onDone?: () => void) => {
@@ -258,6 +276,26 @@ export default function EngineViewer() {
 
   const boltVy = driver === 'electric' ? 0.02 : 0.006;
 
+  const removeDrainPlug = () => {
+    if (plugRemoved || panRemoved || draining) return;
+    if (startRemoval('service-drain-plug', { vy: 0.006, spin: 0.4, drop: 0.22 }, () => {
+      setPlugRemoved(true);
+      if (oilDrained) {
+        setServiceMsg('Plug out — no spill, the engine is already drained.');
+        return;
+      }
+      setDraining(true);
+      setServiceMsg('Plug out — oil is draining, let it run…');
+      startOilFlow(4, 1, () => {
+        setDraining(false);
+        setOilDrained(true);
+        setServiceMsg('Oil fully drained ✓');
+      });
+    })) {
+      setServiceMsg('Backing out the drain plug…');
+    }
+  };
+
   const removeFilter = (i: number) => {
     if (filtersRemoved[i]) return;
     if (startRemoval(`service-oil-filter-${i}`, { vy: 0.012, spin: 0.35, drop: 0.7 }, () => {
@@ -289,11 +327,19 @@ export default function EngineViewer() {
     if (problem) { setServiceMsg(problem); return; }
     if (activeRepair === 'oil-change' && !allFiltersOff) { setServiceMsg('Spin the filters off first.'); return; }
     if (!allBoltsOff) { setServiceMsg('The pan is still bolted up — remove every flange bolt first.'); return; }
+    const wasFull = !oilDrained;
     if (startRemoval('service-oil-pan', { vy: driver === 'electric' ? 0.015 : 0.008, spin: 0, drop: 0.8 }, () => {
       setPanRemoved(true);
-      setServiceMsg(activeRepair === 'pan-gasket'
-        ? 'Pan is down — scrape the old gasket and fit the new one.'
-        : 'Pan is down, oil drained.');
+      if (wasFull) {
+        // Dropped a full pan — everything it was holding hits the floor
+        setOilDrained(true);
+        setServiceMsg('😱 The pan was still full — oil everywhere! Pull the drain plug first next time.');
+        startOilFlow(2.5, 2.2);
+      } else {
+        setServiceMsg(activeRepair === 'pan-gasket'
+          ? 'Pan is down — scrape the old gasket and fit the new one.'
+          : 'Pan is down, oil drained.');
+      }
     })) {
       setServiceMsg('Lowering the oil pan…');
     }
@@ -301,11 +347,24 @@ export default function EngineViewer() {
 
   const resetService = useCallback(() => {
     const eg = engineGroupRef.current;
-    if (eg) eg.userData.serviceAnims = [];
+    if (eg) {
+      eg.userData.serviceAnims = [];
+      eg.userData.oilFlow = undefined;
+      const stream = eg.getObjectByName('oil-stream');
+      if (stream) stream.visible = false;
+      const puddle = eg.getObjectByName('oil-puddle');
+      if (puddle) {
+        puddle.visible = false;
+        puddle.scale.set(0.01, 0.01, 0.01);
+      }
+    }
     restoreParts(SERVICE_PARTS);
     setFiltersRemoved(Array(FILTER_COUNT).fill(false));
     setBoltsRemoved(Array(PAN_BOLT_COUNT).fill(false));
     setPanRemoved(false);
+    setPlugRemoved(false);
+    setOilDrained(false); // reinstalled + refilled — full of fresh oil again
+    setDraining(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restoreParts]);
 
@@ -537,6 +596,24 @@ export default function EngineViewer() {
             serviceAnims.splice(i, 1);
             a.onDone?.();
           }
+        }
+      }
+
+      // Oil draining out of the pan (plug pulled, or a full pan dropped)
+      const oilFlow = engineGroup.userData.oilFlow as OilFlow | undefined;
+      if (oilFlow?.active) {
+        oilFlow.t += 1 / 60;
+        const stream = engineGroup.getObjectByName('oil-stream');
+        const puddle = engineGroup.getObjectByName('oil-puddle');
+        if (stream) stream.visible = oilFlow.t < oilFlow.duration;
+        if (puddle) {
+          puddle.visible = true;
+          const s = Math.min(1, oilFlow.t / oilFlow.duration) * oilFlow.puddleScale;
+          puddle.scale.set(s, s, s);
+        }
+        if (oilFlow.t >= oilFlow.duration) {
+          oilFlow.active = false;
+          oilFlow.onDone?.();
         }
       }
 
@@ -1064,8 +1141,20 @@ function buildVolvoD13(
   oilPan.name = 'service-oil-pan';
   group.add(oilPan);
   add(new THREE.BoxGeometry(2.06, 0.3, 0.68), M.darkTeal, { pos: [0, -0.73, 0], parent: oilPan });
-  // Oil pan drain plug
-  add(new THREE.CylinderGeometry(0.025, 0.025, 0.06, 10), M.chrome, { pos: [0.4, -0.88, 0.12], rot: [Math.PI / 2, 0, 0], parent: oilPan });
+  // Drain plug — pull it to drain the oil before dropping the pan
+  const drainPlug = new THREE.Group();
+  drainPlug.name = 'service-drain-plug';
+  oilPan.add(drainPlug);
+  add(new THREE.CylinderGeometry(0.025, 0.025, 0.06, 10), M.chrome, { pos: [0.4, -0.88, 0.12], rot: [Math.PI / 2, 0, 0], parent: drainPlug });
+  // Oil stream + puddle, hidden until the plug comes out (or a full pan drops)
+  const oilMat = new THREE.MeshStandardMaterial({ color: 0x1a1206, metalness: 0.35, roughness: 0.12 });
+  const oilStream = add(new THREE.CylinderGeometry(0.014, 0.026, 0.22, 8), oilMat, { pos: [0.4, -0.99, 0.12], shadow: false });
+  oilStream.name = 'oil-stream';
+  oilStream.visible = false;
+  const oilPuddle = add(new THREE.CircleGeometry(0.5, 24), oilMat, { pos: [0.4, -1.08, 0.12], rot: [-Math.PI / 2, 0, 0], shadow: false });
+  oilPuddle.name = 'oil-puddle';
+  oilPuddle.visible = false;
+  oilPuddle.scale.set(0.01, 0.01, 0.01);
   // Pan flange bolts — individually removable, need the long socket extension
   for (let i = 0; i < 8; i++) {
     const bx = -0.9 + (i % 4) * 0.6;
