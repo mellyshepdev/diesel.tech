@@ -1201,10 +1201,13 @@ function buildVolvoD13(
     add(new THREE.BoxGeometry(0.1, 0.055, 0.06), M.brushedMetal, { pos: [-0.25 + i * 0.12, 0.84, 0] });
   }
 
-  // Coil packs on valve cover (6)
-  for (let i = 0; i < 6; i++) {
-    add(new THREE.CylinderGeometry(0.028, 0.028, 0.14, 8), M.black, { pos: [-0.77 + i * 0.31, 0.84, -0.08] });
+  // Valve cover perimeter bolts (M8 flange bolts — no coils on a diesel)
+  for (let i = 0; i < 8; i++) {
+    add(new THREE.CylinderGeometry(0.016, 0.016, 0.03, 8), M.brushedMetal, { pos: [-0.85 + i * 0.24, 0.78, 0.3] });
+    add(new THREE.CylinderGeometry(0.016, 0.016, 0.03, 8), M.brushedMetal, { pos: [-0.85 + i * 0.24, 0.78, -0.3] });
   }
+  // Injector harness pass-through connector on the valve cover
+  add(new THREE.BoxGeometry(0.09, 0.05, 0.14), M.black, { pos: [-0.7, 0.79, 0.18] });
   tick();
 
   // ══════════════════════════════════════
