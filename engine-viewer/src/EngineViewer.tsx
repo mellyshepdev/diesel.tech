@@ -840,10 +840,28 @@ export default function EngineViewer() {
                 </div>
               </div>
 
+              {/* Drain the oil */}
+              <div className="space-y-1.5">
+                <p className="text-gray-400 text-[11px] uppercase tracking-widest">Step 1 — Drain the oil</p>
+                <button
+                  onClick={removeDrainPlug}
+                  disabled={plugRemoved || panRemoved || draining}
+                  className={`w-full py-1.5 text-xs font-bold rounded-lg border transition ${
+                    oilDrained
+                      ? 'text-green-300 border-green-500/40 bg-green-500/10'
+                      : draining
+                        ? 'text-amber-300 border-amber-400/40 bg-amber-400/10 animate-pulse'
+                        : 'text-white border-white/20 bg-white/5 hover:border-cyan-400/50'
+                  }`}
+                >
+                  {draining ? '🛢️ Draining…' : oilDrained ? '✓ Oil drained' : plugRemoved ? '✓ Plug out' : '🔩 Pull drain plug'}
+                </button>
+              </div>
+
               {/* Oil change: filters */}
               {activeRepair === 'oil-change' && (
                 <div className="space-y-1.5">
-                  <p className="text-gray-400 text-[11px] uppercase tracking-widest">Step 1 — Spin off the filters</p>
+                  <p className="text-gray-400 text-[11px] uppercase tracking-widest">Step 2 — Spin off the filters</p>
                   <div className="flex gap-1.5">
                     {filtersRemoved.map((done, i) => (
                       <button
@@ -864,7 +882,7 @@ export default function EngineViewer() {
               {/* Pan bolts — every bolt comes out individually */}
               <div className="space-y-1.5">
                 <p className="text-gray-400 text-[11px] uppercase tracking-widest">
-                  {activeRepair === 'oil-change' ? 'Step 2' : 'Step 1'} — Pan flange bolts ({boltsRemoved.filter(Boolean).length}/{PAN_BOLT_COUNT})
+                  {activeRepair === 'oil-change' ? 'Step 3' : 'Step 2'} — Pan flange bolts ({boltsRemoved.filter(Boolean).length}/{PAN_BOLT_COUNT})
                 </p>
                 <div className="grid grid-cols-4 gap-1.5">
                   {boltsRemoved.map((done, i) => (
