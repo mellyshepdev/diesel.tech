@@ -116,6 +116,37 @@ const ENGINES: Record<EngineId, EngineInfo> = {
 
 const ENGINE_ORDER: EngineId[] = ['volvo-d13', 'cummins-x15', 'paccar-mx13', 'paccar-mx11'];
 
+// ─────────────────────────────────────────────────────────
+// Service / repairs
+// ─────────────────────────────────────────────────────────
+interface ServiceAnim {
+  obj: THREE.Object3D;
+  vy: number;
+  spin: number;
+  targetY: number;
+  onDone?: () => void;
+}
+
+type RepairId = 'oil-change' | 'pan-gasket';
+
+const REPAIRS: { id: RepairId; icon: string; label: string; desc: string }[] = [
+  {
+    id: 'oil-change',
+    icon: '🛢️',
+    label: 'Oil & Filter Change',
+    desc: 'Remove the three spin-on filters, then drop the oil pan to drain. Pan bolts need the 10" socket extension + electric runner or hand tools.',
+  },
+  {
+    id: 'pan-gasket',
+    icon: '🔩',
+    label: 'Oil Pan Gasket Repair',
+    desc: 'Break every pan flange bolt loose one at a time, drop the pan, fit the new gasket, re-torque.',
+  },
+];
+
+const PAN_BOLT_COUNT = 8;
+const FILTER_COUNT = 3;
+
 const HOTSPOT_DATA = [
   {
     id: 'turbo',
@@ -374,6 +405,21 @@ export default function EngineViewer() {
       // Fan
       if (engineGroup.userData.fanBladeGroup) {
         engineGroup.userData.fanBladeGroup.rotation.x += 0.018;
+      }
+
+      // Service-mode removal animations (parts unscrew + drop, then hide)
+      const serviceAnims = engineGroup.userData.serviceAnims as ServiceAnim[] | undefined;
+      if (serviceAnims && serviceAnims.length) {
+        for (let i = serviceAnims.length - 1; i >= 0; i--) {
+          const a = serviceAnims[i];
+          a.obj.position.y -= a.vy;
+          a.obj.rotation.y += a.spin;
+          if (a.obj.position.y <= a.targetY) {
+            a.obj.visible = false;
+            serviceAnims.splice(i, 1);
+            a.onDone?.();
+          }
+        }
       }
 
       // Hotspot pulse rings billboard toward camera
@@ -756,11 +802,14 @@ function buildVolvoD13(
   add(new THREE.BoxGeometry(2.06, 0.3, 0.68), M.darkTeal, { pos: [0, -0.73, 0], parent: oilPan });
   // Oil pan drain plug
   add(new THREE.CylinderGeometry(0.025, 0.025, 0.06, 10), M.chrome, { pos: [0.4, -0.88, 0.12], rot: [Math.PI / 2, 0, 0], parent: oilPan });
-  // Pan flange bolts — the ones that need the long socket extension
+  // Pan flange bolts — individually removable, need the long socket extension
   for (let i = 0; i < 8; i++) {
     const bx = -0.9 + (i % 4) * 0.6;
     const bz = i < 4 ? 0.33 : -0.33;
-    add(new THREE.CylinderGeometry(0.018, 0.018, 0.035, 8), M.chrome, { pos: [bx, -0.585, bz], parent: oilPan });
+    const bolt = new THREE.Group();
+    bolt.name = `service-pan-bolt-${i}`;
+    group.add(bolt);
+    add(new THREE.CylinderGeometry(0.018, 0.018, 0.035, 8), M.chrome, { pos: [bx, -0.585, bz], parent: bolt });
   }
   tick();
 
