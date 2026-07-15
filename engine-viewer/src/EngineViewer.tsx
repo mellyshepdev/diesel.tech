@@ -206,6 +206,124 @@ export default function EngineViewer() {
   const engine = ENGINES[engineId];
   const hotspots = HOTSPOT_DATA.map(h => ({ ...h, desc: engine.hotspotDescs?.[h.id] ?? h.desc }));
   const [activeHotspot, setActiveHotspot] = useState<string | null>(null);
+
+  // ── Repairs / service mode ──
+  const [repairsOpen, setRepairsOpen] = useState(false);
+  const [activeRepair, setActiveRepair] = useState<RepairId | null>(null);
+  const [socketExt, setSocketExt] = useState<'none' | 'stubby' | 'long'>('none');
+  const [driver, setDriver] = useState<'electric' | 'hand' | null>(null);
+  const [filtersRemoved, setFiltersRemoved] = useState<boolean[]>(Array(FILTER_COUNT).fill(false));
+  const [boltsRemoved, setBoltsRemoved] = useState<boolean[]>(Array(PAN_BOLT_COUNT).fill(false));
+  const [panRemoved, setPanRemoved] = useState(false);
+  const [serviceMsg, setServiceMsg] = useState('');
+
+  const SERVICE_PARTS = [
+    'service-oil-pan',
+    ...Array.from({ length: FILTER_COUNT }, (_, i) => `service-oil-filter-${i}`),
+    ...Array.from({ length: PAN_BOLT_COUNT }, (_, i) => `service-pan-bolt-${i}`),
+  ];
+
+  /** Kick off a part-removal animation; returns false if the part is gone/missing. */
+  const startRemoval = useCallback((name: string, opts: { vy: number; spin?: number; drop?: number }, onDone?: () => void) => {
+    const eg = engineGroupRef.current;
+    if (!eg) return false;
+    const obj = eg.getObjectByName(name);
+    if (!obj || !obj.visible) return false;
+    const anims: ServiceAnim[] = eg.userData.serviceAnims ?? (eg.userData.serviceAnims = []);
+    if (anims.some(a => a.obj === obj)) return false; // already animating
+    anims.push({ obj, vy: opts.vy, spin: opts.spin ?? 0.25, targetY: obj.position.y - (opts.drop ?? 0.9), onDone });
+    return true;
+  }, []);
+
+  const restoreParts = useCallback((names: string[]) => {
+    const eg = engineGroupRef.current;
+    if (!eg) return;
+    names.forEach(n => {
+      const obj = eg.getObjectByName(n);
+      if (obj) {
+        obj.visible = true;
+        obj.position.set(0, 0, 0);
+        obj.rotation.set(0, 0, 0);
+      }
+    });
+  }, []);
+
+  /** null when the pan-bolt tooling is right; otherwise the reason it isn't. */
+  const toolProblem = (): string | null => {
+    if (socketExt === 'none') return 'You need a socket extension to reach the pan bolts.';
+    if (socketExt === 'stubby') return 'The 3" stubby won\'t reach past the crossmember — grab the 10" extension.';
+    if (!driver) return 'Pick a driver: electric runner or hand tools.';
+    return null;
+  };
+
+  const boltVy = driver === 'electric' ? 0.02 : 0.006;
+
+  const removeFilter = (i: number) => {
+    if (filtersRemoved[i]) return;
+    if (startRemoval(`service-oil-filter-${i}`, { vy: 0.012, spin: 0.35, drop: 0.7 }, () => {
+      setFiltersRemoved(prev => prev.map((v, j) => (j === i ? true : v)));
+      setServiceMsg(`Filter ${i + 1} spun off ✓`);
+    })) {
+      setServiceMsg(`Unscrewing filter ${i + 1}…`);
+    }
+  };
+
+  const removeBolt = (i: number) => {
+    if (boltsRemoved[i]) return;
+    const problem = toolProblem();
+    if (problem) { setServiceMsg(problem); return; }
+    if (startRemoval(`service-pan-bolt-${i}`, { vy: boltVy, spin: driver === 'electric' ? 0.6 : 0.2, drop: 0.4 }, () => {
+      setBoltsRemoved(prev => prev.map((v, j) => (j === i ? true : v)));
+      setServiceMsg(`Bolt ${i + 1}/${PAN_BOLT_COUNT} out ✓`);
+    })) {
+      setServiceMsg(driver === 'electric' ? `Zipping bolt ${i + 1} out with the runner…` : `Breaking bolt ${i + 1} loose by hand…`);
+    }
+  };
+
+  const allFiltersOff = filtersRemoved.every(Boolean);
+  const allBoltsOff = boltsRemoved.every(Boolean);
+
+  const removePan = () => {
+    if (panRemoved) return;
+    const problem = toolProblem();
+    if (problem) { setServiceMsg(problem); return; }
+    if (activeRepair === 'oil-change' && !allFiltersOff) { setServiceMsg('Spin the filters off first.'); return; }
+    if (!allBoltsOff) { setServiceMsg('The pan is still bolted up — remove every flange bolt first.'); return; }
+    if (startRemoval('service-oil-pan', { vy: driver === 'electric' ? 0.015 : 0.008, spin: 0, drop: 0.8 }, () => {
+      setPanRemoved(true);
+      setServiceMsg(activeRepair === 'pan-gasket'
+        ? 'Pan is down — scrape the old gasket and fit the new one.'
+        : 'Pan is down, oil drained.');
+    })) {
+      setServiceMsg('Lowering the oil pan…');
+    }
+  };
+
+  const resetService = useCallback(() => {
+    const eg = engineGroupRef.current;
+    if (eg) eg.userData.serviceAnims = [];
+    restoreParts(SERVICE_PARTS);
+    setFiltersRemoved(Array(FILTER_COUNT).fill(false));
+    setBoltsRemoved(Array(PAN_BOLT_COUNT).fill(false));
+    setPanRemoved(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restoreParts]);
+
+  const finishRepair = () => {
+    resetService();
+    setServiceMsg(activeRepair === 'pan-gasket'
+      ? 'New gasket fitted, pan re-torqued to spec ✓'
+      : 'New filters on, pan re-torqued, filled with fresh oil ✓');
+    setActiveRepair(null);
+  };
+
+  const openRepair = (id: RepairId) => {
+    resetService();
+    setServiceMsg('');
+    setActiveRepair(id);
+  };
+
+  const repairComplete = panRemoved && (activeRepair === 'pan-gasket' || allFiltersOff);
   const [autoRotate, setAutoRotate] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
@@ -555,6 +673,16 @@ export default function EngineViewer() {
                   {ENGINES[id].maker.split(' ')[0]} {ENGINES[id].model}
                 </button>
               ))}
+              <button
+                onClick={() => { setRepairsOpen(o => !o); setActiveRepair(null); }}
+                className={`px-2.5 py-1 text-[11px] font-bold rounded border transition-all uppercase tracking-wider ${
+                  repairsOpen
+                    ? 'text-amber-300 border-amber-400/60 bg-amber-400/10'
+                    : 'text-gray-500 border-gray-700 hover:text-amber-300 hover:border-amber-500/50 bg-black/30'
+                }`}
+              >
+                🔧 Repairs
+              </button>
             </div>
           </div>
 
@@ -571,6 +699,142 @@ export default function EngineViewer() {
           </div>
         </div>
       </div>
+
+      {/* Repairs panel */}
+      {repairsOpen && !isLoading && (
+        <div className="absolute right-4 top-32 w-80 max-h-[65vh] overflow-y-auto bg-black/75 backdrop-blur-md border border-amber-400/25 rounded-xl p-4 z-30 space-y-3">
+          {activeRepair === null ? (
+            <>
+              <div className="flex items-center justify-between">
+                <span className="text-amber-300 text-xs font-bold tracking-widest uppercase">Engine Repairs</span>
+                <button onClick={() => setRepairsOpen(false)} className="text-gray-500 hover:text-white text-sm">✕</button>
+              </div>
+              {REPAIRS.map(r => (
+                <button
+                  key={r.id}
+                  onClick={() => openRepair(r.id)}
+                  className="w-full text-left p-3 rounded-lg border border-white/10 bg-white/5 hover:bg-amber-400/10 hover:border-amber-400/40 transition"
+                >
+                  <div className="text-white text-sm font-bold">{r.icon} {r.label}</div>
+                  <div className="text-gray-400 text-xs mt-1 leading-relaxed">{r.desc}</div>
+                </button>
+              ))}
+              {serviceMsg && <p className="text-green-300 text-xs">{serviceMsg}</p>}
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-between">
+                <button onClick={() => { setActiveRepair(null); setServiceMsg(''); }} className="text-gray-400 hover:text-white text-xs">← Repairs</button>
+                <button onClick={() => setRepairsOpen(false)} className="text-gray-500 hover:text-white text-sm">✕</button>
+              </div>
+              <div className="text-white text-sm font-bold">
+                {REPAIRS.find(r => r.id === activeRepair)!.icon} {REPAIRS.find(r => r.id === activeRepair)!.label}
+              </div>
+
+              {/* Tools */}
+              <div className="space-y-1.5">
+                <p className="text-gray-400 text-[11px] uppercase tracking-widest">Socket extension</p>
+                <div className="flex gap-1.5">
+                  {([['none', 'None'], ['stubby', '3" Stubby'], ['long', '10" Long']] as const).map(([val, label]) => (
+                    <button
+                      key={val}
+                      onClick={() => { setSocketExt(val); setServiceMsg(''); }}
+                      className={`px-2 py-1 text-[11px] rounded border font-bold ${
+                        socketExt === val ? 'text-cyan-300 border-cyan-400/60 bg-cyan-400/10' : 'text-gray-500 border-gray-700 hover:text-gray-300'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-gray-400 text-[11px] uppercase tracking-widest mt-2">Driver</p>
+                <div className="flex gap-1.5">
+                  {([['electric', '⚡ Electric runner'], ['hand', '🔧 Hand tools']] as const).map(([val, label]) => (
+                    <button
+                      key={val}
+                      onClick={() => { setDriver(val); setServiceMsg(''); }}
+                      className={`px-2 py-1 text-[11px] rounded border font-bold ${
+                        driver === val ? 'text-cyan-300 border-cyan-400/60 bg-cyan-400/10' : 'text-gray-500 border-gray-700 hover:text-gray-300'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Oil change: filters */}
+              {activeRepair === 'oil-change' && (
+                <div className="space-y-1.5">
+                  <p className="text-gray-400 text-[11px] uppercase tracking-widest">Step 1 — Spin off the filters</p>
+                  <div className="flex gap-1.5">
+                    {filtersRemoved.map((done, i) => (
+                      <button
+                        key={i}
+                        onClick={() => removeFilter(i)}
+                        disabled={done}
+                        className={`px-2.5 py-1 text-[11px] rounded border font-bold ${
+                          done ? 'text-green-300 border-green-500/40 bg-green-500/10' : 'text-white border-white/20 bg-white/5 hover:border-cyan-400/50'
+                        }`}
+                      >
+                        {done ? `✓ F${i + 1}` : `Filter ${i + 1}`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Pan bolts — every bolt comes out individually */}
+              <div className="space-y-1.5">
+                <p className="text-gray-400 text-[11px] uppercase tracking-widest">
+                  {activeRepair === 'oil-change' ? 'Step 2' : 'Step 1'} — Pan flange bolts ({boltsRemoved.filter(Boolean).length}/{PAN_BOLT_COUNT})
+                </p>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {boltsRemoved.map((done, i) => (
+                    <button
+                      key={i}
+                      onClick={() => removeBolt(i)}
+                      disabled={done}
+                      className={`px-1.5 py-1 text-[11px] rounded border font-bold font-mono ${
+                        done ? 'text-green-300 border-green-500/40 bg-green-500/10' : 'text-white border-white/20 bg-white/5 hover:border-amber-400/50'
+                      }`}
+                    >
+                      {done ? '✓' : `B${i + 1}`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Pan */}
+              <button
+                onClick={removePan}
+                disabled={panRemoved}
+                className={`w-full py-1.5 text-xs font-bold rounded-lg border transition ${
+                  panRemoved
+                    ? 'text-green-300 border-green-500/40 bg-green-500/10'
+                    : 'text-white border-amber-400/40 bg-amber-400/10 hover:bg-amber-400/20'
+                }`}
+              >
+                {panRemoved ? '✓ Oil pan removed' : '⬇ Remove oil pan'}
+              </button>
+
+              {repairComplete && (
+                <button
+                  onClick={finishRepair}
+                  className="w-full py-1.5 text-xs font-bold rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-lg"
+                >
+                  {activeRepair === 'pan-gasket' ? '✨ Fit new gasket & reinstall' : '✨ New filters, oil & reinstall'}
+                </button>
+              )}
+
+              {serviceMsg && <p className="text-amber-200 text-xs leading-relaxed">{serviceMsg}</p>}
+              <button onClick={() => { resetService(); setServiceMsg('Parts reinstalled.'); }} className="text-gray-500 hover:text-gray-300 text-[11px] underline">
+                Reset / reinstall everything
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Hotspot 2D labels */}
       {!isLoading && hotspots.map(hs => {
