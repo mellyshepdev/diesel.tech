@@ -97,6 +97,12 @@ function App() {
 
       <h1>Diesel.tech</h1>
 
+      <p>
+        <a href="/engine-viewer.html" target="_blank" rel="noreferrer">
+          🔧 Interactive 3D Engine Viewer — Volvo D13 · Cummins X15 · PACCAR MX-13 / MX-11
+        </a>
+      </p>
+
       <div className="dropdowns">
         <label>
           Make
