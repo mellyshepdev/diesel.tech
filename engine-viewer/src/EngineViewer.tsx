@@ -724,13 +724,13 @@ function buildVolvoD13(
     orange: new THREE.MeshStandardMaterial({ color: 0xff6600, metalness: 0.1, roughness: 0.5 }),
   };
 
-  const add = (geo: THREE.BufferGeometry, mat: THREE.Material, opts?: { pos?: [number,number,number]; rot?: [number,number,number]; scale?: [number,number,number]; shadow?: boolean }) => {
+  const add = (geo: THREE.BufferGeometry, mat: THREE.Material, opts?: { pos?: [number,number,number]; rot?: [number,number,number]; scale?: [number,number,number]; shadow?: boolean; parent?: THREE.Group }) => {
     const mesh = new THREE.Mesh(geo, mat);
     if (opts?.pos) mesh.position.set(...opts.pos);
     if (opts?.rot) mesh.rotation.set(...opts.rot);
     if (opts?.scale) mesh.scale.set(...opts.scale);
     if (opts?.shadow !== false) { mesh.castShadow = true; mesh.receiveShadow = true; }
-    group.add(mesh);
+    (opts?.parent ?? group).add(mesh);
     return mesh;
   };
 
@@ -749,10 +749,19 @@ function buildVolvoD13(
   }
   tick();
 
-  // Oil pan
-  add(new THREE.BoxGeometry(2.06, 0.3, 0.68), M.darkTeal, { pos: [0, -0.73, 0] });
+  // Oil pan — removable in oil-change service mode
+  const oilPan = new THREE.Group();
+  oilPan.name = 'service-oil-pan';
+  group.add(oilPan);
+  add(new THREE.BoxGeometry(2.06, 0.3, 0.68), M.darkTeal, { pos: [0, -0.73, 0], parent: oilPan });
   // Oil pan drain plug
-  add(new THREE.CylinderGeometry(0.025, 0.025, 0.06, 10), M.chrome, { pos: [0.4, -0.88, 0.12], rot: [Math.PI / 2, 0, 0] });
+  add(new THREE.CylinderGeometry(0.025, 0.025, 0.06, 10), M.chrome, { pos: [0.4, -0.88, 0.12], rot: [Math.PI / 2, 0, 0], parent: oilPan });
+  // Pan flange bolts — the ones that need the long socket extension
+  for (let i = 0; i < 8; i++) {
+    const bx = -0.9 + (i % 4) * 0.6;
+    const bz = i < 4 ? 0.33 : -0.33;
+    add(new THREE.CylinderGeometry(0.018, 0.018, 0.035, 8), M.chrome, { pos: [bx, -0.585, bz], parent: oilPan });
+  }
   tick();
 
   // ══════════════════════════════════════
@@ -937,10 +946,14 @@ function buildVolvoD13(
   // ══════════════════════════════════════
   for (let i = 0; i < 3; i++) {
     const px = 0.02 + i * 0.19;
-    add(new THREE.CylinderGeometry(0.068, 0.068, 0.24, 18), M.white, { pos: [px, -0.65, 0.39] });
-    add(new THREE.CylinderGeometry(0.072, 0.072, 0.04, 18), M.darkMetal, { pos: [px, -0.52, 0.39] });
-    add(new THREE.CylinderGeometry(0.07, 0.07, 0.072, 18), M.blue, { pos: [px, -0.635, 0.39] });
-    // Filter base
+    // Spin-on cartridge — removable in oil-change service mode
+    const filter = new THREE.Group();
+    filter.name = `service-oil-filter-${i}`;
+    group.add(filter);
+    add(new THREE.CylinderGeometry(0.068, 0.068, 0.24, 18), M.white, { pos: [px, -0.65, 0.39], parent: filter });
+    add(new THREE.CylinderGeometry(0.072, 0.072, 0.04, 18), M.darkMetal, { pos: [px, -0.52, 0.39], parent: filter });
+    add(new THREE.CylinderGeometry(0.07, 0.07, 0.072, 18), M.blue, { pos: [px, -0.635, 0.39], parent: filter });
+    // Filter base stays mounted on the block
     add(new THREE.CylinderGeometry(0.05, 0.05, 0.06, 12), M.darkMetal, { pos: [px, -0.78, 0.39] });
   }
   tick();
