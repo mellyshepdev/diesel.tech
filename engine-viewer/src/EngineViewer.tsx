@@ -90,6 +90,7 @@ const ENGINES: Record<EngineId, EngineInfo> = {
     hotspotDescs: {
       filters: 'PACCAR spin-on oil/fuel filters in series configuration. Full-flow filtration ensures maximum engine protection and extended service intervals.',
       bellhousing: 'SAE #1 flywheel/bell housing for direct mating with the PACCAR TX-12 automated transmission. Precision-machined for zero-runout alignment.',
+      ecm: 'PACCAR engine ECU, block-mounted with cooling fins. Runs common-rail injection, aftertreatment, and OBD diagnostics.',
     },
   },
   'paccar-mx11': {
@@ -114,6 +115,7 @@ const ENGINES: Record<EngineId, EngineInfo> = {
     hotspotDescs: {
       filters: 'PACCAR spin-on oil/fuel filters in series configuration. Full-flow filtration ensures maximum engine protection and extended service intervals.',
       bellhousing: 'SAE #1 flywheel/bell housing for direct mating with the PACCAR TX-12 automated transmission. Precision-machined for zero-runout alignment.',
+      ecm: 'PACCAR engine ECU, block-mounted with cooling fins. Runs common-rail injection, aftertreatment, and OBD diagnostics.',
     },
   },
 };
