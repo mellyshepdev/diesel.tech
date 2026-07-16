@@ -349,14 +349,14 @@ export default function EngineViewer() {
 
   const removeDrainPlug = () => {
     if (plugRemoved || panRemoved || draining) return;
-    if (startRemoval('service-drain-plug', { vy: 0.006, spin: 0.4, drop: 0.22 }, () => {
+    if (startRemoval('service-drain-plug', { vy: 0.006, spin: 0.4, drop: 0.22, place: PLUG_TRAY_POS, reparent: true }, () => {
       setPlugRemoved(true);
       if (oilDrained) {
-        setServiceMsg('Plug out — no spill, the engine is already drained.');
+        setServiceMsg('Plug out and into the small tray — no spill, the engine is already drained.');
         return;
       }
       setDraining(true);
-      setServiceMsg('Plug out — oil is draining, let it run…');
+      setServiceMsg('Plug out, into the small tray — oil is draining, let it run…');
       startOilFlow(4, 1, () => {
         setDraining(false);
         setOilDrained(true);
@@ -369,9 +369,9 @@ export default function EngineViewer() {
 
   const removeFilter = (i: number) => {
     if (filtersRemoved[i]) return;
-    if (startRemoval(`service-oil-filter-${i}`, { vy: 0.012, spin: 0.35, drop: 0.7 }, () => {
+    if (startRemoval(`service-oil-filter-${i}`, { vy: 0.012, spin: 0.35, drop: 0.7, place: filterBenchSlot(i) }, () => {
       setFiltersRemoved(prev => prev.map((v, j) => (j === i ? true : v)));
-      setServiceMsg(`Filter ${i + 1} spun off ✓`);
+      setServiceMsg(`Filter ${i + 1} spun off — standing by the bench ✓`);
     })) {
       setServiceMsg(`Unscrewing filter ${i + 1}…`);
     }
@@ -381,9 +381,9 @@ export default function EngineViewer() {
     if (boltsRemoved[i]) return;
     const problem = toolProblem();
     if (problem) { setServiceMsg(problem); return; }
-    if (startRemoval(`service-pan-bolt-${i}`, { vy: boltVy, spin: driver === 'electric' ? 0.6 : 0.2, drop: 0.4 }, () => {
+    if (startRemoval(`service-pan-bolt-${i}`, { vy: boltVy, spin: driver === 'electric' ? 0.6 : 0.2, drop: 0.4, place: boltTraySlot(i) }, () => {
       setBoltsRemoved(prev => prev.map((v, j) => (j === i ? true : v)));
-      setServiceMsg(`Bolt ${i + 1}/${PAN_BOLT_COUNT} out ✓`);
+      setServiceMsg(`Bolt ${i + 1}/${PAN_BOLT_COUNT} out — into the tray ✓`);
     })) {
       setServiceMsg(driver === 'electric' ? `Zipping bolt ${i + 1} out with the runner…` : `Breaking bolt ${i + 1} loose by hand…`);
     }
@@ -399,7 +399,7 @@ export default function EngineViewer() {
     if (activeRepair === 'oil-change' && !allFiltersOff) { setServiceMsg('Spin the filters off first.'); return; }
     if (!allBoltsOff) { setServiceMsg('The pan is still bolted up — remove every flange bolt first.'); return; }
     const wasFull = !oilDrained;
-    if (startRemoval('service-oil-pan', { vy: driver === 'electric' ? 0.015 : 0.008, spin: 0, drop: 0.8 }, () => {
+    if (startRemoval('service-oil-pan', { vy: driver === 'electric' ? 0.015 : 0.008, spin: 0, drop: 0.8, place: PAN_FLOOR_POS }, () => {
       setPanRemoved(true);
       if (wasFull) {
         // Dropped a full pan — everything it was holding hits the floor
@@ -658,7 +658,8 @@ export default function EngineViewer() {
         engineGroup.userData.fanBladeGroup.rotation.x += 0.018;
       }
 
-      // Service-mode removal animations (parts unscrew + drop, then hide)
+      // Service-mode removal animations (parts unscrew + drop, then land in a
+      // tool tray / on the bench if they have a `place`, otherwise hide)
       const serviceAnims = engineGroup.userData.serviceAnims as ServiceAnim[] | undefined;
       if (serviceAnims && serviceAnims.length) {
         for (let i = serviceAnims.length - 1; i >= 0; i--) {
@@ -666,7 +667,13 @@ export default function EngineViewer() {
           a.obj.position.y -= a.vy;
           a.obj.rotation.y += a.spin;
           if (a.obj.position.y <= a.targetY) {
-            a.obj.visible = false;
+            if (a.place) {
+              if (a.place.parent && a.obj.parent !== a.place.parent) a.place.parent.attach(a.obj);
+              a.obj.position.set(...a.place.pos);
+              a.obj.rotation.set(0, 0, 0);
+            } else {
+              a.obj.visible = false;
+            }
             serviceAnims.splice(i, 1);
             a.onDone?.();
           }
