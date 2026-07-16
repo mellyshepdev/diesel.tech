@@ -197,6 +197,55 @@ const filterBenchSlot = (i: number): [number, number, number] =>
   [1.6 - (0.02 + i * 0.19), -0.33, 0.23 + i * 0.2]; // standing in a row
 const PAN_FLOOR_POS: [number, number, number] = [-0.6, -0.13, 1.25]; // flat on the floor
 
+// ── Turbocharger (modeled from the 4 reman-turbo reference photos) ──
+// Scale basis: compressor scroll diameter D = 0.4 scene units. From the
+// photos: turbine scroll ≈ 0.85 D, assembly length ≈ 1.15 D, actuator
+// ≈ 0.75 × 0.45 D, inlet bore ≈ 0.38 D, turbine outlet ≈ 0.42 D.
+const TURBO_CX = 0.5, TURBO_CY = 0.26, TURBO_CZ = 0.3; // assembly center
+
+// 4 flange nuts on the exhaust-manifold mount (top flange in the photos)
+const TURBO_NUT_POS: [number, number, number][] = [
+  [0.25, 0.475, 0.26], [0.41, 0.475, 0.26], [0.25, 0.475, 0.34], [0.41, 0.475, 0.34],
+];
+
+type TurboPartKey = 'harness' | 'charge-clamp' | 'exh-clamp' | 'oil-feed' | 'coolant-a' | 'coolant-b' | 'oil-drain';
+/** Each disconnectable turbo part: its primary-mesh anchor in the engine,
+ *  where it lands on the bench, the tool it takes, and a label. */
+const TURBO_PARTS: Record<TurboPartKey, { anchor: [number, number, number]; bench: [number, number, number]; tool: Tool | null; label: string }> = {
+  'harness':      { anchor: [0.55, 0.13, 0.42],  bench: [-1.45, -1.06, 0.42], tool: null,          label: 'Actuator & sensor harness' },
+  'charge-clamp': { anchor: [0.60, -0.095, 0.36], bench: [-1.45, -1.06, 0.60], tool: 'socket10',    label: 'Charge pipe V-band' },
+  'exh-clamp':    { anchor: [0.22, 0.26, 0.30],  bench: [-1.45, -1.06, 0.78], tool: 'socket10',    label: 'Exhaust V-band' },
+  'oil-feed':     { anchor: [0.44, 0.48, 0.20],  bench: [-1.62, -1.06, 0.42], tool: 'lineWrench',  label: 'Oil feed line' },
+  'coolant-a':    { anchor: [0.56, 0.44, 0.10],  bench: [-1.62, -1.06, 0.60], tool: 'lineWrench',  label: 'Coolant line (upper)' },
+  'coolant-b':    { anchor: [0.58, 0.10, 0.08],  bench: [-1.62, -1.06, 0.78], tool: 'lineWrench',  label: 'Coolant line (lower)' },
+  'oil-drain':    { anchor: [0.46, 0.02, 0.28],  bench: [-1.62, -1.06, 0.96], tool: 'screwdriver', label: 'Oil drain tube' },
+};
+const TURBO_PART_KEYS = Object.keys(TURBO_PARTS) as TurboPartKey[];
+
+const turboPartPlace = (k: TurboPartKey): [number, number, number] => {
+  const { anchor, bench } = TURBO_PARTS[k];
+  return [bench[0] - anchor[0], bench[1] - anchor[1], bench[2] - anchor[2]];
+};
+const turboNutTraySlot = (i: number): [number, number, number] => {
+  const [nx, , nz] = TURBO_NUT_POS[i];
+  return [(-1.21 + (i % 2) * 0.12) - nx, -1.045 - 0.475, (0.85 + Math.floor(i / 2) * 0.1) - nz];
+};
+// whole assembly, lifted off and set on the floor
+const TURBO_BENCH_POS: [number, number, number] = [-2.2 - TURBO_CX + 0.5, -1.16, 0.95 - TURBO_CZ + 0.3];
+
+/** Install steps that MUST be done before starting the engine; missing any
+ *  one of them is a catastrophic failure (the turbo shares the engine's oil
+ *  AND coolant circuits). */
+const TURBO_CRITICAL: { key: string; label: string; consequence: string }[] = [
+  { key: 'oil-drain',    label: 'Oil drain connected',   consequence: 'oil pumping straight out of the drain port' },
+  { key: 'coolant',      label: 'Both coolant lines connected', consequence: 'coolant dumping from the open center-housing ports' },
+  { key: 'oil-feed',     label: 'Oil feed connected',    consequence: 'zero oil to the bearings' },
+  { key: 'primed',       label: 'Oil system primed',     consequence: 'dry start — bearings seize in seconds' },
+  { key: 'charge-clamp', label: 'Charge V-band seated',  consequence: 'boost blowing off the charge pipe' },
+  { key: 'exh-clamp',    label: 'Exhaust V-band seated', consequence: 'raw exhaust blasting the engine bay' },
+  { key: 'harness',      label: 'Harness plugged in',    consequence: 'VGT actuator dead — uncontrolled overspeed' },
+];
+
 const HOTSPOT_DATA = [
   {
     id: 'turbo',

@@ -14,6 +14,9 @@ import {
   LUBRICANTS,
   OIL_CHANGE_PROCEDURE,
   OIL_LEVEL_CHECK,
+  TURBO_SPEC,
+  TURBO_REMOVAL,
+  TURBO_INSTALL,
   REUSE_RULES,
   REF_PHOTOS,
   type SpecRow,
@@ -146,6 +149,12 @@ export default function ReferencePanel({ onClose }: { onClose: () => void }) {
           <>
             <Steps title="Oil & filter change (factory)" steps={OIL_CHANGE_PROCEDURE} />
             <Steps title="Oil level check" steps={OIL_LEVEL_CHECK} />
+            <div>
+              <p className="text-cyan-300 text-[11px] font-bold uppercase tracking-widest mb-1">Turbocharger</p>
+              <Rows rows={TURBO_SPEC} />
+            </div>
+            <Steps title="Turbo removal" steps={TURBO_REMOVAL} />
+            <Steps title="Turbo install" steps={TURBO_INSTALL} />
             <div>
               <p className="text-cyan-300 text-[11px] font-bold uppercase tracking-widest mb-1">Reuse rules</p>
               <Rows rows={REUSE_RULES} />

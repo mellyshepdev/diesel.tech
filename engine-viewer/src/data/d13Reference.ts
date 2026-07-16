@@ -217,6 +217,10 @@ export interface RefPhoto {
 }
 
 export const REF_PHOTOS: RefPhoto[] = [
+  { src: 'images/ref/turbo-compressor-face.png', caption: 'D13/MP8 VGT turbo (reman 85151095) — compressor face: inlet + wheel, scroll, outlet elbow with V-band, actuator left, speed-sensor connector' },
+  { src: 'images/ref/turbo-front-quarter.png', caption: 'VGT turbo — front quarter: finned electric actuator with round cap, mounting flange top, compressor scroll and downpipe elbow' },
+  { src: 'images/ref/turbo-turbine-face.png', caption: 'VGT turbo — turbine face: turbine wheel in outlet bore, exhaust inlet flange runner top-left, actuator behind' },
+  { src: 'images/ref/turbo-center-housing.png', caption: 'VGT turbo — center housing between twin V-band clamps: speed sensor top, oil/coolant ports, harness below' },
   { src: 'images/ref/oil-pan-exploded.png', caption: 'Oil pan exploded view — pan, gasket, stiffener, drain plug + washer, dipstick & tube, mounting bolts (assembly order and spacing)' },
   { src: 'images/ref/oil-pan-used-1.webp', caption: 'Used Volvo D13 steel oil pan — flange bolt holes around the full perimeter (22 screws)' },
   { src: 'images/ref/oil-pan-used-2.webp', caption: 'Used Volvo D13 oil pan — sump end with drain plug boss' },
