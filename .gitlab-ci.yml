@@ -5,7 +5,8 @@ stages:
 workflow:
   rules:
     # autosave.sh pushes every minute — don't burn CI minutes on checkpoints
-    - if: '$CI_COMMIT_TITLE =~ /^Autosave/'
+    # (manual runs from the web UI / API still work on any commit)
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_TITLE =~ /^Autosave/'
       when: never
     - when: always
 
