@@ -14,12 +14,13 @@ export type Tool =
   | "filterWrench"
   | "funnel"
   | "screwdriver"
+  | "lineWrench"
   | "towel";
 
 export const TOOLS: Record<Tool, { name: string; icon: string; desc: string }> = {
   ratchet: { name: "Ratchet Wrench", icon: "🔧", desc: "Reversible ratchet drive" },
   socket8: { name: "8mm Socket", icon: "⚙️", desc: "Valve cover bolts" },
-  socket10: { name: "10mm Socket", icon: "⚙️", desc: "Various fasteners" },
+  socket10: { name: "10mm Socket", icon: "⚙️", desc: "V-band clamp T-bolts" },
   socket13: { name: "13mm Socket", icon: "⚙️", desc: "Oil drain plug" },
   socket15: { name: "15mm Socket", icon: "⚙️", desc: "Pan / alternator bolts" },
   socket21: { name: "21mm Socket", icon: "⚙️", desc: "Fuel filter housing" },
