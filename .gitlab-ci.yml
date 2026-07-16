@@ -1,16 +1,66 @@
-# You can override the included template(s) by including variable overrides
-# SAST customization: https://docs.gitlab.com/user/application_security/sast/#available-cicd-variables
-# Secret Detection customization: https://docs.gitlab.com/user/application_security/secret_detection/pipeline/configure/
-# Dependency Scanning customization: https://docs.gitlab.com/user/application_security/dependency_scanning/dependency_scanning_sbom/#customizing-analyzer-behavior
-# Container Scanning customization: https://docs.gitlab.com/user/application_security/container_scanning/#customizing-analyzer-behavior
-# Note that environment variables can be set in several places
-# See https://docs.gitlab.com/ci/variables/#cicd-variable-precedence
 stages:
-- test
-- secret-detection
+  - build
+  - test
+
+workflow:
+  rules:
+    # autosave.sh pushes every minute — don't burn CI minutes on checkpoints
+    - if: '$CI_COMMIT_TITLE =~ /^Autosave/'
+      when: never
+    - when: always
+
+default:
+  image: node:22-alpine
+
 variables:
   SECRET_DETECTION_ENABLED: 'true'
+  npm_config_cache: $CI_PROJECT_DIR/.npm
+
+frontend:
+  stage: build
+  script:
+    - cd frontend
+    - npm ci --prefer-offline
+    - npm run lint
+    - npm run build
+  artifacts:
+    paths:
+      - frontend/dist
+    expire_in: 1 week
+  cache:
+    key: npm-frontend
+    paths:
+      - .npm
+
+engine-viewer:
+  stage: build
+  script:
+    - cd engine-viewer
+    - npm ci --prefer-offline
+    - npx tsc --noEmit
+    - npm run build
+  artifacts:
+    paths:
+      - engine-viewer/dist
+    expire_in: 1 week
+  cache:
+    key: npm-engine-viewer
+    paths:
+      - .npm
+
+backend:
+  stage: build
+  script:
+    - cd backend
+    - npm ci --prefer-offline --omit=dev
+    - find src -name '*.js' -exec node --check {} +
+  cache:
+    key: npm-backend
+    paths:
+      - .npm
+
 secret_detection:
-  stage: secret-detection
+  stage: test
+
 include:
-- template: Security/Secret-Detection.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
