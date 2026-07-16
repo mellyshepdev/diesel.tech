@@ -395,6 +395,9 @@ export default function EngineViewer() {
     });
   }, []);
 
+  // Routed from the canvas raycaster (assigned fresh each render below)
+  const partClickRef = useRef<(name: string) => void>(() => {});
+
   // ── Part inspection: pick up a removed part and turn it over in your hands ──
   const [inspecting, setInspecting] = useState<{ name: string; label: string } | null>(null);
   const inspectPrevRef = useRef<{ obj: THREE.Object3D; parent: THREE.Object3D; pos: THREE.Vector3; rot: THREE.Euler } | null>(null);
@@ -1005,6 +1008,31 @@ export default function EngineViewer() {
     };
     animate();
 
+    // Click a service part in 3D with the right tool selected → work starts
+    // immediately. A click is a pointer that didn't drag (< 6px travel).
+    const raycaster = new THREE.Raycaster();
+    const ptrVec = new THREE.Vector2();
+    let downAt: [number, number] | null = null;
+    const onPointerDown = (e: PointerEvent) => { downAt = [e.clientX, e.clientY]; };
+    const onPointerUp = (e: PointerEvent) => {
+      if (!downAt) return;
+      const moved = Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]);
+      downAt = null;
+      if (moved > 6) return;
+      const rect = renderer.domElement.getBoundingClientRect();
+      ptrVec.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      ptrVec.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(ptrVec, camera);
+      const hits = raycaster.intersectObjects(engineGroup.children, true);
+      for (const h of hits) {
+        let o: THREE.Object3D | null = h.object;
+        while (o && !o.name.startsWith('service-')) o = o.parent;
+        if (o) { partClickRef.current(o.name); return; }
+      }
+    };
+    renderer.domElement.addEventListener('pointerdown', onPointerDown);
+    renderer.domElement.addEventListener('pointerup', onPointerUp);
+
     // Resize
     const handleResize = () => {
       if (!container) return;
@@ -1016,6 +1044,8 @@ export default function EngineViewer() {
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      renderer.domElement.removeEventListener('pointerdown', onPointerDown);
+      renderer.domElement.removeEventListener('pointerup', onPointerUp);
       cancelAnimationFrame(animFrameRef.current);
       renderer.dispose();
       if (container.contains(renderer.domElement)) {
@@ -1023,6 +1053,32 @@ export default function EngineViewer() {
       }
     };
   }, []);
+
+  // 3D click routing: with the right tool in hand, clicking a fastener in
+  // the scene starts the removal immediately (assigned every render so it
+  // always sees fresh state; the canvas raycaster calls through the ref).
+  partClickRef.current = (name: string) => {
+    if (inspecting) return;
+    if (name.startsWith('service-pan-bolt-')) {
+      if (activeRepair === 'oil-change' || activeRepair === 'pan-gasket') removeBolt(Number(name.slice('service-pan-bolt-'.length)));
+      return;
+    }
+    if (name === 'service-drain-plug') {
+      if (activeRepair === 'oil-change' || activeRepair === 'pan-gasket') removeDrainPlug();
+      return;
+    }
+    if (name.startsWith('service-oil-filter-')) {
+      if (activeRepair === 'oil-change') removeFilter(Number(name.slice('service-oil-filter-'.length)));
+      return;
+    }
+    if (name === 'service-oil-pan') {
+      if (activeRepair === 'oil-change' || activeRepair === 'pan-gasket') removePan();
+      return;
+    }
+    if (name.startsWith('service-turbo-nut-')) { removeTurboNut(Number(name.slice('service-turbo-nut-'.length))); return; }
+    if (name === 'service-turbo') { if (activeRepair === 'turbo-replace' && !turboRemoved) liftTurbo(); return; }
+    if (name.startsWith('service-turbo-')) { removeTurboPart(name.slice('service-turbo-'.length) as TurboPartKey); return; }
+  };
 
   const activeHotspotData = hotspots.find(h => h.id === activeHotspot);
 
