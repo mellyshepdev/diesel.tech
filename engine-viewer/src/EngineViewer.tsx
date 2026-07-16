@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import ToolPanel, { type Tool } from './components/ToolPanel';
 import ProcedurePanel, { type ProcStep } from './components/ProcedurePanel';
+import ReferencePanel from './components/ReferencePanel';
 
 // ─────────────────────────────────────────────────────────
 // Data
@@ -29,20 +30,24 @@ const ENGINES: Record<EngineId, EngineInfo> = {
     tagline: '12.8L Inline-6 Diesel · EPA 2027 · Interactive 3D Model',
     hp: '500 HP',
     torque: '1850 lb·ft',
+    // Factory figures from the D13 documents in the repo (QRG + 2017 spec sheet)
     specs: [
-      { label: 'Displacement', value: '12.8 L' },
+      { label: 'Displacement', value: '12.8 L (780 ci)' },
       { label: 'Configuration', value: 'Inline-6' },
       { label: 'Peak Power', value: '500 HP' },
       { label: 'Max Torque', value: '1,850 lb-ft' },
       { label: 'Bore × Stroke', value: '131 × 158 mm' },
-      { label: 'Compression', value: '17.3:1' },
-      { label: 'Emission Standard', value: 'EPA 2027' },
-      { label: 'Fuel System', value: 'Common Rail DI' },
-      { label: 'Valvetrain', value: 'OHV, 4 per cyl' },
-      { label: 'Cooling', value: 'Liquid Cooled' },
+      { label: 'Compression', value: '17.0:1' },
+      { label: 'Firing Order', value: '1-5-3-6-2-4' },
+      { label: 'Fuel System', value: 'Common Rail, 35k psi' },
+      { label: 'Valvetrain', value: 'SOHC, 4 per cyl' },
+      { label: 'Oil Capacity', value: '38 qt (36 L)' },
+      { label: 'Dry Weight', value: '2,605 lb' },
     ],
     hotspotDescs: {
       ecm: 'Volvo EMS engine management module, block-mounted with heat-sink fins. Runs injection timing, I-Shift integration, and OBD diagnostics.',
+      filters: 'Two full-flow filters plus one bypass, spin-on. The pair of full-flow filters holds 4.0–4.5 L. Install dry, oil the gasket, tighten 3/4–1 turn after contact (25 +5/−0 Nm).',
+      oilpan: 'Volvo D13 pan: plastic or steel, sealed by a flange gasket and 22 spring-tension screws torqued 24 ± 4 Nm middle-out. Houses the oil level/temperature sensor, dipstick and filler ports. Drain plug: 60 ± 10 Nm. Front- or rear-sump versions per chassis.',
     },
   },
   'cummins-x15': {
@@ -150,17 +155,18 @@ const REPAIRS: { id: RepairId; icon: string; label: string; desc: string }[] = [
     id: 'oil-change',
     icon: '🛢️',
     label: 'Oil & Filter Change',
-    desc: 'Remove the three spin-on filters, then drop the oil pan to drain. Pan bolts need the 10" socket extension + electric runner or hand tools.',
+    desc: 'Drain (plug: 60 ± 10 Nm on install), spin off the three filters with the 9998487 filter wrench, then drop the pan. The 22 pan screws need the 10" socket extension + electric runner or hand tools. Refill: VDS-4 10W-30, 25–30 L sump.',
   },
   {
     id: 'pan-gasket',
     icon: '🔩',
     label: 'Oil Pan Gasket Repair',
-    desc: 'Break every pan flange bolt loose one at a time, drop the pan, fit the new gasket, re-torque.',
+    desc: 'Break all 22 spring-tension pan screws loose one at a time, drop the pan, fit the new gasket, re-torque 24 ± 4 Nm from the middle outwards.',
   },
 ];
 
-const PAN_BOLT_COUNT = 8;
+// The real D13 pan is clamped by 22 spring-tension screws (QRG p.14/35).
+const PAN_BOLT_COUNT = 22;
 const FILTER_COUNT = 3;
 
 const HOTSPOT_DATA = [
@@ -211,6 +217,14 @@ const HOTSPOT_DATA = [
     pos3d: [-0.55, -0.05, -0.48] as [number, number, number],
     desc: 'Block-mounted engine control module with fuel-cooled heat sink fins. Runs injection timing, aftertreatment, and OBD diagnostics.',
     color: '#ffcc00',
+  },
+  {
+    id: 'oilpan',
+    label: 'Oil Pan',
+    icon: '🛢️',
+    pos3d: [-0.4, -0.82, 0.3] as [number, number, number],
+    desc: 'Stamped pan with flange gasket, drain plug and oil level sensor. Sump capacity feeds a gear-type oil pump through a strainer and pickup tube.',
+    color: '#66ddff',
   },
 ];
 
