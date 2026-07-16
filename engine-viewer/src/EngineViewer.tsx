@@ -959,6 +959,18 @@ export default function EngineViewer() {
         }
       }
 
+      // Turbo failure: oil + coolant puddles spreading under the engine
+      const spill = engineGroup.userData.turboSpill as { t: number; duration: number } | undefined;
+      if (spill) {
+        spill.t += 1 / 60;
+        const s = Math.min(1, spill.t / spill.duration) * 1.6;
+        ['turbo-oil-puddle', 'turbo-coolant-puddle'].forEach(n => {
+          const p = engineGroup.getObjectByName(n);
+          if (p) { p.visible = true; p.scale.set(s, s, s); }
+        });
+        if (spill.t >= spill.duration) engineGroup.userData.turboSpill = undefined;
+      }
+
       // Hotspot pulse rings billboard toward camera
       scene.children.forEach(child => {
         if (child.userData.isPulse) {
@@ -1836,6 +1848,7 @@ function buildVolvoD13(
   };
   mkTray(0.93, 0.815, 0.56, 0.42); // pan screws, 6 per row
   mkTray(1.32, 0.85, 0.2, 0.18);   // drain plug
+  mkTray(-1.15, 0.9, 0.32, 0.24);  // turbo flange nuts
   tick();
 
   // ══════════════════════════════════════
@@ -1927,40 +1940,128 @@ function buildVolvoD13(
   tick();
 
   // ══════════════════════════════════════
-  // 6. TURBOCHARGER
+  // 6. TURBOCHARGER — modeled from the four reman-turbo reference photos
+  // (compressor face / front quarter / turbine face / center housing).
+  // Scale basis: compressor scroll Ø D = 0.4 scene units; turbine ≈ 0.85 D,
+  // assembly length ≈ 1.15 D, actuator ≈ 0.75 × 0.45 D — all cross-checked
+  // between at least two views.
   // ══════════════════════════════════════
-  const turboG = new THREE.Group();
-  turboG.position.set(0.5, 0.26, 0.3);
-  group.add(turboG);
+  const castAlu = new THREE.MeshStandardMaterial({ color: 0xb8bcc0, metalness: 0.75, roughness: 0.42 });
+  const castIron = new THREE.MeshStandardMaterial({ color: 0x6f7276, metalness: 0.7, roughness: 0.55 });
+  const bayonetGreen = new THREE.MeshStandardMaterial({ color: 0x2e8b3a, metalness: 0.3, roughness: 0.5 });
+  const coolantMat = new THREE.MeshStandardMaterial({ color: 0x35d07a, metalness: 0.1, roughness: 0.15 });
 
-  // Compressor housing (large scroll)
-  const compScroll = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.17, 28), M.chrome);
-  compScroll.rotation.z = Math.PI / 2;
-  turboG.add(compScroll);
+  const turbo = new THREE.Group();
+  turbo.name = 'service-turbo';
+  group.add(turbo);
+  const T = { x: TURBO_CX, y: TURBO_CY, z: TURBO_CZ };
 
-  // Turbine housing
-  const turbScroll = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.058, 14, 28), M.chrome);
-  turbScroll.position.x = 0.15;
-  turbScroll.rotation.y = Math.PI / 2;
-  turboG.add(turbScroll);
-
-  // Center section
-  const centerSect = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.25, 16), M.darkMetal);
-  centerSect.rotation.z = Math.PI / 2;
-  turboG.add(centerSect);
-
-  // Turbo intake cone
-  const intakeCone = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.085, 0.14, 14), M.chrome);
-  intakeCone.position.set(-0.15, 0.22, 0);
-  turboG.add(intakeCone);
-
-  // Turbo outlet
-  const tOutPath = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0, 0.2, 0),
-    new THREE.Vector3(-0.1, 0.36, 0.08),
-    new THREE.Vector3(-0.25, 0.42, 0.18),
+  // Compressor housing + scroll (cast aluminium; photos 1–2)
+  add(new THREE.CylinderGeometry(0.2, 0.2, 0.11, 28), castAlu, { pos: [T.x + 0.14, T.y, T.z], rot: [0, 0, Math.PI / 2], parent: turbo });
+  add(new THREE.TorusGeometry(0.155, 0.048, 14, 28), castAlu, { pos: [T.x + 0.14, T.y, T.z], rot: [0, Math.PI / 2, 0], parent: turbo });
+  // Inlet bore with the compressor wheel visible (photo 1)
+  add(new THREE.CylinderGeometry(0.076, 0.076, 0.07, 20), castAlu, { pos: [T.x + 0.215, T.y, T.z], rot: [0, 0, Math.PI / 2], parent: turbo });
+  add(new THREE.ConeGeometry(0.05, 0.06, 7), M.chrome, { pos: [T.x + 0.23, T.y, T.z], rot: [0, 0, -Math.PI / 2], parent: turbo });
+  // Compressor outlet elbow dropping to the charge-pipe flange (photos 1–2)
+  const elbowPath = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(T.x + 0.14, T.y - 0.16, T.z),
+    new THREE.Vector3(T.x + 0.12, T.y - 0.26, T.z + 0.04),
+    new THREE.Vector3(T.x + 0.10, T.y - 0.32, T.z + 0.06),
   ]);
-  turboG.add(new THREE.Mesh(new THREE.TubeGeometry(tOutPath, 10, 0.048, 8, false), M.chrome));
+  add(new THREE.TubeGeometry(elbowPath, 10, 0.055, 12, false), castAlu, { parent: turbo });
+  add(new THREE.CylinderGeometry(0.068, 0.068, 0.025, 18), castAlu, { pos: [0.6, -0.08, 0.36], parent: turbo });
+  // Blue reman ID tag (photos 1–2)
+  add(new THREE.BoxGeometry(0.06, 0.03, 0.006), M.blue, { pos: [T.x + 0.16, T.y - 0.12, T.z + 0.1], parent: turbo });
+
+  // Center bearing housing between twin V-band clamps (photo 4)
+  add(new THREE.CylinderGeometry(0.09, 0.09, 0.13, 20), castIron, { pos: [T.x - 0.03, T.y, T.z], rot: [0, 0, Math.PI / 2], parent: turbo });
+  add(new THREE.TorusGeometry(0.115, 0.017, 10, 24), M.chrome, { pos: [T.x + 0.045, T.y, T.z], rot: [0, Math.PI / 2, 0], parent: turbo });
+  add(new THREE.TorusGeometry(0.115, 0.017, 10, 24), M.chrome, { pos: [T.x - 0.105, T.y, T.z], rot: [0, Math.PI / 2, 0], parent: turbo });
+  // Speed sensor with green bayonet ring on the housing top (photos 1/4)
+  add(new THREE.CylinderGeometry(0.016, 0.016, 0.05, 10), M.black, { pos: [T.x - 0.03, T.y + 0.11, T.z], parent: turbo });
+  add(new THREE.CylinderGeometry(0.02, 0.02, 0.015, 10), bayonetGreen, { pos: [T.x - 0.03, T.y + 0.085, T.z], parent: turbo });
+
+  // Turbine housing + scroll (darker cast iron; photos 3–4)
+  add(new THREE.CylinderGeometry(0.17, 0.17, 0.12, 28), castIron, { pos: [T.x - 0.17, T.y, T.z], rot: [0, 0, Math.PI / 2], parent: turbo });
+  add(new THREE.TorusGeometry(0.13, 0.042, 14, 28), castIron, { pos: [T.x - 0.17, T.y, T.z], rot: [0, Math.PI / 2, 0], parent: turbo });
+  // Turbine outlet bore + wheel (photo 3)
+  add(new THREE.CylinderGeometry(0.084, 0.084, 0.06, 20), castIron, { pos: [T.x - 0.25, T.y, T.z], rot: [0, 0, Math.PI / 2], parent: turbo });
+  add(new THREE.ConeGeometry(0.06, 0.05, 11), M.darkMetal, { pos: [T.x - 0.26, T.y, T.z], rot: [0, 0, Math.PI / 2], parent: turbo });
+  // Exhaust inlet riser + flange on top of the turbine housing (photos 2–4)
+  add(new THREE.BoxGeometry(0.14, 0.12, 0.09), castIron, { pos: [T.x - 0.17, T.y + 0.12, T.z], parent: turbo });
+  add(new THREE.BoxGeometry(0.2, 0.05, 0.12), castIron, { pos: [T.x - 0.17, T.y + 0.2, T.z], parent: turbo });
+
+  // VGT actuator: white finned box, round cap, bracket (photos 1–2)
+  add(new THREE.BoxGeometry(0.16, 0.28, 0.07), M.white, { pos: [T.x + 0.12, T.y + 0.06, T.z + 0.16], parent: turbo });
+  for (let i = 0; i < 5; i++) {
+    add(new THREE.BoxGeometry(0.13, 0.03, 0.012), M.brushedMetal, { pos: [T.x + 0.12, T.y - 0.04 + i * 0.05, T.z + 0.2], parent: turbo });
+  }
+  add(new THREE.CylinderGeometry(0.05, 0.05, 0.02, 18), M.white, { pos: [T.x + 0.12, T.y + 0.16, T.z + 0.2], rot: [Math.PI / 2, 0, 0], parent: turbo });
+  add(new THREE.BoxGeometry(0.04, 0.03, 0.1), M.darkMetal, { pos: [T.x + 0.12, T.y, T.z + 0.08], parent: turbo });
+
+  // ── Disconnectable turbo parts (siblings so they stay put when the
+  //    assembly is lifted; positions match TURBO_PARTS anchors) ──
+  const mkPart = (key: string) => {
+    const g = new THREE.Group();
+    g.name = `service-turbo-${key}`;
+    group.add(g);
+    return g;
+  };
+  // Harness with green connector (photos 1/4)
+  const harness = mkPart('harness');
+  const harnessPath = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.62, 0.14, 0.44),
+    new THREE.Vector3(0.58, 0.10, 0.44),
+    new THREE.Vector3(0.55, 0.13, 0.42),
+    new THREE.Vector3(0.50, 0.15, 0.36),
+  ]);
+  add(new THREE.TubeGeometry(harnessPath, 12, 0.012, 8, false), M.rubber, { parent: harness, shadow: false });
+  add(new THREE.CylinderGeometry(0.02, 0.02, 0.04, 12), bayonetGreen, { pos: [0.5, 0.155, 0.35], parent: harness });
+  // Charge pipe V-band (vertical-axis flange under the elbow)
+  add(new THREE.TorusGeometry(0.072, 0.014, 10, 22), M.chrome, { pos: TURBO_PARTS['charge-clamp'].anchor, rot: [Math.PI / 2, 0, 0], parent: mkPart('charge-clamp') });
+  // Exhaust V-band at the turbine outlet
+  add(new THREE.TorusGeometry(0.096, 0.015, 10, 22), M.chrome, { pos: TURBO_PARTS['exh-clamp'].anchor, rot: [0, Math.PI / 2, 0], parent: mkPart('exh-clamp') });
+  // Oil feed line up to the block gallery
+  const oilFeed = mkPart('oil-feed');
+  add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.47, 0.36, 0.28), new THREE.Vector3(0.44, 0.48, 0.20), new THREE.Vector3(0.40, 0.52, 0.10),
+  ]), 10, 0.012, 8, false), M.chrome, { parent: oilFeed, shadow: false });
+  add(new THREE.CylinderGeometry(0.02, 0.02, 0.03, 10), M.brushedMetal, { pos: [0.47, 0.355, 0.28], parent: oilFeed });
+  // Two coolant lines (the center housing is water cooled)
+  add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.52, 0.32, 0.22), new THREE.Vector3(0.56, 0.44, 0.10), new THREE.Vector3(0.60, 0.50, -0.02),
+  ]), 10, 0.013, 8, false), M.rubber, { parent: mkPart('coolant-a'), shadow: false });
+  add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.52, 0.18, 0.22), new THREE.Vector3(0.58, 0.10, 0.08), new THREE.Vector3(0.62, 0.04, -0.05),
+  ]), 10, 0.013, 8, false), M.rubber, { parent: mkPart('coolant-b'), shadow: false });
+  // Oil drain tube back to the block
+  add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.47, 0.16, 0.30), new THREE.Vector3(0.46, 0.02, 0.28), new THREE.Vector3(0.44, -0.09, 0.25),
+  ]), 10, 0.02, 8, false), M.rubber, { parent: mkPart('oil-drain'), shadow: false });
+  // 4 flange nuts on the manifold studs
+  TURBO_NUT_POS.forEach((p, i) => {
+    const nut = new THREE.Group();
+    nut.name = `service-turbo-nut-${i}`;
+    group.add(nut);
+    add(new THREE.CylinderGeometry(0.02, 0.02, 0.03, 6), M.chrome, { pos: p, parent: nut });
+  });
+
+  // Failure sprays: oil + coolant blasting out of the center housing,
+  // hidden until an incorrect install lets go
+  const turboOilSpray = add(new THREE.CylinderGeometry(0.012, 0.035, 0.9, 8), oilMat, { pos: [0.62, -0.55, 0.5], rot: [0.35, 0, -0.25], shadow: false });
+  turboOilSpray.name = 'turbo-oil-spray';
+  turboOilSpray.visible = false;
+  const turboOilPuddle = add(new THREE.CircleGeometry(0.4, 20), oilMat, { pos: [0.85, -1.09, 0.7], rot: [-Math.PI / 2, 0, 0], shadow: false });
+  turboOilPuddle.name = 'turbo-oil-puddle';
+  turboOilPuddle.visible = false;
+  turboOilPuddle.scale.set(0.01, 0.01, 0.01);
+  const turboCoolSpray = add(new THREE.CylinderGeometry(0.012, 0.035, 0.85, 8), coolantMat, { pos: [0.35, -0.5, 0.45], rot: [0.3, 0, 0.3], shadow: false });
+  turboCoolSpray.name = 'turbo-coolant-spray';
+  turboCoolSpray.visible = false;
+  const turboCoolPuddle = add(new THREE.CircleGeometry(0.4, 20), coolantMat, { pos: [0.25, -1.09, 0.78], rot: [-Math.PI / 2, 0, 0], shadow: false });
+  turboCoolPuddle.name = 'turbo-coolant-puddle';
+  turboCoolPuddle.visible = false;
+  turboCoolPuddle.scale.set(0.01, 0.01, 0.01);
   tick();
 
   // ══════════════════════════════════════
