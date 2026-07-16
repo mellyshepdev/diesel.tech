@@ -417,6 +417,7 @@ export default function EngineViewer() {
   };
 
   const resetService = useCallback(() => {
+    exitInspect();
     const eg = engineGroupRef.current;
     if (eg) {
       eg.userData.serviceAnims = [];
@@ -437,7 +438,7 @@ export default function EngineViewer() {
     setOilDrained(false); // reinstalled + refilled — full of fresh oil again
     setDraining(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [restoreParts]);
+  }, [restoreParts, exitInspect]);
 
   const finishRepair = () => {
     resetService();
@@ -463,6 +464,60 @@ export default function EngineViewer() {
   const [toolboxOpen, setToolboxOpen] = useState(false);
   const [referenceOpen, setReferenceOpen] = useState(false);
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
+
+  // ── Part inspection: pick up a removed part and turn it over in your hands ──
+  const [inspecting, setInspecting] = useState<{ name: string; label: string } | null>(null);
+  const inspectPrevRef = useRef<{ obj: THREE.Object3D; parent: THREE.Object3D; pos: THREE.Vector3; rot: THREE.Euler } | null>(null);
+
+  const exitInspect = useCallback(() => {
+    const prev = inspectPrevRef.current;
+    const eg = engineGroupRef.current;
+    if (prev && eg) {
+      prev.parent.attach(prev.obj);
+      prev.obj.position.copy(prev.pos);
+      prev.obj.rotation.copy(prev.rot);
+      eg.visible = true;
+      eg.parent?.traverse(o => {
+        if (o.userData.id || o.userData.isPulse) o.visible = true;
+      });
+    }
+    inspectPrevRef.current = null;
+    setInspecting(null);
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+    if (camera && controls) {
+      camera.position.set(2.8, 1.2, 2.8);
+      controls.target.set(0, 0, 0);
+      controls.update();
+    }
+  }, []);
+
+  const inspectPart = useCallback((name: string, label: string) => {
+    const eg = engineGroupRef.current;
+    const controls = controlsRef.current;
+    const camera = cameraRef.current;
+    if (!eg || !controls || !camera) return;
+    const obj = eg.getObjectByName(name);
+    const scene = eg.parent;
+    if (!obj || !scene) return;
+    inspectPrevRef.current = { obj, parent: obj.parent!, pos: obj.position.clone(), rot: obj.rotation.clone() };
+    scene.attach(obj);
+    obj.visible = true;
+    // center the part at the origin so the camera orbits around it
+    const box = new THREE.Box3().setFromObject(obj);
+    const c = box.getCenter(new THREE.Vector3());
+    obj.position.sub(c);
+    eg.visible = false;
+    scene.traverse(o => {
+      if (o.userData.id || o.userData.isPulse) o.visible = false;
+    });
+    controls.target.set(0, 0, 0);
+    camera.position.set(1.3, 0.7, 1.3);
+    controls.autoRotate = true;
+    setAutoRotate(true);
+    controls.update();
+    setInspecting({ name, label });
+  }, []);
 
   // Simulate RPM when engine "on"
   useEffect(() => {
@@ -1056,6 +1111,40 @@ export default function EngineViewer() {
                 {panRemoved ? '✓ Oil pan removed' : '⬇ Remove oil pan'}
               </button>
 
+              {/* Inspect removed parts — pick them up and turn them over */}
+              {(panRemoved || filtersRemoved.some(Boolean)) && (
+                <div className="space-y-1.5">
+                  <p className="text-gray-400 text-[11px] uppercase tracking-widest">Inspect removed parts</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {panRemoved && (
+                      <button
+                        onClick={() => inspectPart('service-oil-pan', 'Oil Pan')}
+                        className="px-2.5 py-1 text-[11px] rounded border font-bold text-cyan-300 border-cyan-400/40 bg-cyan-400/5 hover:bg-cyan-400/15"
+                      >
+                        🔍 Oil pan
+                      </button>
+                    )}
+                    {filtersRemoved.map((off, i) => off && (
+                      <button
+                        key={i}
+                        onClick={() => inspectPart(`service-oil-filter-${i}`, `Oil Filter ${i + 1}`)}
+                        className="px-2.5 py-1 text-[11px] rounded border font-bold text-cyan-300 border-cyan-400/40 bg-cyan-400/5 hover:bg-cyan-400/15"
+                      >
+                        🔍 Filter {i + 1}
+                      </button>
+                    ))}
+                    {plugRemoved && (
+                      <button
+                        onClick={() => inspectPart('service-drain-plug', 'Drain Plug')}
+                        className="px-2.5 py-1 text-[11px] rounded border font-bold text-cyan-300 border-cyan-400/40 bg-cyan-400/5 hover:bg-cyan-400/15"
+                      >
+                        🔍 Drain plug
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {repairComplete && (
                 <button
                   onClick={finishRepair}
@@ -1074,8 +1163,24 @@ export default function EngineViewer() {
         </div>
       )}
 
+      {/* Part inspection overlay */}
+      {inspecting && (
+        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-2 pointer-events-auto">
+          <div className="px-4 py-2 rounded-xl bg-black/80 backdrop-blur-md border border-cyan-400/40 text-center">
+            <p className="text-cyan-300 text-sm font-bold">🔍 Inspecting: {inspecting.label}</p>
+            <p className="text-gray-400 text-[11px] mt-0.5">drag to flip &amp; rotate · scroll to zoom · right-drag to move it around</p>
+          </div>
+          <button
+            onClick={exitInspect}
+            className="px-4 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:shadow-lg"
+          >
+            ✓ Done — put it down
+          </button>
+        </div>
+      )}
+
       {/* Hotspot 2D labels */}
-      {!isLoading && hotspots.map(hs => {
+      {!isLoading && !inspecting && hotspots.map(hs => {
         const pos = screenPositions[hs.id];
         if (!pos?.visible) return null;
         const isActive = activeHotspot === hs.id;
