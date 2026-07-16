@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import ToolPanel, { type Tool } from './components/ToolPanel';
+import ToolPanel, { TOOLS, type Tool } from './components/ToolPanel';
 import ProcedurePanel, { type ProcStep } from './components/ProcedurePanel';
 import ReferencePanel from './components/ReferencePanel';
 
