@@ -190,7 +190,7 @@ const boltTraySlot = (i: number): [number, number, number] => {
   const [bx, bz] = PAN_BOLT_POSITIONS[i];
   const sx = 0.7175 + (i % 6) * 0.085; // 6-per-row grid in the big tray
   const sz = 0.68 + Math.floor(i / 6) * 0.09;
-  return [sx - bx, -0.465, sz - bz];
+  return [sx - bx, -0.422, sz - bz];
 };
 const PLUG_TRAY_POS: [number, number, number] = [0.54, -0.06, 0.73]; // small tray
 const filterBenchSlot = (i: number): [number, number, number] =>
@@ -1459,12 +1459,14 @@ function buildVolvoD13(
   oilPuddle.visible = false;
   oilPuddle.scale.set(0.01, 0.01, 0.01);
   // Pan flange bolts — 22 spring-tension screws around the full flange, like
-  // the real D13 pan (layout shared with the tray-slot math up top).
+  // the real D13 pan (layout shared with the tray-slot math up top). Hex
+  // heads protrude below the flange lip so every bolt is visible.
   PAN_BOLT_POSITIONS.forEach(([bx, bz], i) => {
     const bolt = new THREE.Group();
     bolt.name = `service-pan-bolt-${i}`;
     group.add(bolt);
-    add(new THREE.CylinderGeometry(0.016, 0.016, 0.035, 8), M.chrome, { pos: [bx, -0.585, bz], parent: bolt });
+    add(new THREE.CylinderGeometry(0.022, 0.022, 0.03, 6), M.chrome, { pos: [bx, -0.628, bz], parent: bolt });
+    add(new THREE.CylinderGeometry(0.012, 0.012, 0.03, 8), M.brushedMetal, { pos: [bx, -0.6, bz], parent: bolt });
   });
 
   // Tool trays on the shop floor: a big tray for the 22 pan screws and a
