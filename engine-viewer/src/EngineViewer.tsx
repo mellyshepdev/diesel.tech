@@ -151,7 +151,7 @@ interface OilFlow {
   onDone?: () => void;
 }
 
-type RepairId = 'oil-change' | 'pan-gasket';
+type RepairId = 'oil-change' | 'pan-gasket' | 'turbo-replace';
 
 const REPAIRS: { id: RepairId; icon: string; label: string; desc: string }[] = [
   {
