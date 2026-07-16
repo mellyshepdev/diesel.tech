@@ -15,6 +15,7 @@ export type Tool =
   | "funnel"
   | "screwdriver"
   | "lineWrench"
+  | "key"
   | "towel";
 
 export const TOOLS: Record<Tool, { name: string; icon: string; desc: string }> = {
@@ -30,6 +31,7 @@ export const TOOLS: Record<Tool, { name: string; icon: string; desc: string }> =
   funnel: { name: "Funnel", icon: "🫗", desc: "Pour new oil" },
   screwdriver: { name: "Screwdriver", icon: "🪛", desc: "Phillips / flat blade" },
   lineWrench: { name: "Line Wrench", icon: "🔩", desc: "Oil & coolant line fittings" },
+  key: { name: "Truck Key", icon: "🔑", desc: "Unlocks the cab door" },
   towel: { name: "Towel / Rags", icon: "🧽", desc: "Clean surfaces" },
 };
 

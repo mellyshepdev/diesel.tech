@@ -398,6 +398,69 @@ export default function EngineViewer() {
   // Routed from the canvas raycaster (assigned fresh each render below)
   const partClickRef = useRef<(name: string) => void>(() => {});
 
+  // ── Truck walk-around: real-life pre-service steps, in order ──
+  // key in hand → unlock/open the door → climb in → set the parking brake
+  // → open the hood → engine exposed → repairs unlock
+  const [doorUnlocked, setDoorUnlocked] = useState(false);
+  const [doorOpen, setDoorOpen] = useState(false);
+  const [inCab, setInCab] = useState(false);
+  const [parkingBrake, setParkingBrake] = useState(false);
+  const [trailerAir, setTrailerAir] = useState(false);
+  const [hoodOpen, setHoodOpen] = useState(false);
+
+  /** Animate a hinged truck panel (door / hood) toward a target angle. */
+  const setHinge = useCallback((name: string, prop: 'y' | 'z', target: number) => {
+    const eg = engineGroupRef.current;
+    if (!eg) return;
+    const obj = eg.getObjectByName(name);
+    if (!obj) return;
+    const hinges: { obj: THREE.Object3D; prop: 'y' | 'z'; target: number }[] =
+      eg.userData.hinges ?? (eg.userData.hinges = []);
+    const h = hinges.find(x => x.obj === obj && x.prop === prop);
+    if (h) h.target = target;
+    else hinges.push({ obj, prop, target });
+  }, []);
+
+  const clickDoor = () => {
+    if (!doorUnlocked) {
+      if (selectedTool === 'key') {
+        setDoorUnlocked(true);
+        setDoorOpen(true);
+        setHinge('truck-door', 'y', -1.25);
+        setServiceMsg('Key in, door unlocked and open — climb on up.');
+      } else {
+        setServiceMsg("The door's locked. Grab the 🔑 Truck Key from the toolbox first.");
+      }
+      return;
+    }
+    const next = !doorOpen;
+    setDoorOpen(next);
+    setHinge('truck-door', 'y', next ? -1.25 : 0);
+  };
+
+  const clickHood = () => {
+    if (!hoodOpen) {
+      if (!parkingBrake) {
+        setServiceMsg('⚠️ Set the parking brake before opening the hood — she could roll on you. (Climb in the cab.)');
+        return;
+      }
+      setHoodOpen(true);
+      setHinge('truck-hood', 'z', 1.15);
+      setServiceMsg('Hood tilted forward — engine exposed. Repairs are on the 🔧 Repairs panel.');
+      return;
+    }
+    setHoodOpen(false);
+    setHinge('truck-hood', 'z', 0);
+  };
+
+  // Engine hotspot markers only make sense with the hood open
+  useEffect(() => {
+    const eg = engineGroupRef.current;
+    eg?.parent?.traverse(o => {
+      if (o.userData.id || o.userData.isPulse) o.visible = hoodOpen;
+    });
+  }, [hoodOpen, isLoading]);
+
   // ── Part inspection: pick up a removed part and turn it over in your hands ──
   const [inspecting, setInspecting] = useState<{ name: string; label: string } | null>(null);
   const inspectPrevRef = useRef<{ obj: THREE.Object3D; parent: THREE.Object3D; pos: THREE.Vector3; rot: THREE.Euler } | null>(null);
