@@ -56,7 +56,7 @@ The frontend expects the backend at the URL configured in `frontend/src/services
 
 ## Status
 
-Early scaffold. Make/model/engine lookup and Keycloak SSO work end to end; only one sample vehicle (Volvo VNL D13) is seeded so far.
+Make/model/engine lookup and Keycloak SSO work end to end. The seed covers 14 makes, 33 models, and 46 engine combos (Class 8 trucks, vocational, pickups, medium duty) with representative max factory hp/torque ratings.
 
 ## Roadmap
 
