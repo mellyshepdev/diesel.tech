@@ -337,6 +337,59 @@ export default function EngineViewer() {
     });
   }, []);
 
+  // ── Part inspection: pick up a removed part and turn it over in your hands ──
+  const [inspecting, setInspecting] = useState<{ name: string; label: string } | null>(null);
+  const inspectPrevRef = useRef<{ obj: THREE.Object3D; parent: THREE.Object3D; pos: THREE.Vector3; rot: THREE.Euler } | null>(null);
+
+  const exitInspect = useCallback(() => {
+    const prev = inspectPrevRef.current;
+    const eg = engineGroupRef.current;
+    if (prev && eg) {
+      prev.parent.attach(prev.obj);
+      prev.obj.position.copy(prev.pos);
+      prev.obj.rotation.copy(prev.rot);
+      eg.visible = true;
+      eg.parent?.traverse(o => {
+        if (o.userData.id || o.userData.isPulse) o.visible = true;
+      });
+    }
+    inspectPrevRef.current = null;
+    setInspecting(null);
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+    if (camera && controls) {
+      camera.position.set(2.8, 1.2, 2.8);
+      controls.target.set(0, 0, 0);
+      controls.update();
+    }
+  }, []);
+
+  const inspectPart = useCallback((name: string, label: string) => {
+    const eg = engineGroupRef.current;
+    const controls = controlsRef.current;
+    const camera = cameraRef.current;
+    if (!eg || !controls || !camera) return;
+    const obj = eg.getObjectByName(name);
+    const scene = eg.parent;
+    if (!obj || !scene) return;
+    inspectPrevRef.current = { obj, parent: obj.parent!, pos: obj.position.clone(), rot: obj.rotation.clone() };
+    scene.attach(obj);
+    obj.visible = true;
+    // center the part at the origin so the camera orbits around it
+    const box = new THREE.Box3().setFromObject(obj);
+    const c = box.getCenter(new THREE.Vector3());
+    obj.position.sub(c);
+    eg.visible = false;
+    scene.traverse(o => {
+      if (o.userData.id || o.userData.isPulse) o.visible = false;
+    });
+    controls.target.set(0, 0, 0);
+    camera.position.set(1.3, 0.7, 1.3);
+    controls.autoRotate = true;
+    controls.update();
+    setInspecting({ name, label });
+  }, []);
+
   /** null when the pan-bolt tooling is right; otherwise the reason it isn't. */
   const toolProblem = (): string | null => {
     if (socketExt === 'none') return 'You need a socket extension to reach the pan bolts.';
@@ -464,60 +517,6 @@ export default function EngineViewer() {
   const [toolboxOpen, setToolboxOpen] = useState(false);
   const [referenceOpen, setReferenceOpen] = useState(false);
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
-
-  // ── Part inspection: pick up a removed part and turn it over in your hands ──
-  const [inspecting, setInspecting] = useState<{ name: string; label: string } | null>(null);
-  const inspectPrevRef = useRef<{ obj: THREE.Object3D; parent: THREE.Object3D; pos: THREE.Vector3; rot: THREE.Euler } | null>(null);
-
-  const exitInspect = useCallback(() => {
-    const prev = inspectPrevRef.current;
-    const eg = engineGroupRef.current;
-    if (prev && eg) {
-      prev.parent.attach(prev.obj);
-      prev.obj.position.copy(prev.pos);
-      prev.obj.rotation.copy(prev.rot);
-      eg.visible = true;
-      eg.parent?.traverse(o => {
-        if (o.userData.id || o.userData.isPulse) o.visible = true;
-      });
-    }
-    inspectPrevRef.current = null;
-    setInspecting(null);
-    const camera = cameraRef.current;
-    const controls = controlsRef.current;
-    if (camera && controls) {
-      camera.position.set(2.8, 1.2, 2.8);
-      controls.target.set(0, 0, 0);
-      controls.update();
-    }
-  }, []);
-
-  const inspectPart = useCallback((name: string, label: string) => {
-    const eg = engineGroupRef.current;
-    const controls = controlsRef.current;
-    const camera = cameraRef.current;
-    if (!eg || !controls || !camera) return;
-    const obj = eg.getObjectByName(name);
-    const scene = eg.parent;
-    if (!obj || !scene) return;
-    inspectPrevRef.current = { obj, parent: obj.parent!, pos: obj.position.clone(), rot: obj.rotation.clone() };
-    scene.attach(obj);
-    obj.visible = true;
-    // center the part at the origin so the camera orbits around it
-    const box = new THREE.Box3().setFromObject(obj);
-    const c = box.getCenter(new THREE.Vector3());
-    obj.position.sub(c);
-    eg.visible = false;
-    scene.traverse(o => {
-      if (o.userData.id || o.userData.isPulse) o.visible = false;
-    });
-    controls.target.set(0, 0, 0);
-    camera.position.set(1.3, 0.7, 1.3);
-    controls.autoRotate = true;
-    setAutoRotate(true);
-    controls.update();
-    setInspecting({ name, label });
-  }, []);
 
   // Simulate RPM when engine "on"
   useEffect(() => {
