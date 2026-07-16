@@ -401,8 +401,8 @@ export default function EngineViewer() {
   const finishRepair = () => {
     resetService();
     setServiceMsg(activeRepair === 'pan-gasket'
-      ? 'New gasket fitted, pan re-torqued to spec ✓'
-      : 'New filters on, pan re-torqued, filled with fresh oil ✓');
+      ? 'New gasket fitted; 22 screws torqued 24 ± 4 Nm middle-out, A & B re-checked, drain plug 60 ± 10 Nm ✓'
+      : 'New filters on (oiled gaskets, 3/4–1 turn), pan torqued 24 ± 4 Nm, filled with VDS-4 10W-30 ✓');
     setActiveRepair(null);
   };
 
@@ -420,6 +420,7 @@ export default function EngineViewer() {
   const [rpm, setRpm] = useState(800);
   const [engineOn, setEngineOn] = useState(false);
   const [toolboxOpen, setToolboxOpen] = useState(false);
+  const [referenceOpen, setReferenceOpen] = useState(false);
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
 
   // Simulate RPM when engine "on"
@@ -716,16 +717,16 @@ export default function EngineViewer() {
   const procSteps: ProcStep[] =
     activeRepair === 'oil-change'
       ? [
-          { id: 1, label: 'Drain the oil (pull the drain plug)', done: oilDrained, active: draining, requiredTool: 'socket13' },
-          { id: 2, label: 'Spin off the three oil filters', done: allFiltersOff, requiredTool: 'filterWrench', detail: `${filtersRemoved.filter(Boolean).length}/${FILTER_COUNT}` },
-          { id: 3, label: 'Remove the pan flange bolts', done: allBoltsOff, requiredTool: 'socket15', detail: `${boltsRemoved.filter(Boolean).length}/${PAN_BOLT_COUNT}` },
-          { id: 4, label: 'Drop the oil pan', done: panRemoved, requiredTool: null },
+          { id: 1, label: 'Drain the oil hot (plug reinstalls at 60 ± 10 Nm)', done: oilDrained, active: draining, requiredTool: 'socket13' },
+          { id: 2, label: 'Spin off the three oil filters (wrench 9998487)', done: allFiltersOff, requiredTool: 'filterWrench', detail: `${filtersRemoved.filter(Boolean).length}/${FILTER_COUNT}` },
+          { id: 3, label: 'Remove the 22 spring-tension pan screws', done: allBoltsOff, requiredTool: 'socket15', detail: `${boltsRemoved.filter(Boolean).length}/${PAN_BOLT_COUNT}` },
+          { id: 4, label: 'Drop the oil pan (reinstall 24 ± 4 Nm, middle-out)', done: panRemoved, requiredTool: null },
         ]
       : activeRepair === 'pan-gasket'
         ? [
-            { id: 1, label: 'Drain the oil (pull the drain plug)', done: oilDrained, active: draining, requiredTool: 'socket13' },
-            { id: 2, label: 'Remove the pan flange bolts', done: allBoltsOff, requiredTool: 'socket15', detail: `${boltsRemoved.filter(Boolean).length}/${PAN_BOLT_COUNT}` },
-            { id: 3, label: 'Drop the pan & fit new gasket', done: panRemoved, requiredTool: 'ratchet' },
+            { id: 1, label: 'Drain the oil hot (plug reinstalls at 60 ± 10 Nm)', done: oilDrained, active: draining, requiredTool: 'socket13' },
+            { id: 2, label: 'Remove the 22 spring-tension pan screws', done: allBoltsOff, requiredTool: 'socket15', detail: `${boltsRemoved.filter(Boolean).length}/${PAN_BOLT_COUNT}` },
+            { id: 3, label: 'Drop the pan & fit new gasket (24 ± 4 Nm middle-out)', done: panRemoved, requiredTool: 'ratchet' },
           ]
         : [];
 
@@ -827,6 +828,16 @@ export default function EngineViewer() {
               >
                 🧰 Toolbox
               </button>
+              <button
+                onClick={() => setReferenceOpen(o => !o)}
+                className={`px-2.5 py-1 text-[11px] font-bold rounded border transition-all uppercase tracking-wider ${
+                  referenceOpen
+                    ? 'text-cyan-300 border-cyan-400/60 bg-cyan-400/10'
+                    : 'text-gray-500 border-gray-700 hover:text-cyan-300 hover:border-cyan-500/50 bg-black/30'
+                }`}
+              >
+                📖 Reference
+              </button>
             </div>
           </div>
 
@@ -852,6 +863,11 @@ export default function EngineViewer() {
           requiredTools={requiredTools}
           onClose={() => setToolboxOpen(false)}
         />
+      )}
+
+      {/* Factory reference panel */}
+      {referenceOpen && !isLoading && (
+        <ReferencePanel onClose={() => setReferenceOpen(false)} />
       )}
 
       {/* Repairs panel */}
@@ -963,7 +979,7 @@ export default function EngineViewer() {
                 <p className="text-gray-400 text-[11px] uppercase tracking-widest">
                   {activeRepair === 'oil-change' ? 'Step 3' : 'Step 2'} — Pan flange bolts ({boltsRemoved.filter(Boolean).length}/{PAN_BOLT_COUNT})
                 </p>
-                <div className="grid grid-cols-4 gap-1.5">
+                <div className="grid grid-cols-6 gap-1.5">
                   {boltsRemoved.map((done, i) => (
                     <button
                       key={i}
@@ -1252,15 +1268,22 @@ function buildVolvoD13(
   oilPuddle.name = 'oil-puddle';
   oilPuddle.visible = false;
   oilPuddle.scale.set(0.01, 0.01, 0.01);
-  // Pan flange bolts — individually removable, need the long socket extension
+  // Pan flange bolts — 22 spring-tension screws around the full flange, like
+  // the real D13 pan: 8 along each long side, 3 across each end.
+  const panBoltPositions: [number, number][] = [];
   for (let i = 0; i < 8; i++) {
-    const bx = -0.9 + (i % 4) * 0.6;
-    const bz = i < 4 ? 0.33 : -0.33;
+    const bx = -0.875 + i * 0.25;
+    panBoltPositions.push([bx, 0.33], [bx, -0.33]);
+  }
+  [-0.2, 0, 0.2].forEach(bz => {
+    panBoltPositions.push([1.0, bz], [-1.0, bz]);
+  });
+  panBoltPositions.forEach(([bx, bz], i) => {
     const bolt = new THREE.Group();
     bolt.name = `service-pan-bolt-${i}`;
     group.add(bolt);
-    add(new THREE.CylinderGeometry(0.018, 0.018, 0.035, 8), M.chrome, { pos: [bx, -0.585, bz], parent: bolt });
-  }
+    add(new THREE.CylinderGeometry(0.016, 0.016, 0.035, 8), M.chrome, { pos: [bx, -0.585, bz], parent: bolt });
+  });
   tick();
 
   // ══════════════════════════════════════
