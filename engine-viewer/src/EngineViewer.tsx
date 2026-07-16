@@ -1225,6 +1225,93 @@ export default function EngineViewer() {
 
               <ProcedurePanel title={REPAIRS.find(r => r.id === activeRepair)!.label} steps={procSteps} />
 
+              {activeRepair === 'turbo-replace' && (
+                <>
+                  <p className="text-gray-400 text-[11px] leading-relaxed">
+                    Grab the right tool in the 🧰 Toolbox, then <span className="text-cyan-300">click the fastener on the engine</span> — the wrench starts turning immediately. Buttons below work too.
+                  </p>
+                  {!turboInstalled.mounted && !turboRemoved && (
+                    <>
+                      <p className="text-gray-400 text-[11px] uppercase tracking-widest">Disconnect (tool shown)</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {TURBO_PART_KEYS.map(k => (
+                          <button
+                            key={k}
+                            onClick={() => removeTurboPart(k)}
+                            disabled={!!turboPartsOff[k]}
+                            className={`px-2 py-1 text-[11px] rounded border font-bold ${
+                              turboPartsOff[k] ? 'text-green-300 border-green-500/40 bg-green-500/10' : 'text-white border-white/20 bg-white/5 hover:border-cyan-400/50'
+                            }`}
+                          >
+                            {turboPartsOff[k] ? '✓ ' : ''}{TURBO_PARTS[k].label}{TURBO_PARTS[k].tool ? ` (${TOOLS[TURBO_PARTS[k].tool!].icon})` : ' (✋)'}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-gray-400 text-[11px] uppercase tracking-widest">Flange nuts — 15mm ({turboNutsOff.filter(Boolean).length}/4)</p>
+                      <div className="flex gap-1.5">
+                        {turboNutsOff.map((done, i) => (
+                          <button
+                            key={i}
+                            onClick={() => removeTurboNut(i)}
+                            disabled={done}
+                            className={`px-2.5 py-1 text-[11px] rounded border font-bold font-mono ${
+                              done ? 'text-green-300 border-green-500/40 bg-green-500/10' : 'text-white border-white/20 bg-white/5 hover:border-amber-400/50'
+                            }`}
+                          >
+                            {done ? '✓' : `N${i + 1}`}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        onClick={liftTurbo}
+                        className="w-full py-1.5 text-xs font-bold rounded-lg border text-white border-amber-400/40 bg-amber-400/10 hover:bg-amber-400/20"
+                      >
+                        ⬆ Lift the turbo off
+                      </button>
+                    </>
+                  )}
+                  {turboRemoved && !turboInstalled.mounted && (
+                    <>
+                      <button
+                        onClick={() => inspectPart('service-turbo', 'VGT Turbocharger')}
+                        className="w-full py-1.5 text-xs font-bold rounded-lg border text-cyan-300 border-cyan-400/40 bg-cyan-400/5 hover:bg-cyan-400/15"
+                      >
+                        🔍 Inspect the old turbo
+                      </button>
+                      <button
+                        onClick={() => installTurboStep('mount')}
+                        className="w-full py-1.5 text-xs font-bold rounded-lg border text-white border-green-400/40 bg-green-400/10 hover:bg-green-400/20"
+                      >
+                        🌀 Mount new turbo + torque 4 nuts
+                      </button>
+                    </>
+                  )}
+                  {turboInstalled.mounted && !turboHealthy && (
+                    <>
+                      <p className="text-gray-400 text-[11px] uppercase tracking-widest">Hook everything back up — skip nothing</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {TURBO_CRITICAL.map(c => (
+                          <button
+                            key={c.key}
+                            onClick={() => installTurboStep(c.key)}
+                            disabled={!!turboInstalled[c.key]}
+                            className={`px-2 py-1 text-[11px] rounded border font-bold ${
+                              turboInstalled[c.key] ? 'text-green-300 border-green-500/40 bg-green-500/10' : 'text-white border-white/20 bg-white/5 hover:border-cyan-400/50'
+                            }`}
+                          >
+                            {turboInstalled[c.key] ? '✓ ' : ''}{c.label}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-amber-300/80 text-[11px] leading-relaxed">
+                        ⚠️ You can hit START on the engine at any time. If anything above isn't done, you'll find out the expensive way.
+                      </p>
+                    </>
+                  )}
+                </>
+              )}
+
+              {activeRepair !== 'turbo-replace' && (<>
               {/* Tools */}
               <div className="space-y-1.5">
                 <p className="text-gray-400 text-[11px] uppercase tracking-widest">Socket extension</p>
@@ -1363,6 +1450,7 @@ export default function EngineViewer() {
                   </div>
                 </div>
               )}
+              </>)}
 
               {repairComplete && (
                 <button
