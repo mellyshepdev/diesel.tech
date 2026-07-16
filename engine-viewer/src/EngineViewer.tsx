@@ -1382,6 +1382,26 @@ export default function EngineViewer() {
         </div>
       )}
 
+      {/* Catastrophic turbo failure overlay */}
+      {turboFailure && (
+        <div className="absolute inset-0 z-40 pointer-events-none">
+          <div className="absolute inset-0 animate-pulse" style={{ background: 'radial-gradient(ellipse at 60% 40%, rgba(255,30,30,0.16) 0%, transparent 65%)' }} />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[26rem] max-w-[92vw] pointer-events-auto rounded-2xl border border-red-500/60 bg-black/90 backdrop-blur-md p-5">
+            <p className="text-red-400 text-lg font-black tracking-widest uppercase">💥 Catastrophic failure</p>
+            <p className="text-gray-300 text-xs mt-2 leading-relaxed">
+              The turbo let go seconds after start-up. Oil and coolant are pouring out under the engine — both systems share the turbo's center housing.
+            </p>
+            <pre className="text-red-300 text-[11px] mt-3 whitespace-pre-wrap font-mono leading-relaxed">{turboFailure}</pre>
+            <button
+              onClick={() => { resetService(); setActiveRepair('turbo-replace'); setServiceMsg('Fresh reman turbo on the bench — do it right this time.'); }}
+              className="mt-4 w-full py-2 rounded-lg text-xs font-bold bg-gradient-to-r from-red-500 to-orange-600 text-white hover:shadow-lg"
+            >
+              ↺ Scrap it — start the job over with a new turbo
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Part inspection overlay */}
       {inspecting && (
         <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-2 pointer-events-auto">
@@ -1483,12 +1503,39 @@ export default function EngineViewer() {
               <div className="text-gray-500 text-xs mt-0.5">{engineOn ? 'Engine Running' : 'Engine Off'}</div>
             </div>
             <button
-              onClick={() => setEngineOn(e => !e)}
+              onClick={() => {
+                if (engineOn) { setEngineOn(false); return; }
+                if (turboTouched) {
+                  if (turboRemoved || !turboInstalled.mounted) {
+                    setServiceMsg("There's a hole where the turbo goes — mount it before you start her.");
+                    return;
+                  }
+                  const missing = turboMissing();
+                  if (missing.length) { triggerTurboFailure(missing); return; }
+                  setTurboHealthy(true);
+                  setServiceMsg('Smooth spool-up — oil pressure good, coolant stable, boost tracking rpm ✓');
+                }
+                setEngineOn(true);
+              }}
               className={`ml-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-300 ${engineOn ? 'bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30' : 'bg-green-500/20 border border-green-500/50 text-green-400 hover:bg-green-500/30'}`}
             >
               {engineOn ? 'STOP' : 'START'}
             </button>
           </div>
+          {(engineOn || turboFailure) && (
+            <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+              {[
+                { label: 'BOOST', value: turboFailure ? '0 psi' : `${Math.round((rpm / 1900) * 32)} psi`, bad: !!turboFailure },
+                { label: 'OIL', value: turboFailure ? '4 psi' : '45 psi', bad: !!turboFailure },
+                { label: 'COOLANT', value: turboFailure ? '248°F' : '190°F', bad: !!turboFailure },
+              ].map(g => (
+                <div key={g.label}>
+                  <div className={`font-mono text-xs font-bold ${g.bad ? 'text-red-400 animate-pulse' : 'text-cyan-300'}`}>{g.value}</div>
+                  <div className="text-gray-600 text-[9px]">{g.label}</div>
+                </div>
+              ))}
+            </div>
+          )}
           {engineOn && (
             <div className="mt-2 flex gap-1.5">
               {[...Array(20)].map((_, i) => (
