@@ -459,7 +459,7 @@ export default function EngineViewer() {
     eg?.parent?.traverse(o => {
       if (o.userData.id || o.userData.isPulse) o.visible = hoodOpen;
     });
-  }, [hoodOpen, isLoading]);
+  }, [hoodOpen]);
 
   // ── Part inspection: pick up a removed part and turn it over in your hands ──
   const [inspecting, setInspecting] = useState<{ name: string; label: string } | null>(null);
@@ -773,6 +773,10 @@ export default function EngineViewer() {
   };
 
   const openRepair = (id: RepairId) => {
+    if (!hoodOpen) {
+      setServiceMsg('You can\'t wrench through a closed hood: 🔑 unlock the door, 🅿 set the parking brake in the cab, then open the hood.');
+      return;
+    }
     resetService();
     setServiceMsg('');
     setActiveRepair(id);
@@ -951,6 +955,7 @@ export default function EngineViewer() {
       const mesh = new THREE.Mesh(geo, mat);
       mesh.position.set(...hs.pos3d);
       mesh.userData.id = hs.id;
+      mesh.visible = false; // hidden until the hood opens
       scene.add(mesh);
       hotspotMeshes.push(mesh);
 
@@ -961,6 +966,7 @@ export default function EngineViewer() {
       pulse.position.set(...hs.pos3d);
       pulse.userData.isPulse = true;
       pulse.userData.hsColor = hs.color;
+      pulse.visible = false; // hidden until the hood opens
       scene.add(pulse);
     });
 
@@ -1089,7 +1095,7 @@ export default function EngineViewer() {
       const hits = raycaster.intersectObjects(engineGroup.children, true);
       for (const h of hits) {
         let o: THREE.Object3D | null = h.object;
-        while (o && !o.name.startsWith('service-')) o = o.parent;
+        while (o && !o.name.startsWith('service-') && !o.name.startsWith('truck-')) o = o.parent;
         if (o) { partClickRef.current(o.name); return; }
       }
     };
@@ -1122,6 +1128,10 @@ export default function EngineViewer() {
   // always sees fresh state; the canvas raycaster calls through the ref).
   partClickRef.current = (name: string) => {
     if (inspecting) return;
+    if (name === 'truck-door') { clickDoor(); return; }
+    if (name === 'truck-hood') { clickHood(); return; }
+    if (name.startsWith('truck-')) return;
+    if (!hoodOpen) { setServiceMsg('The hood is closed — unlock the cab, set the parking brake, then open the hood.'); return; }
     if (name.startsWith('service-pan-bolt-')) {
       if (activeRepair === 'oil-change' || activeRepair === 'pan-gasket') removeBolt(Number(name.slice('service-pan-bolt-'.length)));
       return;
@@ -1724,6 +1734,8 @@ export default function EngineViewer() {
             <button
               onClick={() => {
                 if (engineOn) { setEngineOn(false); return; }
+                if (!doorUnlocked) { setServiceMsg('You\'re locked out — 🔑 key first, then the cab.'); return; }
+                if (!parkingBrake) { setServiceMsg('Set the 🅿 parking brake before starting the engine.'); return; }
                 if (turboTouched) {
                   if (turboRemoved || !turboInstalled.mounted) {
                     setServiceMsg("There's a hole where the turbo goes — mount it before you start her.");
