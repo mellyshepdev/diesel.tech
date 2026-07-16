@@ -137,6 +137,9 @@ interface ServiceAnim {
   vy: number;
   spin: number;
   targetY: number;
+  /** Where the part lands when the removal finishes (tool tray / bench spot).
+   *  Without it the part just disappears. */
+  place?: { pos: [number, number, number]; parent?: THREE.Object3D };
   onDone?: () => void;
 }
 
@@ -165,9 +168,34 @@ const REPAIRS: { id: RepairId; icon: string; label: string; desc: string }[] = [
   },
 ];
 
-// The real D13 pan is clamped by 22 spring-tension screws (QRG p.14/35).
-const PAN_BOLT_COUNT = 22;
+// The real D13 pan is clamped by 22 spring-tension screws (QRG p.14/35):
+// 8 along each long side of the flange, 3 across each end.
+const PAN_BOLT_POSITIONS: [number, number][] = (() => {
+  const p: [number, number][] = [];
+  for (let i = 0; i < 8; i++) {
+    const bx = -0.875 + i * 0.25;
+    p.push([bx, 0.33], [bx, -0.33]);
+  }
+  [-0.2, 0, 0.2].forEach(bz => {
+    p.push([1.0, bz], [-1.0, bz]);
+  });
+  return p;
+})();
+const PAN_BOLT_COUNT = PAN_BOLT_POSITIONS.length;
 const FILTER_COUNT = 3;
+
+// Landing spots for removed parts. Positions are group offsets that put the
+// part's own mesh (which carries its absolute offset) onto the tray / bench.
+const boltTraySlot = (i: number): [number, number, number] => {
+  const [bx, bz] = PAN_BOLT_POSITIONS[i];
+  const sx = 0.7175 + (i % 6) * 0.085; // 6-per-row grid in the big tray
+  const sz = 0.68 + Math.floor(i / 6) * 0.09;
+  return [sx - bx, -0.445, sz - bz];
+};
+const PLUG_TRAY_POS: [number, number, number] = [0.92, -0.14, 0.73]; // small tray
+const filterBenchSlot = (i: number): [number, number, number] =>
+  [1.6 - (0.02 + i * 0.19), -0.33, 0.23 + i * 0.2]; // standing in a row
+const PAN_FLOOR_POS: [number, number, number] = [-0.6, -0.22, 1.25]; // flat on the floor
 
 const HOTSPOT_DATA = [
   {
@@ -271,21 +299,34 @@ export default function EngineViewer() {
     eg.userData.oilFlow = { active: true, t: 0, duration, puddleScale, onDone } satisfies OilFlow;
   }, []);
 
-  /** Kick off a part-removal animation; returns false if the part is gone/missing. */
-  const startRemoval = useCallback((name: string, opts: { vy: number; spin?: number; drop?: number }, onDone?: () => void) => {
+  /** Kick off a part-removal animation; returns false if the part is gone/missing.
+   *  `place` gives the part a landing spot (tool tray / bench) instead of vanishing. */
+  const startRemoval = useCallback((name: string, opts: { vy: number; spin?: number; drop?: number; place?: [number, number, number]; reparent?: boolean }, onDone?: () => void) => {
     const eg = engineGroupRef.current;
     if (!eg) return false;
     const obj = eg.getObjectByName(name);
     if (!obj || !obj.visible) return false;
     const anims: ServiceAnim[] = eg.userData.serviceAnims ?? (eg.userData.serviceAnims = []);
     if (anims.some(a => a.obj === obj)) return false; // already animating
-    anims.push({ obj, vy: opts.vy, spin: opts.spin ?? 0.25, targetY: obj.position.y - (opts.drop ?? 0.9), onDone });
+    anims.push({
+      obj,
+      vy: opts.vy,
+      spin: opts.spin ?? 0.25,
+      targetY: obj.position.y - (opts.drop ?? 0.9),
+      place: opts.place ? { pos: opts.place, parent: opts.reparent ? eg : undefined } : undefined,
+      onDone,
+    });
     return true;
   }, []);
 
   const restoreParts = useCallback((names: string[]) => {
     const eg = engineGroupRef.current;
     if (!eg) return;
+    // The drain plug lives inside the pan group but gets reparented to the
+    // engine group when it lands in the tray — put it back in the pan first.
+    const pan = eg.getObjectByName('service-oil-pan');
+    const plug = eg.getObjectByName('service-drain-plug');
+    if (pan && plug && plug.parent !== pan) pan.add(plug);
     names.forEach(n => {
       const obj = eg.getObjectByName(n);
       if (obj) {
