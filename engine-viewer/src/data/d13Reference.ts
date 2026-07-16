@@ -167,6 +167,39 @@ export const OIL_LEVEL_CHECK: string[] = [
   'Insert the dipstick fully; level must be between LOW and FULL, never above FULL.',
 ];
 
+// ── Turbocharger (QRG p.15/109 + reman-turbo reference photos) ─────
+export const TURBO_SPEC: SpecRow[] = [
+  { label: 'Type', value: 'Holset VGT — sliding nozzle ring, infinitely variable' },
+  { label: 'Cooling', value: 'Oil AND coolant cooled center housing' },
+  { label: 'Actuator', value: 'Electric VGT actuator, finned housing, bracket-mounted' },
+  { label: 'Speed sensor', value: 'Center housing, bayonet connector' },
+  { label: 'Mounting', value: '4 flange nuts to the exhaust manifold' },
+  { label: 'Mounting nut threads', value: '1161929 high-temp anti-seize (QRG)' },
+  { label: 'Joints', value: 'V-band clamps: charge pipe, exhaust outlet, 2× cartridge' },
+];
+
+export const TURBO_REMOVAL: string[] = [
+  'Engine off, cool, batteries disconnected. Never work a hot turbo.',
+  'Unplug the VGT actuator and speed-sensor harness connectors.',
+  'Loosen the charge-pipe V-band clamp and free the compressor outlet.',
+  'Loosen the exhaust V-band clamp at the turbine outlet.',
+  'Disconnect the oil feed line at the center housing (line wrench — cap it).',
+  'Disconnect both coolant lines at the center housing (line wrench — expect spillage).',
+  'Disconnect the oil drain tube below the center housing.',
+  'Remove the 4 turbo-to-manifold flange nuts.',
+  'Lift the turbo off the manifold studs — keep it level, do not rest it on the actuator.',
+];
+
+export const TURBO_INSTALL: string[] = [
+  'Set the turbo on the manifold studs with a new gasket; apply 1161929 anti-seize and torque the 4 flange nuts.',
+  'Connect the oil drain tube.',
+  'Connect BOTH coolant lines — the center housing is coolant cooled; an open line dumps the cooling system.',
+  'Connect the oil feed line, then PRE-FILL/PRIME it with clean oil — a dry start seizes the bearings in seconds.',
+  'Seat and tighten the charge-pipe and exhaust V-band clamps.',
+  'Plug in the actuator and speed-sensor harness.',
+  'Start the engine, idle it, and verify: smooth spool, oil pressure normal, coolant temp stable, boost tracking rpm.',
+];
+
 // ── Fastener / gasket reuse rules (QRG p.47–51) ────────────────────
 export const REUSE_RULES: SpecRow[] = [
   { label: 'Oil pan special screws', value: 'No limit if no cracks, corrosion or damage' },

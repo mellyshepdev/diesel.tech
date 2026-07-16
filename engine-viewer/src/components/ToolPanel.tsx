@@ -29,6 +29,7 @@ export const TOOLS: Record<Tool, { name: string; icon: string; desc: string }> =
   filterWrench: { name: "Filter Wrench", icon: "🔩", desc: "Spin-on filter removal" },
   funnel: { name: "Funnel", icon: "🫗", desc: "Pour new oil" },
   screwdriver: { name: "Screwdriver", icon: "🪛", desc: "Phillips / flat blade" },
+  lineWrench: { name: "Line Wrench", icon: "🔩", desc: "Oil & coolant line fittings" },
   towel: { name: "Towel / Rags", icon: "🧽", desc: "Clean surfaces" },
 };
 
