@@ -190,9 +190,9 @@ const boltTraySlot = (i: number): [number, number, number] => {
   const [bx, bz] = PAN_BOLT_POSITIONS[i];
   const sx = 0.7175 + (i % 6) * 0.085; // 6-per-row grid in the big tray
   const sz = 0.68 + Math.floor(i / 6) * 0.09;
-  return [sx - bx, -0.445, sz - bz];
+  return [sx - bx, -0.465, sz - bz];
 };
-const PLUG_TRAY_POS: [number, number, number] = [0.92, -0.14, 0.73]; // small tray
+const PLUG_TRAY_POS: [number, number, number] = [0.92, -0.165, 0.73]; // small tray
 const filterBenchSlot = (i: number): [number, number, number] =>
   [1.6 - (0.02 + i * 0.19), -0.33, 0.23 + i * 0.2]; // standing in a row
 const PAN_FLOOR_POS: [number, number, number] = [-0.6, -0.22, 1.25]; // flat on the floor
@@ -1422,21 +1422,26 @@ function buildVolvoD13(
   oilPuddle.visible = false;
   oilPuddle.scale.set(0.01, 0.01, 0.01);
   // Pan flange bolts — 22 spring-tension screws around the full flange, like
-  // the real D13 pan: 8 along each long side, 3 across each end.
-  const panBoltPositions: [number, number][] = [];
-  for (let i = 0; i < 8; i++) {
-    const bx = -0.875 + i * 0.25;
-    panBoltPositions.push([bx, 0.33], [bx, -0.33]);
-  }
-  [-0.2, 0, 0.2].forEach(bz => {
-    panBoltPositions.push([1.0, bz], [-1.0, bz]);
-  });
-  panBoltPositions.forEach(([bx, bz], i) => {
+  // the real D13 pan (layout shared with the tray-slot math up top).
+  PAN_BOLT_POSITIONS.forEach(([bx, bz], i) => {
     const bolt = new THREE.Group();
     bolt.name = `service-pan-bolt-${i}`;
     group.add(bolt);
     add(new THREE.CylinderGeometry(0.016, 0.016, 0.035, 8), M.chrome, { pos: [bx, -0.585, bz], parent: bolt });
   });
+
+  // Tool trays on the shop floor: a big tray for the 22 pan screws and a
+  // small one for the drain plug. Removed hardware lands in them.
+  const trayMat = new THREE.MeshStandardMaterial({ color: 0x8a1111, metalness: 0.6, roughness: 0.4 });
+  const mkTray = (cx: number, cz: number, w: number, d: number) => {
+    add(new THREE.BoxGeometry(w, 0.02, d), trayMat, { pos: [cx, -1.08, cz] });
+    add(new THREE.BoxGeometry(w, 0.05, 0.015), trayMat, { pos: [cx, -1.065, cz - d / 2] });
+    add(new THREE.BoxGeometry(w, 0.05, 0.015), trayMat, { pos: [cx, -1.065, cz + d / 2] });
+    add(new THREE.BoxGeometry(0.015, 0.05, d), trayMat, { pos: [cx - w / 2, -1.065, cz] });
+    add(new THREE.BoxGeometry(0.015, 0.05, d), trayMat, { pos: [cx + w / 2, -1.065, cz] });
+  };
+  mkTray(0.93, 0.815, 0.56, 0.42); // pan screws, 6 per row
+  mkTray(1.32, 0.85, 0.2, 0.18);   // drain plug
   tick();
 
   // ══════════════════════════════════════
