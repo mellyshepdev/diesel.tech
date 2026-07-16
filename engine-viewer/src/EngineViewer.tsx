@@ -404,6 +404,8 @@ export default function EngineViewer() {
   const [screenPositions, setScreenPositions] = useState<Record<string, { x: number; y: number; visible: boolean }>>({});
   const [rpm, setRpm] = useState(800);
   const [engineOn, setEngineOn] = useState(false);
+  const [toolboxOpen, setToolboxOpen] = useState(false);
+  const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
 
   // Simulate RPM when engine "on"
   useEffect(() => {
@@ -687,6 +689,14 @@ export default function EngineViewer() {
 
   const activeHotspotData = hotspots.find(h => h.id === activeHotspot);
 
+  // Tools the active repair calls for — highlighted in the toolbox as "NEED".
+  const requiredTools: Tool[] =
+    activeRepair === 'oil-change'
+      ? ['filterWrench', 'socket13', 'drainPan', 'funnel']
+      : activeRepair === 'pan-gasket'
+        ? ['socket15', 'ratchet', 'drainPan', 'towel']
+        : [];
+
   return (
     <div className="relative w-full h-full select-none" style={{ background: '#050810' }}>
 
@@ -775,6 +785,16 @@ export default function EngineViewer() {
               >
                 🔧 Repairs
               </button>
+              <button
+                onClick={() => setToolboxOpen(o => !o)}
+                className={`px-2.5 py-1 text-[11px] font-bold rounded border transition-all uppercase tracking-wider ${
+                  toolboxOpen
+                    ? 'text-cyan-300 border-cyan-400/60 bg-cyan-400/10'
+                    : 'text-gray-500 border-gray-700 hover:text-cyan-300 hover:border-cyan-500/50 bg-black/30'
+                }`}
+              >
+                🧰 Toolbox
+              </button>
             </div>
           </div>
 
@@ -791,6 +811,16 @@ export default function EngineViewer() {
           </div>
         </div>
       </div>
+
+      {/* Toolbox panel */}
+      {toolboxOpen && !isLoading && (
+        <ToolPanel
+          selectedTool={selectedTool}
+          onSelect={(t) => setSelectedTool(prev => (prev === t ? null : t))}
+          requiredTools={requiredTools}
+          onClose={() => setToolboxOpen(false)}
+        />
+      )}
 
       {/* Repairs panel */}
       {repairsOpen && !isLoading && (
