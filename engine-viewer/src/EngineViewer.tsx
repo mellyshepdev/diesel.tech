@@ -346,6 +346,9 @@ export default function EngineViewer() {
     'service-drain-plug',
     ...Array.from({ length: FILTER_COUNT }, (_, i) => `service-oil-filter-${i}`),
     ...Array.from({ length: PAN_BOLT_COUNT }, (_, i) => `service-pan-bolt-${i}`),
+    'service-turbo',
+    ...TURBO_PART_KEYS.map(k => `service-turbo-${k}`),
+    ...Array.from({ length: 4 }, (_, i) => `service-turbo-nut-${i}`),
   ];
 
   const startOilFlow = useCallback((duration: number, puddleScale: number, onDone?: () => void) => {
@@ -666,6 +669,17 @@ export default function EngineViewer() {
         puddle.scale.set(0.01, 0.01, 0.01);
       }
     }
+    if (eg) {
+      ['turbo-oil-spray', 'turbo-coolant-spray'].forEach(n => {
+        const o = eg.getObjectByName(n);
+        if (o) o.visible = false;
+      });
+      ['turbo-oil-puddle', 'turbo-coolant-puddle'].forEach(n => {
+        const o = eg.getObjectByName(n);
+        if (o) { o.visible = false; o.scale.set(0.01, 0.01, 0.01); }
+      });
+      eg.userData.turboSpill = undefined;
+    }
     restoreParts(SERVICE_PARTS);
     setFiltersRemoved(Array(FILTER_COUNT).fill(false));
     setBoltsRemoved(Array(PAN_BOLT_COUNT).fill(false));
@@ -673,6 +687,12 @@ export default function EngineViewer() {
     setPlugRemoved(false);
     setOilDrained(false); // reinstalled + refilled — full of fresh oil again
     setDraining(false);
+    setTurboPartsOff({});
+    setTurboNutsOff(Array(4).fill(false));
+    setTurboRemoved(false);
+    setTurboInstalled({});
+    setTurboFailure(null);
+    setTurboHealthy(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restoreParts, exitInspect]);
 
@@ -680,7 +700,9 @@ export default function EngineViewer() {
     resetService();
     setServiceMsg(activeRepair === 'pan-gasket'
       ? 'New gasket fitted; 22 screws torqued 24 ± 4 Nm middle-out, A & B re-checked, drain plug 60 ± 10 Nm ✓'
-      : 'New filters on (oiled gaskets, 3/4–1 turn), pan torqued 24 ± 4 Nm, filled with VDS-4 10W-30 ✓');
+      : activeRepair === 'turbo-replace'
+        ? 'Turbo R&R complete: smooth spool, oil pressure good, coolant stable, boost tracking rpm ✓'
+        : 'New filters on (oiled gaskets, 3/4–1 turn), pan torqued 24 ± 4 Nm, filled with VDS-4 10W-30 ✓');
     setActiveRepair(null);
   };
 
@@ -690,7 +712,9 @@ export default function EngineViewer() {
     setActiveRepair(id);
   };
 
-  const repairComplete = panRemoved && (activeRepair === 'pan-gasket' || allFiltersOff);
+  const repairComplete = activeRepair === 'turbo-replace'
+    ? turboHealthy
+    : panRemoved && (activeRepair === 'pan-gasket' || allFiltersOff);
   const [autoRotate, setAutoRotate] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
@@ -996,7 +1020,9 @@ export default function EngineViewer() {
       ? ['filterWrench', 'socket13', 'drainPan', 'funnel']
       : activeRepair === 'pan-gasket'
         ? ['socket15', 'ratchet', 'drainPan', 'towel']
-        : [];
+        : activeRepair === 'turbo-replace'
+          ? ['socket10', 'socket15', 'lineWrench', 'screwdriver']
+          : [];
 
   // Guided procedure steps, derived from the live physics state.
   const procSteps: ProcStep[] =
@@ -1013,7 +1039,18 @@ export default function EngineViewer() {
             { id: 2, label: 'Remove the 22 spring-tension pan screws', done: allBoltsOff, requiredTool: 'socket15', detail: `${boltsRemoved.filter(Boolean).length}/${PAN_BOLT_COUNT}` },
             { id: 3, label: 'Drop the pan & fit new gasket (24 ± 4 Nm middle-out)', done: panRemoved, requiredTool: 'ratchet' },
           ]
-        : [];
+        : activeRepair === 'turbo-replace'
+          ? [
+              { id: 1, label: 'Unplug actuator & sensor harness', done: !!turboPartsOff['harness'] || !!turboInstalled.mounted, requiredTool: null },
+              { id: 2, label: 'Pop the charge & exhaust V-bands', done: (!!turboPartsOff['charge-clamp'] && !!turboPartsOff['exh-clamp']) || !!turboInstalled.mounted, requiredTool: 'socket10' },
+              { id: 3, label: 'Disconnect oil feed, coolant × 2, oil drain', done: (['oil-feed', 'coolant-a', 'coolant-b', 'oil-drain'] as TurboPartKey[]).every(k => turboPartsOff[k]) || !!turboInstalled.mounted, requiredTool: 'lineWrench' },
+              { id: 4, label: 'Remove the 4 flange nuts', done: turboNutsOff.every(Boolean) || !!turboInstalled.mounted, requiredTool: 'socket15', detail: `${turboNutsOff.filter(Boolean).length}/4` },
+              { id: 5, label: 'Lift the turbo off the studs', done: turboRemoved || !!turboInstalled.mounted, requiredTool: null },
+              { id: 6, label: 'Mount new turbo, anti-seize + torque nuts', done: !!turboInstalled.mounted, requiredTool: 'socket15' },
+              { id: 7, label: 'Reconnect ALL lines & clamps, prime the oil', done: turboMissing().length === 0 && !!turboInstalled.mounted, requiredTool: 'lineWrench', detail: `${TURBO_CRITICAL.length - turboMissing().length}/${TURBO_CRITICAL.length}` },
+              { id: 8, label: 'Start engine & verify readings', done: turboHealthy, requiredTool: null },
+            ]
+          : [];
 
   return (
     <div className="relative w-full h-full select-none" style={{ background: '#050810' }}>
