@@ -482,7 +482,7 @@ export default function EngineViewer() {
     const camera = cameraRef.current;
     const controls = controlsRef.current;
     if (camera && controls) {
-      camera.position.set(2.8, 1.2, 2.8);
+      camera.position.set(-3.6, 1.6, 3.6);
       controls.target.set(0, 0, 0);
       controls.update();
     }
@@ -820,7 +820,7 @@ export default function EngineViewer() {
     const camera = cameraRef.current;
     const controls = controlsRef.current;
     if (!camera || !controls) return;
-    camera.position.set(2.8, 1.2, 2.8);
+    camera.position.set(-3.6, 1.6, 3.6);
     controls.target.set(0, 0, 0);
     controls.update();
     setAutoRotate(true);
@@ -839,7 +839,7 @@ export default function EngineViewer() {
 
     // Camera
     const camera = new THREE.PerspectiveCamera(42, container.clientWidth / container.clientHeight, 0.1, 100);
-    camera.position.set(3.0, 1.4, 3.0);
+    camera.position.set(-3.6, 1.6, 3.6); // walk-up view: truck nose + driver door
     cameraRef.current = camera;
 
     // Renderer
@@ -1029,6 +1029,14 @@ export default function EngineViewer() {
           oilFlow.active = false;
           oilFlow.onDone?.();
         }
+      }
+
+      // Hinged truck panels (door / hood) easing toward their targets
+      const hinges = engineGroup.userData.hinges as { obj: THREE.Object3D; prop: 'y' | 'z'; target: number }[] | undefined;
+      if (hinges) {
+        hinges.forEach(h => {
+          h.obj.rotation[h.prop] += (h.target - h.obj.rotation[h.prop]) * 0.07;
+        });
       }
 
       // Turbo failure: oil + coolant puddles spreading under the engine
