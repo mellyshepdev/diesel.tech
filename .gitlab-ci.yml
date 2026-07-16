@@ -1,67 +1,10 @@
-stages:
-  - build
-  - test
-
-workflow:
+# The Docker image that will be used to build your app
+image: node:lts
+create-pages:
+  pages:
+    # The folder that contains the files to be exposed at the Page URL
+    publish: public
   rules:
-    # autosave.sh pushes every minute — don't burn CI minutes on checkpoints
-    # (manual runs from the web UI / API still work on any commit)
-    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_TITLE =~ /^Autosave/'
-      when: never
-    - when: always
-
-default:
-  image: node:22-alpine
-
-variables:
-  SECRET_DETECTION_ENABLED: 'true'
-  npm_config_cache: $CI_PROJECT_DIR/.npm
-
-frontend:
-  stage: build
-  script:
-    - cd frontend
-    - npm ci --prefer-offline
-    - npm run lint
-    - npm run build
-  artifacts:
-    paths:
-      - frontend/dist
-    expire_in: 1 week
-  cache:
-    key: npm-frontend
-    paths:
-      - .npm
-
-engine-viewer:
-  stage: build
-  script:
-    - cd engine-viewer
-    - npm ci --prefer-offline
-    - npx tsc --noEmit
-    - npm run build
-  artifacts:
-    paths:
-      - engine-viewer/dist
-    expire_in: 1 week
-  cache:
-    key: npm-engine-viewer
-    paths:
-      - .npm
-
-backend:
-  stage: build
-  script:
-    - cd backend
-    - npm ci --prefer-offline --omit=dev
-    - find src -name '*.js' -exec node --check {} +
-  cache:
-    key: npm-backend
-    paths:
-      - .npm
-
-secret_detection:
-  stage: test
-
-include:
-  - template: Security/Secret-Detection.gitlab-ci.yml
+    # This ensures that only pushes to the default branch will trigger
+    # a pages deploy
+    - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
