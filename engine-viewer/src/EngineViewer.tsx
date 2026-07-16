@@ -166,6 +166,12 @@ const REPAIRS: { id: RepairId; icon: string; label: string; desc: string }[] = [
     label: 'Oil Pan Gasket Repair',
     desc: 'Break all 22 spring-tension pan screws loose one at a time, drop the pan, fit the new gasket, re-torque 24 ± 4 Nm from the middle outwards.',
   },
+  {
+    id: 'turbo-replace',
+    icon: '🌀',
+    label: 'Turbocharger R&R',
+    desc: 'Remove & replace the VGT turbo. Select the right tool, then click each fastener in 3D (or use the buttons): harness → V-bands → oil feed → coolant × 2 → oil drain → 4 flange nuts → lift. The turbo shares the engine\'s OIL and COOLANT — reconnect everything and PRIME the oil before starting, or it grenades.',
+  },
 ];
 
 // The real D13 pan is clamped by 22 spring-tension screws (QRG p.14/35):
@@ -438,6 +444,134 @@ export default function EngineViewer() {
     controls.update();
     setInspecting({ name, label });
   }, []);
+
+  // ── Turbo R&R state ──
+  const [turboPartsOff, setTurboPartsOff] = useState<Record<string, boolean>>({});
+  const [turboNutsOff, setTurboNutsOff] = useState<boolean[]>(Array(4).fill(false));
+  const [turboRemoved, setTurboRemoved] = useState(false);
+  const [turboInstalled, setTurboInstalled] = useState<Record<string, boolean>>({});
+  const [turboFailure, setTurboFailure] = useState<string | null>(null);
+  const [turboHealthy, setTurboHealthy] = useState(false);
+
+  const turboTouched =
+    turboRemoved || turboNutsOff.some(Boolean) || Object.values(turboPartsOff).some(Boolean) || Object.keys(turboInstalled).length > 0;
+
+  const removeTurboPart = (key: TurboPartKey) => {
+    if (activeRepair !== 'turbo-replace') { setServiceMsg('Open the Turbocharger R&R repair first.'); return; }
+    if (turboPartsOff[key]) return;
+    if (key !== 'harness' && !turboPartsOff['harness']) {
+      setServiceMsg('Unplug the actuator & sensor harness first — never wrench on a live VGT.');
+      return;
+    }
+    const need = TURBO_PARTS[key].tool;
+    if (need && selectedTool !== need) {
+      setServiceMsg(`Wrong tool for the ${TURBO_PARTS[key].label.toLowerCase()} — grab the ${TOOLS[need].name}.`);
+      return;
+    }
+    if (startRemoval(`service-turbo-${key}`, { vy: 0.008, spin: 0.3, drop: 0.5, place: turboPartPlace(key), reparent: false }, () => {
+      setTurboPartsOff(prev => ({ ...prev, [key]: true }));
+      setServiceMsg(`${TURBO_PARTS[key].label} off — on the bench ✓${key.startsWith('coolant') ? ' (coolant dribbles out)' : ''}`);
+    })) {
+      setServiceMsg(need ? `${TOOLS[need].name} on the ${TURBO_PARTS[key].label.toLowerCase()}…` : `Unplugging the ${TURBO_PARTS[key].label.toLowerCase()}…`);
+    }
+  };
+
+  const removeTurboNut = (i: number) => {
+    if (activeRepair !== 'turbo-replace') { setServiceMsg('Open the Turbocharger R&R repair first.'); return; }
+    if (turboNutsOff[i]) return;
+    if (!turboPartsOff['harness']) { setServiceMsg('Unplug the harness first.'); return; }
+    if (selectedTool !== 'socket15') { setServiceMsg('Flange nuts take the 15mm Socket — grab it and click the nut.'); return; }
+    if (startRemoval(`service-turbo-nut-${i}`, { vy: 0.01, spin: 0.5, drop: 0.35, place: turboNutTraySlot(i) }, () => {
+      setTurboNutsOff(prev => prev.map((v, j) => (j === i ? true : v)));
+      setServiceMsg(`Flange nut ${i + 1}/4 out — into the turbo tray ✓`);
+    })) {
+      setServiceMsg(`Backing off flange nut ${i + 1}…`);
+    }
+  };
+
+  const liftTurbo = () => {
+    if (activeRepair !== 'turbo-replace' || turboRemoved) return;
+    const partsLeft = TURBO_PART_KEYS.filter(k => !turboPartsOff[k]);
+    if (partsLeft.length) { setServiceMsg(`Still connected: ${partsLeft.map(k => TURBO_PARTS[k].label).join(', ')}.`); return; }
+    if (!turboNutsOff.every(Boolean)) { setServiceMsg('The flange nuts are still on.'); return; }
+    if (startRemoval('service-turbo', { vy: 0.012, spin: 0, drop: 0.5, place: TURBO_BENCH_POS }, () => {
+      setTurboRemoved(true);
+      setServiceMsg('Turbo is off and on the floor — inspect it, then mount the replacement.');
+    })) {
+      setServiceMsg('Lifting the turbo off the manifold studs — keeping it level…');
+    }
+  };
+
+  const installTurboStep = (key: string) => {
+    const eg = engineGroupRef.current;
+    if (key === 'mount') {
+      if (!turboRemoved) return;
+      if (eg) {
+        const names = ['service-turbo', ...Array.from({ length: 4 }, (_, i) => `service-turbo-nut-${i}`)];
+        names.forEach(n => {
+          const obj = eg.getObjectByName(n);
+          if (obj) { obj.visible = true; obj.position.set(0, 0, 0); obj.rotation.set(0, 0, 0); }
+        });
+      }
+      setTurboRemoved(false);
+      setTurboNutsOff(Array(4).fill(false));
+      setTurboInstalled(prev => ({ ...prev, mounted: true }));
+      setServiceMsg('New turbo on the studs, anti-seize on the threads, 4 nuts torqued ✓');
+      return;
+    }
+    if (!turboInstalled.mounted) { setServiceMsg('Mount the turbo on the manifold first.'); return; }
+    if (key === 'primed') {
+      if (!turboInstalled['oil-feed']) { setServiceMsg('Connect the oil feed line before priming.'); return; }
+      setTurboInstalled(prev => ({ ...prev, primed: true }));
+      setServiceMsg('Oil feed pre-filled with clean oil — bearings are wet ✓');
+      return;
+    }
+    if (key === 'coolant') {
+      if (eg) ['service-turbo-coolant-a', 'service-turbo-coolant-b'].forEach(n => {
+        const obj = eg.getObjectByName(n);
+        if (obj) { obj.visible = true; obj.position.set(0, 0, 0); obj.rotation.set(0, 0, 0); }
+      });
+      setTurboPartsOff(prev => ({ ...prev, 'coolant-a': false, 'coolant-b': false }));
+      setTurboInstalled(prev => ({ ...prev, coolant: true }));
+      setServiceMsg('Both coolant lines tight ✓');
+      return;
+    }
+    const nameMap: Record<string, string> = {
+      'oil-feed': 'service-turbo-oil-feed',
+      'oil-drain': 'service-turbo-oil-drain',
+      'charge-clamp': 'service-turbo-charge-clamp',
+      'exh-clamp': 'service-turbo-exh-clamp',
+      'harness': 'service-turbo-harness',
+    };
+    if (eg && nameMap[key]) {
+      const obj = eg.getObjectByName(nameMap[key]);
+      if (obj) { obj.visible = true; obj.position.set(0, 0, 0); obj.rotation.set(0, 0, 0); }
+    }
+    setTurboPartsOff(prev => ({ ...prev, [key]: false }));
+    setTurboInstalled(prev => ({ ...prev, [key]: true }));
+    setServiceMsg(`${TURBO_PARTS[key as TurboPartKey]?.label ?? key} reconnected ✓`);
+  };
+
+  const turboMissing = (): typeof TURBO_CRITICAL =>
+    TURBO_CRITICAL.filter(c => !turboInstalled[c.key]);
+
+  const triggerTurboFailure = (missing: typeof TURBO_CRITICAL) => {
+    setEngineOn(true);
+    setServiceMsg('Cranking… she fires…');
+    setTimeout(() => {
+      const eg = engineGroupRef.current;
+      if (eg) {
+        ['turbo-oil-spray', 'turbo-coolant-spray'].forEach(n => {
+          const o = eg.getObjectByName(n);
+          if (o) o.visible = true;
+        });
+        eg.userData.turboSpill = { t: 0, duration: 3 };
+      }
+      setEngineOn(false);
+      setTurboHealthy(false);
+      setTurboFailure(missing.map(m => `${m.label} — MISSED: ${m.consequence}`).join('\n'));
+    }, 1800);
+  };
 
   /** null when the pan-bolt tooling is right; otherwise the reason it isn't. */
   const toolProblem = (): string | null => {
