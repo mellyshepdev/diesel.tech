@@ -1611,6 +1611,90 @@ export default function EngineViewer() {
         </div>
       )}
 
+      {/* Pre-trip checklist — the real-life steps before any wrenching */}
+      {!isLoading && !hoodOpen && !inspecting && (
+        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded-xl bg-black/75 backdrop-blur-md border border-white/15 flex items-center gap-4 text-[11px] pointer-events-none">
+          <span className={doorUnlocked ? 'text-green-300' : 'text-white font-bold'}>{doorUnlocked ? '✓' : '1.'} 🔑 Unlock the door (key in hand, click the door)</span>
+          <span className={parkingBrake ? 'text-green-300' : doorUnlocked ? 'text-white font-bold' : 'text-gray-500'}>{parkingBrake ? '✓' : '2.'} 🅿 Set the parking brake (in the cab)</span>
+          <span className={hoodOpen ? 'text-green-300' : parkingBrake ? 'text-white font-bold' : 'text-gray-500'}>3. Open the hood (click it)</span>
+        </div>
+      )}
+
+      {/* Climb into the cab */}
+      {!isLoading && doorOpen && !inCab && !inspecting && (
+        <button
+          onClick={() => setInCab(true)}
+          className="absolute bottom-24 right-6 z-20 px-4 py-2 rounded-full text-sm font-bold bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:shadow-lg pointer-events-auto"
+        >
+          🪜 Climb into the cab
+        </button>
+      )}
+
+      {/* In-cab view — dash controls modeled from the VNL 860 interior photos */}
+      {inCab && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="w-[30rem] max-w-[94vw] rounded-2xl border border-white/15 bg-[#16171b] p-5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-white text-sm font-bold tracking-widest uppercase">🚛 In the cab — 2027 VNL 860</span>
+              <button onClick={() => setInCab(false)} className="text-gray-500 hover:text-white text-sm">✕</button>
+            </div>
+
+            {/* Digital instrument cluster (per the dash photos) */}
+            <div className="rounded-xl bg-black border border-white/10 p-4 mb-4 relative">
+              {parkingBrake && (
+                <span className="absolute top-2 right-3 text-red-500 font-black text-lg animate-pulse">(P)</span>
+              )}
+              <div className="text-center">
+                <span className="text-white font-mono text-4xl font-bold">0</span>
+                <span className="text-gray-500 text-xs ml-1">mph</span>
+              </div>
+              <div className="flex justify-between mt-3 text-[11px] font-mono">
+                <span className="text-green-300">AIR 138 / 138 psi</span>
+                <span className="text-amber-300">DIESEL ▮▮▮▯▯</span>
+                <span className="text-cyan-300">8°F</span>
+                <span className="text-gray-400">N</span>
+              </div>
+            </div>
+
+            {/* Red + yellow air knobs (per the center-dash photo) */}
+            <div className="flex gap-3 justify-center mb-3">
+              <button
+                onClick={() => setTrailerAir(t => !t)}
+                className={`w-32 rounded-lg border-2 p-2 text-center transition ${trailerAir ? 'border-red-400 bg-red-600/80' : 'border-red-500 bg-red-600'} hover:brightness-110`}
+              >
+                <span className="block w-10 h-10 mx-auto rounded-full bg-red-500 border-4 border-red-300 shadow-inner" style={{ clipPath: 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)' }} />
+                <span className="text-white text-[9px] font-bold block mt-1 leading-tight">TRAILER<br />AIR SUPPLY</span>
+                <span className="text-red-200 text-[8px]">{trailerAir ? 'PUSHED IN — SUPPLYING' : 'PULLED — EXHAUSTED'}</span>
+              </button>
+              <button
+                onClick={() => {
+                  setParkingBrake(p => {
+                    const next = !p;
+                    setServiceMsg(next ? '🅿 Parking brake SET — air dumped, spring brakes locked. Safe to work.' : '⚠️ Parking brake released.');
+                    return next;
+                  });
+                }}
+                className={`w-32 rounded-lg border-2 p-2 text-center transition ${parkingBrake ? 'border-yellow-300 bg-yellow-500' : 'border-yellow-500 bg-yellow-500/90'} hover:brightness-110`}
+              >
+                <span className="block w-10 h-10 mx-auto bg-yellow-400 border-4 border-yellow-200 shadow-inner rotate-45" />
+                <span className="text-black text-[9px] font-bold block mt-1 leading-tight">PARKING<br />BRAKE</span>
+                <span className="text-yellow-900 text-[8px]">{parkingBrake ? 'PULLED — APPLIED ✓' : 'PULL TO APPLY'}</span>
+              </button>
+            </div>
+
+            <p className="text-gray-500 text-[11px] text-center leading-relaxed">
+              Pull the yellow diamond to set the spring brakes before you leave the cab.
+            </p>
+            <button
+              onClick={() => setInCab(false)}
+              className="mt-3 w-full py-2 rounded-lg text-xs font-bold border border-white/20 bg-white/5 text-white hover:bg-white/10"
+            >
+              🪜 Climb out
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Catastrophic turbo failure overlay */}
       {turboFailure && (
         <div className="absolute inset-0 z-40 pointer-events-none">
@@ -1648,7 +1732,7 @@ export default function EngineViewer() {
       )}
 
       {/* Hotspot 2D labels */}
-      {!isLoading && !inspecting && hotspots.map(hs => {
+      {!isLoading && !inspecting && hoodOpen && hotspots.map(hs => {
         const pos = screenPositions[hs.id];
         if (!pos?.visible) return null;
         const isActive = activeHotspot === hs.id;
@@ -2422,6 +2506,78 @@ function buildVolvoD13(
   // Speed sensor on bell housing
   add(new THREE.CylinderGeometry(0.02, 0.02, 0.08, 8), M.darkMetal, { pos: [-1.08, -0.05, 0.28] });
 
+  tick();
+
+  // ══════════════════════════════════════
+  // 16. TRUCK BODY — 2027 Volvo VNL 860 (white, per the listing photos).
+  // Interior controls (parking brake / cluster) are modeled in the cab
+  // overlay from the dash photos; exterior is a recognizable VNL shape.
+  // ══════════════════════════════════════
+  const paint = new THREE.MeshStandardMaterial({ color: 0xf2f4f6, metalness: 0.5, roughness: 0.32 });
+  const glass = new THREE.MeshStandardMaterial({ color: 0x1a2836, metalness: 0.4, roughness: 0.1, transparent: true, opacity: 0.55 });
+  const grilleDark = new THREE.MeshStandardMaterial({ color: 0x14161a, metalness: 0.5, roughness: 0.5 });
+
+  const truckBody = new THREE.Group();
+  truckBody.name = 'truck-cab';
+  group.add(truckBody);
+
+  // Frame rails + crossmembers
+  [-0.42, 0.42].forEach(rz => {
+    add(new THREE.BoxGeometry(6.2, 0.12, 0.1), M.darkMetal, { pos: [0.45, -0.62, rz], parent: truckBody });
+  });
+  [-2.2, 0, 2.2].forEach(rx => {
+    add(new THREE.BoxGeometry(0.08, 0.1, 0.86), M.darkMetal, { pos: [rx, -0.62, 0], parent: truckBody });
+  });
+  // Wheels (front steer + rear duals) with chrome hubs
+  const wheelAt = (wx: number, wz: number) => {
+    add(new THREE.CylinderGeometry(0.5, 0.5, 0.28, 24), M.rubber, { pos: [wx, -0.6, wz], rot: [Math.PI / 2, 0, 0], parent: truckBody });
+    add(new THREE.CylinderGeometry(0.22, 0.22, 0.29, 16), M.chrome, { pos: [wx, -0.6, wz], rot: [Math.PI / 2, 0, 0], parent: truckBody });
+  };
+  [[-1.5, 0.75], [-1.5, -0.75], [2.4, 0.78], [2.4, -0.78], [3.3, 0.78], [3.3, -0.78]].forEach(([wx, wz]) => wheelAt(wx, wz));
+  // Cab shell + sleeper (VNL 860 tall roof)
+  add(new THREE.BoxGeometry(2.2, 1.9, 1.7), paint, { pos: [2.55, 0.55, 0], parent: truckBody });
+  add(new THREE.BoxGeometry(2.0, 0.85, 1.6), paint, { pos: [2.65, 1.85, 0], rot: [0, 0, 0.06], parent: truckBody });
+  // Windshield + side glass
+  add(new THREE.BoxGeometry(0.06, 0.75, 1.5), glass, { pos: [1.48, 1.05, 0], rot: [0, 0, -0.12], parent: truckBody });
+  add(new THREE.BoxGeometry(0.7, 0.45, 0.04), glass, { pos: [2.9, 1.05, 0.86], parent: truckBody });
+  add(new THREE.BoxGeometry(0.7, 0.45, 0.04), glass, { pos: [2.9, 1.05, -0.86], parent: truckBody });
+  // Mirrors, steps, fuel tank, exhaust stack
+  add(new THREE.BoxGeometry(0.05, 0.4, 0.18), M.darkMetal, { pos: [1.55, 1.35, 1.0], parent: truckBody });
+  add(new THREE.BoxGeometry(0.05, 0.4, 0.18), M.darkMetal, { pos: [1.55, 1.35, -1.0], parent: truckBody });
+  add(new THREE.BoxGeometry(0.5, 0.05, 0.3), M.brushedMetal, { pos: [2.0, -0.55, 0.95], parent: truckBody });
+  add(new THREE.BoxGeometry(0.5, 0.05, 0.3), M.brushedMetal, { pos: [2.0, -0.9, 0.95], parent: truckBody });
+  add(new THREE.CylinderGeometry(0.26, 0.26, 1.1, 18), M.chrome, { pos: [2.75, -0.75, 0.85], rot: [0, 0, Math.PI / 2], parent: truckBody });
+  add(new THREE.CylinderGeometry(0.06, 0.06, 2.4, 12), M.chrome, { pos: [3.68, 1.1, 0.8], parent: truckBody });
+
+  // Driver door (hinged at its front edge; needs the key)
+  const door = new THREE.Group();
+  door.name = 'truck-door';
+  door.position.set(1.68, 0.35, 0.86);
+  truckBody.add(door);
+  add(new THREE.BoxGeometry(0.85, 1.45, 0.06), paint, { pos: [0.45, 0.15, 0], parent: door });
+  add(new THREE.BoxGeometry(0.7, 0.5, 0.04), glass, { pos: [0.45, 0.75, 0.01], parent: door });
+  add(new THREE.BoxGeometry(0.14, 0.035, 0.05), grilleDark, { pos: [0.75, 0.05, 0.05], parent: door });
+
+  // Hood — tilts FORWARD like the real VNL, pivot at the front bumper
+  const hood = new THREE.Group();
+  hood.name = 'truck-hood';
+  hood.position.set(-2.3, -0.45, 0);
+  truckBody.add(hood);
+  // top panel (sloped down toward the nose) + side panels + fender arches
+  add(new THREE.BoxGeometry(3.75, 0.07, 1.5), paint, { pos: [1.85, 1.42, 0], rot: [0, 0, 0.09], parent: hood });
+  add(new THREE.BoxGeometry(3.75, 0.95, 0.06), paint, { pos: [1.85, 0.85, 0.74], rot: [0, 0.0, 0.02], parent: hood });
+  add(new THREE.BoxGeometry(3.75, 0.95, 0.06), paint, { pos: [1.85, 0.85, -0.74], rot: [0, 0, 0.02], parent: hood });
+  add(new THREE.BoxGeometry(1.3, 0.12, 0.34), paint, { pos: [0.85, 0.42, 0.78], parent: hood });
+  add(new THREE.BoxGeometry(1.3, 0.12, 0.34), paint, { pos: [0.85, 0.42, -0.78], parent: hood });
+  // nose: grille frame, slats, Volvo diagonal slash, headlights, bumper
+  add(new THREE.BoxGeometry(0.12, 1.15, 1.46), paint, { pos: [0.1, 0.85, 0], parent: hood });
+  for (let i = 0; i < 5; i++) {
+    add(new THREE.BoxGeometry(0.03, 0.1, 1.2), grilleDark, { pos: [0.045, 0.5 + i * 0.16, 0], parent: hood });
+  }
+  add(new THREE.BoxGeometry(0.03, 1.05, 0.1), M.brushedMetal, { pos: [0.03, 0.85, 0], rot: [0.5, 0, 0], parent: hood });
+  add(new THREE.BoxGeometry(0.06, 0.14, 0.32), M.white, { pos: [0.05, 0.32, 0.55], parent: hood });
+  add(new THREE.BoxGeometry(0.06, 0.14, 0.32), M.white, { pos: [0.05, 0.32, -0.55], parent: hood });
+  add(new THREE.BoxGeometry(0.25, 0.22, 1.7), grilleDark, { pos: [0.1, 0.05, 0], parent: hood });
   tick();
 
   // ══════════════════════════════════════
