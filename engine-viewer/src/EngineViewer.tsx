@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import ToolPanel, { type Tool } from './components/ToolPanel';
+import ProcedurePanel, { type ProcStep } from './components/ProcedurePanel';
 
 // ─────────────────────────────────────────────────────────
 // Data
@@ -695,6 +696,23 @@ export default function EngineViewer() {
       ? ['filterWrench', 'socket13', 'drainPan', 'funnel']
       : activeRepair === 'pan-gasket'
         ? ['socket15', 'ratchet', 'drainPan', 'towel']
+        : [];
+
+  // Guided procedure steps, derived from the live physics state.
+  const procSteps: ProcStep[] =
+    activeRepair === 'oil-change'
+      ? [
+          { id: 1, label: 'Drain the oil (pull the drain plug)', done: oilDrained, active: draining, requiredTool: 'socket13' },
+          { id: 2, label: 'Spin off the three oil filters', done: allFiltersOff, requiredTool: 'filterWrench', detail: `${filtersRemoved.filter(Boolean).length}/${FILTER_COUNT}` },
+          { id: 3, label: 'Remove the pan flange bolts', done: allBoltsOff, requiredTool: 'socket15', detail: `${boltsRemoved.filter(Boolean).length}/${PAN_BOLT_COUNT}` },
+          { id: 4, label: 'Drop the oil pan', done: panRemoved, requiredTool: null },
+        ]
+      : activeRepair === 'pan-gasket'
+        ? [
+            { id: 1, label: 'Drain the oil (pull the drain plug)', done: oilDrained, active: draining, requiredTool: 'socket13' },
+            { id: 2, label: 'Remove the pan flange bolts', done: allBoltsOff, requiredTool: 'socket15', detail: `${boltsRemoved.filter(Boolean).length}/${PAN_BOLT_COUNT}` },
+            { id: 3, label: 'Drop the pan & fit new gasket', done: panRemoved, requiredTool: 'ratchet' },
+          ]
         : [];
 
   return (
