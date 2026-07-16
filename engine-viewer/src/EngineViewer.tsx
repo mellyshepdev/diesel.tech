@@ -192,10 +192,10 @@ const boltTraySlot = (i: number): [number, number, number] => {
   const sz = 0.68 + Math.floor(i / 6) * 0.09;
   return [sx - bx, -0.465, sz - bz];
 };
-const PLUG_TRAY_POS: [number, number, number] = [0.92, -0.165, 0.73]; // small tray
+const PLUG_TRAY_POS: [number, number, number] = [0.54, -0.06, 0.73]; // small tray
 const filterBenchSlot = (i: number): [number, number, number] =>
   [1.6 - (0.02 + i * 0.19), -0.33, 0.23 + i * 0.2]; // standing in a row
-const PAN_FLOOR_POS: [number, number, number] = [-0.6, -0.22, 1.25]; // flat on the floor
+const PAN_FLOOR_POS: [number, number, number] = [-0.6, -0.13, 1.25]; // flat on the floor
 
 const HOTSPOT_DATA = [
   {
@@ -250,7 +250,7 @@ const HOTSPOT_DATA = [
     id: 'oilpan',
     label: 'Oil Pan',
     icon: '🛢️',
-    pos3d: [-0.4, -0.82, 0.3] as [number, number, number],
+    pos3d: [0.6, -0.85, 0.33] as [number, number, number],
     desc: 'Stamped pan with flange gasket, drain plug and oil level sensor. Sump capacity feeds a gear-type oil pump through a strainer and pickup tube.',
     color: '#66ddff',
   },
@@ -402,7 +402,7 @@ export default function EngineViewer() {
 
   const removeDrainPlug = () => {
     if (plugRemoved || panRemoved || draining) return;
-    if (startRemoval('service-drain-plug', { vy: 0.006, spin: 0.4, drop: 0.22, place: PLUG_TRAY_POS, reparent: true }, () => {
+    if (startRemoval('service-drain-plug', { vy: 0.006, spin: 0.4, drop: 0.08, place: PLUG_TRAY_POS, reparent: true }, () => {
       setPlugRemoved(true);
       if (oilDrained) {
         setServiceMsg('Plug out and into the small tray — no spill, the engine is already drained.');
@@ -1401,22 +1401,60 @@ function buildVolvoD13(
   }
   tick();
 
-  // Oil pan — removable in oil-change service mode
+  // Oil pan — removable in oil-change service mode. Modeled after the used
+  // D13 pan reference photos in public/images/ref/: a shallow channel under
+  // most of the block stepping down into a deep box sump at the front, with
+  // the level/temp sensor + flanged port on the sump wall, three round
+  // bosses + recessed hex drain plug on the sump bottom, lengthwise
+  // stiffening ribs, and a full-perimeter bolt flange — all Volvo green.
   const oilPan = new THREE.Group();
   oilPan.name = 'service-oil-pan';
   group.add(oilPan);
-  add(new THREE.BoxGeometry(2.06, 0.3, 0.68), M.darkTeal, { pos: [0, -0.73, 0], parent: oilPan });
-  // Drain plug — pull it to drain the oil before dropping the pan
+  // Flange lip mating the block (bolt line sits on this)
+  add(new THREE.BoxGeometry(2.06, 0.03, 0.72), M.teal, { pos: [0, -0.595, 0], parent: oilPan });
+  // Shallow channel section (rear ~60% of length, narrower than the flange)
+  add(new THREE.BoxGeometry(1.2, 0.13, 0.42), M.teal, { pos: [-0.43, -0.675, 0], parent: oilPan });
+  // Step / transition from channel down into the sump
+  add(new THREE.BoxGeometry(0.24, 0.3, 0.56), M.teal, { pos: [0.2, -0.73, 0], rot: [0, 0, 0.35], parent: oilPan });
+  // Deep sump box (front end, full width)
+  add(new THREE.BoxGeometry(0.87, 0.36, 0.62), M.teal, { pos: [0.6, -0.79, 0], parent: oilPan });
+  // Lengthwise stiffening ribs on the sump bottom
+  [-0.15, 0, 0.15].forEach(rz => {
+    add(new THREE.BoxGeometry(0.8, 0.012, 0.022), M.darkTeal, { pos: [0.6, -0.968, rz], parent: oilPan });
+  });
+  // Ribs under the shallow channel
+  [-0.1, 0.1].forEach(rz => {
+    add(new THREE.BoxGeometry(1.1, 0.01, 0.02), M.darkTeal, { pos: [-0.43, -0.742, rz], parent: oilPan });
+  });
+  // Three round bosses clustered on the sump bottom (as in the photos)
+  [[0.5, 0.02], [0.56, -0.06], [0.62, 0.02]].forEach(([bx, bz]) => {
+    add(new THREE.CylinderGeometry(0.034, 0.034, 0.02, 14), M.darkTeal, { pos: [bx, -0.972, bz], parent: oilPan });
+  });
+  // Corner screw bosses on the sump underside
+  [[0.22, 0.24], [0.22, -0.24], [0.98, 0.24], [0.98, -0.24]].forEach(([bx, bz]) => {
+    add(new THREE.CylinderGeometry(0.02, 0.02, 0.015, 10), M.darkTeal, { pos: [bx, -0.972, bz], parent: oilPan });
+  });
+  // Recessed drain plug ring on the sump bottom
+  add(new THREE.CylinderGeometry(0.052, 0.052, 0.012, 18), M.darkTeal, { pos: [0.78, -0.972, 0.12], parent: oilPan });
+  // Sump wall hardware (+z side, like the photos): oil level/temperature
+  // sensor on a triangular plate, a second small round sensor, and the
+  // flanged port with two screws
+  add(new THREE.BoxGeometry(0.11, 0.1, 0.016), M.darkTeal, { pos: [0.42, -0.78, 0.312], parent: oilPan });
+  add(new THREE.CylinderGeometry(0.026, 0.026, 0.05, 12), M.black, { pos: [0.42, -0.78, 0.33], rot: [Math.PI / 2, 0, 0], parent: oilPan });
+  add(new THREE.CylinderGeometry(0.018, 0.018, 0.04, 12), M.blue, { pos: [0.56, -0.8, 0.325], rot: [Math.PI / 2, 0, 0], parent: oilPan });
+  add(new THREE.BoxGeometry(0.1, 0.08, 0.014), M.darkTeal, { pos: [0.76, -0.77, 0.312], parent: oilPan });
+  add(new THREE.CylinderGeometry(0.026, 0.026, 0.02, 12), M.black, { pos: [0.76, -0.77, 0.322], rot: [Math.PI / 2, 0, 0], parent: oilPan });
+  // Drain plug — hex head in the recessed ring; pull it to drain the oil
   const drainPlug = new THREE.Group();
   drainPlug.name = 'service-drain-plug';
   oilPan.add(drainPlug);
-  add(new THREE.CylinderGeometry(0.025, 0.025, 0.06, 10), M.chrome, { pos: [0.4, -0.88, 0.12], rot: [Math.PI / 2, 0, 0], parent: drainPlug });
+  add(new THREE.CylinderGeometry(0.028, 0.028, 0.05, 6), M.chrome, { pos: [0.78, -0.985, 0.12], parent: drainPlug });
   // Oil stream + puddle, hidden until the plug comes out (or a full pan drops)
   const oilMat = new THREE.MeshStandardMaterial({ color: 0x1a1206, metalness: 0.35, roughness: 0.12 });
-  const oilStream = add(new THREE.CylinderGeometry(0.014, 0.026, 0.22, 8), oilMat, { pos: [0.4, -0.99, 0.12], shadow: false });
+  const oilStream = add(new THREE.CylinderGeometry(0.014, 0.026, 0.12, 8), oilMat, { pos: [0.78, -1.035, 0.12], shadow: false });
   oilStream.name = 'oil-stream';
   oilStream.visible = false;
-  const oilPuddle = add(new THREE.CircleGeometry(0.5, 24), oilMat, { pos: [0.4, -1.08, 0.12], rot: [-Math.PI / 2, 0, 0], shadow: false });
+  const oilPuddle = add(new THREE.CircleGeometry(0.5, 24), oilMat, { pos: [0.78, -1.095, 0.12], rot: [-Math.PI / 2, 0, 0], shadow: false });
   oilPuddle.name = 'oil-puddle';
   oilPuddle.visible = false;
   oilPuddle.scale.set(0.01, 0.01, 0.01);
