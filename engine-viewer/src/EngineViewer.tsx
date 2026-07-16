@@ -871,6 +871,8 @@ export default function EngineViewer() {
                 {REPAIRS.find(r => r.id === activeRepair)!.icon} {REPAIRS.find(r => r.id === activeRepair)!.label}
               </div>
 
+              <ProcedurePanel title={REPAIRS.find(r => r.id === activeRepair)!.label} steps={procSteps} />
+
               {/* Tools */}
               <div className="space-y-1.5">
                 <p className="text-gray-400 text-[11px] uppercase tracking-widest">Socket extension</p>
