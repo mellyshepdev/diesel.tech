@@ -494,7 +494,7 @@ export default function EngineViewer() {
     const camera = cameraRef.current;
     const controls = controlsRef.current;
     if (camera && controls) {
-      camera.position.set(-3.6, 1.6, 3.6);
+      camera.position.set(3.6, 1.6, -3.6);
       controls.target.set(0, 0, 0);
       controls.update();
     }
@@ -835,7 +835,7 @@ export default function EngineViewer() {
     const camera = cameraRef.current;
     const controls = controlsRef.current;
     if (!camera || !controls) return;
-    camera.position.set(-3.6, 1.6, 3.6);
+    camera.position.set(3.6, 1.6, -3.6);
     controls.target.set(0, 0, 0);
     controls.update();
     setAutoRotate(true);
@@ -854,7 +854,7 @@ export default function EngineViewer() {
 
     // Camera
     const camera = new THREE.PerspectiveCamera(42, container.clientWidth / container.clientHeight, 0.1, 100);
-    camera.position.set(-3.6, 1.6, 3.6); // walk-up view: truck nose + driver door
+    camera.position.set(3.6, 1.6, -3.6); // walk-up view: truck nose + driver door
     cameraRef.current = camera;
 
     // Renderer
@@ -2604,6 +2604,13 @@ function buildVolvoD13(
 
   const truckBody = new THREE.Group();
   truckBody.name = 'truck-cab';
+  // The truck is turned 180° around the engine so the engine sits in it the
+  // right way: fan/damper end (+x) under the nose, bell housing toward the
+  // cab. That puts the turbo/exhaust/oil-filter side (+z, engine RIGHT) on
+  // the passenger side and the fuel-filter/ECM/alternator side (−z, engine
+  // LEFT) at the driver door — matching a real VNL. Rotating the truck
+  // instead of the engine keeps every engine/hotspot/tray coordinate valid.
+  truckBody.rotation.y = Math.PI;
   group.add(truckBody);
   // Dev flag: ?bare=1 hides the truck so the engine can be inspected /
   // screenshot directly (used by the reference-photo verification script)
