@@ -221,13 +221,13 @@ type TurboPartKey = 'harness' | 'charge-clamp' | 'exh-clamp' | 'oil-feed' | 'coo
 /** Each disconnectable turbo part: its primary-mesh anchor in the engine,
  *  where it lands on the bench, the tool it takes, and a label. */
 const TURBO_PARTS: Record<TurboPartKey, { anchor: [number, number, number]; bench: [number, number, number]; tool: Tool | null; label: string }> = {
-  'harness':      { anchor: [0.55, 0.13, 0.42],  bench: [-1.45, -1.06, 0.42], tool: null,          label: 'Actuator & sensor harness' },
-  'charge-clamp': { anchor: [0.60, -0.095, 0.36], bench: [-1.45, -1.06, 0.60], tool: 'socket10',    label: 'Charge pipe V-band' },
-  'exh-clamp':    { anchor: [0.22, 0.26, 0.30],  bench: [-1.45, -1.06, 0.78], tool: 'socket10',    label: 'Exhaust V-band' },
-  'oil-feed':     { anchor: [0.44, 0.48, 0.20],  bench: [-1.62, -1.06, 0.42], tool: 'lineWrench',  label: 'Oil feed line' },
-  'coolant-a':    { anchor: [0.56, 0.44, 0.10],  bench: [-1.62, -1.06, 0.60], tool: 'lineWrench',  label: 'Coolant line (upper)' },
-  'coolant-b':    { anchor: [0.58, 0.10, 0.08],  bench: [-1.62, -1.06, 0.78], tool: 'lineWrench',  label: 'Coolant line (lower)' },
-  'oil-drain':    { anchor: [0.46, 0.02, 0.28],  bench: [-1.62, -1.06, 0.96], tool: 'screwdriver', label: 'Oil drain tube' },
+  'harness':      { anchor: [0.55, 0.13, 0.64],  bench: [-1.45, -1.06, 0.42], tool: null,          label: 'Actuator & sensor harness' },
+  'charge-clamp': { anchor: [0.60, -0.095, 0.58], bench: [-1.45, -1.06, 0.60], tool: 'socket10',    label: 'Charge pipe V-band' },
+  'exh-clamp':    { anchor: [0.22, 0.26, 0.52],  bench: [-1.45, -1.06, 0.78], tool: 'socket10',    label: 'Exhaust V-band' },
+  'oil-feed':     { anchor: [0.44, 0.48, 0.42],  bench: [-1.62, -1.06, 0.42], tool: 'lineWrench',  label: 'Oil feed line' },
+  'coolant-a':    { anchor: [0.56, 0.44, 0.32],  bench: [-1.62, -1.06, 0.60], tool: 'lineWrench',  label: 'Coolant line (upper)' },
+  'coolant-b':    { anchor: [0.58, 0.10, 0.30],  bench: [-1.62, -1.06, 0.78], tool: 'lineWrench',  label: 'Coolant line (lower)' },
+  'oil-drain':    { anchor: [0.46, 0.02, 0.50],  bench: [-1.62, -1.06, 0.96], tool: 'screwdriver', label: 'Oil drain tube' },
 };
 const TURBO_PART_KEYS = Object.keys(TURBO_PARTS) as TurboPartKey[];
 
@@ -2104,7 +2104,7 @@ function buildVolvoD13(
   tick();
 
   // ══════════════════════════════════════
-  // 3. TIMING COVER (front / right side)
+  // 3. TIMING COVER (front end, +x)
   // ══════════════════════════════════════
   add(new THREE.BoxGeometry(0.15, 1.05, 0.76), M.teal, { pos: [1.1, -0.12, 0] });
   add(new THREE.BoxGeometry(0.12, 0.4, 0.78), M.darkTeal, { pos: [1.12, 0.22, 0] });
@@ -2119,7 +2119,7 @@ function buildVolvoD13(
   tick();
 
   // ══════════════════════════════════════
-  // 4. BELL HOUSING / FLYWHEEL (rear / left)
+  // 4. BELL HOUSING / FLYWHEEL (rear end, −x)
   // ══════════════════════════════════════
   add(new THREE.CylinderGeometry(0.55, 0.55, 0.32, 32), M.darkMetal, { pos: [-1.21, -0.28, 0], rot: [0, 0, Math.PI / 2] });
   add(new THREE.CylinderGeometry(0.38, 0.38, 0.34, 32), M.darkMetal, { pos: [-1.21, -0.28, 0], rot: [0, 0, Math.PI / 2] });
@@ -2128,10 +2128,12 @@ function buildVolvoD13(
   tick();
 
   // ══════════════════════════════════════
-  // 5. COOLING FAN
+  // 5. COOLING FAN — on the FRONT end with the damper (it was hanging
+  // off the flywheel end before; a fan behind the bell housing cools
+  // nothing but the transmission)
   // ══════════════════════════════════════
   const fanGroup = new THREE.Group();
-  fanGroup.position.set(-1.42, 0.14, 0);
+  fanGroup.position.set(1.55, 0.14, 0);
   fanGroup.rotation.y = Math.PI / 2;
   group.add(fanGroup);
   group.userData.fanBladeGroup = fanGroup;
@@ -2159,10 +2161,10 @@ function buildVolvoD13(
   tick();
 
   // Fan hub center bolt
-  add(new THREE.CylinderGeometry(0.035, 0.035, 0.06, 8), M.chrome, { pos: [-1.45, 0.14, 0], rot: [0, 0, Math.PI / 2] });
+  add(new THREE.CylinderGeometry(0.035, 0.035, 0.06, 8), M.chrome, { pos: [1.63, 0.14, 0], rot: [0, 0, Math.PI / 2] });
 
-  // Viscous coupling body
-  add(new THREE.CylinderGeometry(0.08, 0.08, 0.1, 16), M.brushedMetal, { pos: [-1.35, 0.14, 0], rot: [0, 0, Math.PI / 2] });
+  // Viscous coupling body (between damper and fan)
+  add(new THREE.CylinderGeometry(0.08, 0.08, 0.1, 16), M.brushedMetal, { pos: [1.44, 0.14, 0], rot: [0, 0, Math.PI / 2] });
   tick();
 
   // ══════════════════════════════════════
@@ -2195,7 +2197,7 @@ function buildVolvoD13(
     new THREE.Vector3(T.x + 0.10, T.y - 0.32, T.z + 0.06),
   ]);
   add(new THREE.TubeGeometry(elbowPath, 10, 0.055, 12, false), castAlu, { parent: turbo });
-  add(new THREE.CylinderGeometry(0.068, 0.068, 0.025, 18), castAlu, { pos: [0.6, -0.08, 0.36], parent: turbo });
+  add(new THREE.CylinderGeometry(0.068, 0.068, 0.025, 18), castAlu, { pos: [0.6, -0.08, 0.58], parent: turbo });
   // Blue reman ID tag (photos 1–2)
   add(new THREE.BoxGeometry(0.06, 0.03, 0.006), M.blue, { pos: [T.x + 0.16, T.y - 0.12, T.z + 0.1], parent: turbo });
 
@@ -2236,13 +2238,13 @@ function buildVolvoD13(
   // Harness with green connector (photos 1/4)
   const harness = mkPart('harness');
   const harnessPath = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0.62, 0.14, 0.44),
-    new THREE.Vector3(0.58, 0.10, 0.44),
-    new THREE.Vector3(0.55, 0.13, 0.42),
-    new THREE.Vector3(0.50, 0.15, 0.36),
+    new THREE.Vector3(0.62, 0.14, 0.66),
+    new THREE.Vector3(0.58, 0.10, 0.66),
+    new THREE.Vector3(0.55, 0.13, 0.64),
+    new THREE.Vector3(0.50, 0.15, 0.58),
   ]);
   add(new THREE.TubeGeometry(harnessPath, 12, 0.012, 8, false), M.rubber, { parent: harness, shadow: false });
-  add(new THREE.CylinderGeometry(0.02, 0.02, 0.04, 12), bayonetGreen, { pos: [0.5, 0.155, 0.35], parent: harness });
+  add(new THREE.CylinderGeometry(0.02, 0.02, 0.04, 12), bayonetGreen, { pos: [0.5, 0.155, 0.57], parent: harness });
   // Charge pipe V-band (vertical-axis flange under the elbow)
   add(new THREE.TorusGeometry(0.072, 0.014, 10, 22), M.chrome, { pos: TURBO_PARTS['charge-clamp'].anchor, rot: [Math.PI / 2, 0, 0], parent: mkPart('charge-clamp') });
   // Exhaust V-band at the turbine outlet
@@ -2250,19 +2252,19 @@ function buildVolvoD13(
   // Oil feed line up to the block gallery
   const oilFeed = mkPart('oil-feed');
   add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0.47, 0.36, 0.28), new THREE.Vector3(0.44, 0.48, 0.20), new THREE.Vector3(0.40, 0.52, 0.10),
+    new THREE.Vector3(0.47, 0.36, 0.50), new THREE.Vector3(0.44, 0.48, 0.42), new THREE.Vector3(0.40, 0.52, 0.10),
   ]), 10, 0.012, 8, false), M.chrome, { parent: oilFeed, shadow: false });
-  add(new THREE.CylinderGeometry(0.02, 0.02, 0.03, 10), M.brushedMetal, { pos: [0.47, 0.355, 0.28], parent: oilFeed });
+  add(new THREE.CylinderGeometry(0.02, 0.02, 0.03, 10), M.brushedMetal, { pos: [0.47, 0.355, 0.50], parent: oilFeed });
   // Two coolant lines (the center housing is water cooled)
   add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0.52, 0.32, 0.22), new THREE.Vector3(0.56, 0.44, 0.10), new THREE.Vector3(0.60, 0.50, -0.02),
+    new THREE.Vector3(0.52, 0.32, 0.44), new THREE.Vector3(0.56, 0.44, 0.32), new THREE.Vector3(0.60, 0.50, -0.02),
   ]), 10, 0.013, 8, false), M.rubber, { parent: mkPart('coolant-a'), shadow: false });
   add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0.52, 0.18, 0.22), new THREE.Vector3(0.58, 0.10, 0.08), new THREE.Vector3(0.62, 0.04, -0.05),
+    new THREE.Vector3(0.52, 0.18, 0.44), new THREE.Vector3(0.58, 0.10, 0.30), new THREE.Vector3(0.62, 0.04, -0.05),
   ]), 10, 0.013, 8, false), M.rubber, { parent: mkPart('coolant-b'), shadow: false });
   // Oil drain tube back to the block
   add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0.47, 0.16, 0.30), new THREE.Vector3(0.46, 0.02, 0.28), new THREE.Vector3(0.44, -0.09, 0.25),
+    new THREE.Vector3(0.47, 0.16, 0.52), new THREE.Vector3(0.46, 0.02, 0.50), new THREE.Vector3(0.44, -0.09, 0.40),
   ]), 10, 0.02, 8, false), M.rubber, { parent: mkPart('oil-drain'), shadow: false });
   // 4 flange nuts on the manifold studs
   TURBO_NUT_POS.forEach((p, i) => {
