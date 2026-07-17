@@ -805,6 +805,9 @@ export default function EngineViewer() {
   const [toolboxOpen, setToolboxOpen] = useState(false);
   const [referenceOpen, setReferenceOpen] = useState(false);
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
+  // Tools the mechanic has pulled from the chest drawers into the tray.
+  // A tool must be in the tray before it can go in your hand.
+  const [tray, setTray] = useState<Tool[]>([]);
 
   // Simulate RPM when engine "on"
   useEffect(() => {
