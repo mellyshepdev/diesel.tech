@@ -2567,6 +2567,9 @@ function buildVolvoD13(
   const truckBody = new THREE.Group();
   truckBody.name = 'truck-cab';
   group.add(truckBody);
+  // Dev flag: ?bare=1 hides the truck so the engine can be inspected /
+  // screenshot directly (used by the reference-photo verification script)
+  if (typeof window !== 'undefined' && window.location.search.includes('bare')) truckBody.visible = false;
 
   // Frame rails + crossmembers
   [-0.42, 0.42].forEach(rz => {
