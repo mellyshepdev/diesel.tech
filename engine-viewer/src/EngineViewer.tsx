@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import ToolPanel, { TOOLS, type Tool } from './components/ToolPanel';
+import HandHUD from './components/HandHUD';
 import ProcedurePanel, { type ProcStep } from './components/ProcedurePanel';
 import ReferencePanel from './components/ReferencePanel';
 
@@ -1253,6 +1254,9 @@ export default function EngineViewer() {
       {/* 3D Canvas */}
       <div ref={canvasRef} className="w-full h-full" />
 
+      {/* First-person hand: whatever tool is selected, held in view like an FPS */}
+      {!isLoading && <HandHUD tool={selectedTool} socketExt={socketExt} />}
+
       {/* Scan line overlay */}
       <div
         className="absolute inset-0 pointer-events-none"
@@ -2391,6 +2395,8 @@ function buildVolvoD13(
 
   // ══════════════════════════════════════
   // 9. OIL FILTERS (2 full-flow + 1 bypass, spin-on)
+  // RIGHT side (+z) with the turbo & starter — QRG right-side view p.121
+  // items 11/12. Fuel filters are the ones on the LEFT (p.123 #7/#7A).
   // ══════════════════════════════════════
   for (let i = 0; i < 3; i++) {
     const px = 0.02 + i * 0.19;
@@ -2550,14 +2556,33 @@ function buildVolvoD13(
   add(new THREE.CylinderGeometry(0.05, 0.05, 0.08, 10), M.brushedMetal, { pos: [0.85, -0.21, -0.25] });
   tick();
 
-  // Fuel filter / water separator with clear sight bowl
-  add(new THREE.CylinderGeometry(0.06, 0.06, 0.18, 16), M.white, { pos: [0.62, -0.6, 0.36] });
+  // Fuel filters — on the LEFT side of the engine per QRG left-side view
+  // p.123 (#7 secondary 20972293, #7A primary 20879806), with the air
+  // compressor / alternator / ECM. They hang off a shared fuel filter
+  // housing; the oil filters stay on the RIGHT side with the turbo (p.121).
+  // (The old model had one fuel filter pasted on the oil-filter side.)
+  const FUEL_Z = -0.43;
+  // Fuel filter housing on the block face, with head ports
+  add(new THREE.BoxGeometry(0.4, 0.16, 0.1), M.brushedMetal, { pos: [0.42, -0.16, -0.39] });
+  add(new THREE.CylinderGeometry(0.02, 0.02, 0.1, 8), M.darkMetal, { pos: [0.42, -0.08, -0.4], rot: [Math.PI / 2, 0, 0] });
+  // Secondary fuel filter (smaller spin-on)
+  add(new THREE.CylinderGeometry(0.054, 0.054, 0.18, 16), M.white, { pos: [0.3, -0.34, FUEL_Z] });
+  add(new THREE.CylinderGeometry(0.058, 0.058, 0.035, 16), M.darkMetal, { pos: [0.3, -0.245, FUEL_Z] });
+  // Primary fuel filter / water separator with clear sight bowl + drain
+  add(new THREE.CylinderGeometry(0.06, 0.06, 0.2, 16), M.white, { pos: [0.56, -0.36, FUEL_Z] });
+  add(new THREE.CylinderGeometry(0.064, 0.064, 0.035, 16), M.darkMetal, { pos: [0.56, -0.255, FUEL_Z] });
   add(
     new THREE.CylinderGeometry(0.058, 0.058, 0.06, 16),
     new THREE.MeshStandardMaterial({ color: 0xcfe8ff, transparent: true, opacity: 0.5, roughness: 0.1 }),
-    { pos: [0.62, -0.72, 0.36] },
+    { pos: [0.56, -0.49, FUEL_Z] },
   );
-  add(new THREE.CylinderGeometry(0.045, 0.045, 0.05, 12), M.darkMetal, { pos: [0.62, -0.49, 0.36] });
+  add(new THREE.CylinderGeometry(0.014, 0.014, 0.04, 10), M.darkMetal, { pos: [0.56, -0.54, FUEL_Z] });
+  // Fuel lines from the housing over to the low-pressure pump area
+  add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.62, -0.16, -0.4),
+    new THREE.Vector3(0.75, -0.2, -0.34),
+    new THREE.Vector3(0.85, -0.26, -0.3),
+  ]), 10, 0.012, 6, false), M.darkMetal, { shadow: false });
   tick();
 
   // Coolant temperature sensor
