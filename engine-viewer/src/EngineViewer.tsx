@@ -2293,58 +2293,79 @@ function buildVolvoD13(
   tick();
 
   // ══════════════════════════════════════
-  // 7. INTAKE MANIFOLD + EGR PIPE
+  // 7. INTAKE MANIFOLD (left side, −z) + EGR COOLER + CHARGE PIPE
+  // Layout per the QRG side views and the factory photos: intake on the
+  // LEFT; EGR cooler along the RIGHT above the exhaust manifold, with
+  // one crossover pipe over the head to the intake — that crossover is
+  // the only pipe that legitimately crosses sides.
   // ══════════════════════════════════════
   add(new THREE.BoxGeometry(1.8, 0.12, 0.2), M.teal, { pos: [0, 0.42, -0.3] });
 
-  const egr = new THREE.BoxGeometry(0.52, 0.16, 0.2);
-  add(egr, M.darkMetal, { pos: [-0.18, 0.22, 0.36] });
-
-  // EGR pipe
-  const egrPath = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(-0.18, 0.32, 0.36),
-    new THREE.Vector3(-0.05, 0.46, 0.32),
-    new THREE.Vector3(0.18, 0.48, 0.28),
-    new THREE.Vector3(0.42, 0.42, 0.28),
-  ]);
-  add(new THREE.TubeGeometry(egrPath, 14, 0.032, 8, false), M.chrome, { shadow: false });
-  tick();
-
-  // Intercooler pipe (large)
-  const icPath = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0.5, 0.55, 0.3),
-    new THREE.Vector3(0.2, 0.7, 0.2),
-    new THREE.Vector3(-0.2, 0.68, 0.18),
-    new THREE.Vector3(-0.5, 0.65, 0.25),
-  ]);
-  add(new THREE.TubeGeometry(icPath, 18, 0.058, 8, false), M.darkMetal, { shadow: false });
-
-  // Rubber intake boot
-  const bootPath = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0.5, 0.44, 0.3),
-    new THREE.Vector3(0.5, 0.58, 0.28),
-  ]);
-  add(new THREE.TubeGeometry(bootPath, 6, 0.065, 8, false), M.rubber, { shadow: false });
-  tick();
-
-  // ══════════════════════════════════════
-  // 8. EXHAUST MANIFOLD
-  // ══════════════════════════════════════
-  add(new THREE.BoxGeometry(1.72, 0.09, 0.14), M.darkMetal, { pos: [-0.04, 0.06, -0.44] });
-  for (let i = 0; i < 6; i++) {
-    add(new THREE.CylinderGeometry(0.042, 0.042, 0.14, 10), M.darkMetal, { pos: [-0.77 + i * 0.31, 0.06, -0.38], rot: [0, 0, Math.PI / 2] });
+  // EGR cooler: long finned aluminium box along the right side, above
+  // the exhaust manifold (top photo: the plated "VOLVO D13" box)
+  add(new THREE.BoxGeometry(0.78, 0.13, 0.16), M.brushedMetal, { pos: [-0.30, 0.74, 0.50] });
+  for (let i = 0; i < 4; i++) {
+    add(new THREE.BoxGeometry(0.78, 0.012, 0.17), M.darkMetal, { pos: [-0.30, 0.695 + i * 0.03, 0.50] });
   }
+  // Hot-side feed: exhaust manifold rear up into the cooler
+  add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-0.70, 0.60, 0.52),
+    new THREE.Vector3(-0.69, 0.68, 0.51),
+    new THREE.Vector3(-0.66, 0.74, 0.50),
+  ]), 8, 0.034, 10, false), M.darkMetal, { shadow: false });
+  // EGR crossover with venturi flow-measurement section: cooler outlet
+  // over the valve cover to the intake manifold
+  add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.06, 0.74, 0.50),
+    new THREE.Vector3(0.14, 0.84, 0.20),
+    new THREE.Vector3(0.16, 0.84, -0.10),
+    new THREE.Vector3(0.15, 0.60, -0.28),
+    new THREE.Vector3(0.15, 0.48, -0.29),
+  ]), 16, 0.032, 10, false), M.chrome, { shadow: false });
+  // Venturi taper at the intake end (the D13 measures EGR flow here)
+  add(new THREE.CylinderGeometry(0.045, 0.032, 0.09, 12), M.chrome, { pos: [0.15, 0.55, -0.285], shadow: false });
+  tick();
 
-  // Turbo inlet pipe (exhaust side)
-  const exhPath = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0.42, 0.06, -0.44),
-    new THREE.Vector3(0.5, 0.1, -0.38),
-    new THREE.Vector3(0.5, 0.2, -0.32),
-    new THREE.Vector3(0.52, 0.26, -0.28),
-    new THREE.Vector3(0.52, 0.26, -0.05),
-    new THREE.Vector3(0.5, 0.26, 0.1),
-  ]);
-  add(new THREE.TubeGeometry(exhPath, 18, 0.062, 8, false), M.chrome, { shadow: false });
+  // Charge pipe: compressor outlet flange forward over the front-top of
+  // the engine to the intake side (CAC round-trip simplified)
+  add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.60, -0.08, 0.58),
+    new THREE.Vector3(0.95, 0.10, 0.60),
+    new THREE.Vector3(1.20, 0.50, 0.35),
+    new THREE.Vector3(1.25, 0.62, 0.0),
+    new THREE.Vector3(1.20, 0.52, -0.32),
+    new THREE.Vector3(0.92, 0.44, -0.32),
+  ]), 24, 0.055, 10, false), M.darkMetal, { shadow: false });
+  // Rubber boot + clamp where it meets the intake manifold
+  add(new THREE.CylinderGeometry(0.062, 0.062, 0.1, 12), M.rubber, { pos: [0.90, 0.435, -0.315], rot: [0, 0, Math.PI / 2], shadow: false });
+  tick();
+
+  // ══════════════════════════════════════
+  // 8. EXHAUST MANIFOLD — one-piece cast-iron log HIGH on the right
+  // side of the head (engine_right/top photos), 6 runners into the
+  // ports, outlet elbow dropping straight onto the turbo inlet flange.
+  // No crossover pipe: the turbo bolts to this manifold.
+  // ══════════════════════════════════════
+  const EXH_Y = 0.60, EXH_Z = 0.52;
+  add(new THREE.CylinderGeometry(0.065, 0.065, 1.70, 14), castIron, { pos: [-0.03, EXH_Y, EXH_Z], rot: [0, 0, Math.PI / 2] });
+  // 6 runners from the exhaust ports (head face z = 0.37) out to the log
+  for (let i = 0; i < 6; i++) {
+    const rx = -0.78 + i * 0.31;
+    add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+      new THREE.Vector3(rx, 0.44, 0.36),
+      new THREE.Vector3(rx, 0.52, 0.46),
+      new THREE.Vector3(rx, EXH_Y, EXH_Z),
+    ]), 8, 0.038, 10, false), castIron);
+    // Port flange pads on the head
+    add(new THREE.BoxGeometry(0.12, 0.11, 0.02), castIron, { pos: [rx, 0.44, 0.365] });
+  }
+  // Outlet elbow: down from the log onto the turbo inlet flange
+  // (flange top y ≈ 0.485, centered x 0.33, z 0.52 — nuts sit on it)
+  add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.33, EXH_Y + 0.02, EXH_Z),
+    new THREE.Vector3(0.33, 0.55, EXH_Z),
+    new THREE.Vector3(0.33, 0.50, EXH_Z),
+  ]), 8, 0.055, 10, false), castIron);
   tick();
 
   // ══════════════════════════════════════
