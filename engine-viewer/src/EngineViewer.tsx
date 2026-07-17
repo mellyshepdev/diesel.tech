@@ -207,11 +207,14 @@ const PAN_FLOOR_POS: [number, number, number] = [-0.6, -0.13, 1.25]; // flat on 
 // Scale basis: compressor scroll diameter D = 0.4 scene units. From the
 // photos: turbine scroll ≈ 0.85 D, assembly length ≈ 1.15 D, actuator
 // ≈ 0.75 × 0.45 D, inlet bore ≈ 0.38 D, turbine outlet ≈ 0.42 D.
-const TURBO_CX = 0.5, TURBO_CY = 0.26, TURBO_CZ = 0.3; // assembly center
+// Mounted on the engine's RIGHT side (+z) with the oil filters and starter,
+// hanging off the exhaust manifold — QRG "Engine, Right-Side View" p.121.
+// Outboard of the head (head face z = 0.37) so the inlet flange is visible.
+const TURBO_CX = 0.5, TURBO_CY = 0.26, TURBO_CZ = 0.52; // assembly center
 
 // 4 flange nuts on the exhaust-manifold mount (top flange in the photos)
 const TURBO_NUT_POS: [number, number, number][] = [
-  [0.25, 0.475, 0.26], [0.41, 0.475, 0.26], [0.25, 0.475, 0.34], [0.41, 0.475, 0.34],
+  [0.25, 0.475, 0.48], [0.41, 0.475, 0.48], [0.25, 0.475, 0.56], [0.41, 0.475, 0.56],
 ];
 
 type TurboPartKey = 'harness' | 'charge-clamp' | 'exh-clamp' | 'oil-feed' | 'coolant-a' | 'coolant-b' | 'oil-drain';
