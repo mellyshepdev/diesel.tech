@@ -1,3 +1,14 @@
-3d-volvo-d13-engine-animation.zip
-engine-viewer/node_modules/
-engine-viewer/dist/
+# dependencies & build output
+node_modules/
+dist/
+.npm/
+
+# environment & secrets
+.env
+.env.*
+!.env.example
+
+# logs & OS noise
+*.log
+.DS_Store
+Thumbs.db
