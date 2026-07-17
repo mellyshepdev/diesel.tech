@@ -1337,10 +1337,20 @@ export default function EngineViewer() {
         </div>
       </div>
 
-      {/* Toolbox panel */}
+      {/* Tool chest panel */}
       {toolboxOpen && !isLoading && (
         <ToolPanel
           selectedTool={selectedTool}
+          tray={tray}
+          onGrab={(t) => {
+            setTray(prev => {
+              if (prev.includes(t)) {
+                if (selectedTool === t) setSelectedTool(null);
+                return prev.filter(x => x !== t);
+              }
+              return [...prev, t];
+            });
+          }}
           onSelect={(t) => setSelectedTool(prev => (prev === t ? null : t))}
           requiredTools={requiredTools}
           onClose={() => setToolboxOpen(false)}
