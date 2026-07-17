@@ -2386,36 +2386,41 @@ function buildVolvoD13(
   tick();
 
   // ══════════════════════════════════════
-  // 10. ALTERNATOR
+  // 10. ALTERNATOR — pad-mount on the LEFT side (QRG left-side view #8;
+  // it was sitting on the turbo side before)
   // ══════════════════════════════════════
-  add(new THREE.CylinderGeometry(0.105, 0.105, 0.2, 20), M.darkMetal, { pos: [-0.48, -0.17, 0.37], rot: [0, 0, Math.PI / 2] });
-  add(new THREE.CylinderGeometry(0.106, 0.106, 0.02, 20), M.chrome, { pos: [-0.37, -0.17, 0.37], rot: [0, 0, Math.PI / 2] });
-  add(new THREE.CylinderGeometry(0.04, 0.04, 0.04, 12), M.chrome, { pos: [-0.36, -0.17, 0.37], rot: [0, 0, Math.PI / 2] });
+  add(new THREE.CylinderGeometry(0.105, 0.105, 0.2, 20), M.darkMetal, { pos: [-0.48, -0.17, -0.37], rot: [0, 0, Math.PI / 2] });
+  add(new THREE.CylinderGeometry(0.106, 0.106, 0.02, 20), M.chrome, { pos: [-0.37, -0.17, -0.37], rot: [0, 0, Math.PI / 2] });
+  add(new THREE.CylinderGeometry(0.04, 0.04, 0.04, 12), M.chrome, { pos: [-0.36, -0.17, -0.37], rot: [0, 0, Math.PI / 2] });
   tick();
 
   // ══════════════════════════════════════
-  // 11. PULLEYS & BELT
+  // 11. FRONT ACCESSORY DRIVE — pulleys and serpentine belt live on the
+  // FRONT FACE of the engine, wrapping the crank damper (they were
+  // pasted flat on the right-side wall before)
   // ══════════════════════════════════════
+  const FED_X = 1.26; // just in front of the timing cover / damper face
   const pulleyData = [
-    { pos: [-0.48, 0.13, 0.38] as [number,number,number], r: 0.075 },
-    { pos: [0.55, 0.04, 0.38] as [number,number,number], r: 0.09 },
-    { pos: [-0.48, -0.15, 0.38] as [number,number,number], r: 0.055 },
-    { pos: [0.12, -0.45, 0.38] as [number,number,number], r: 0.048 },
+    { pos: [FED_X, 0.34, 0.16] as [number,number,number], r: 0.075 },  // upper idler
+    { pos: [FED_X, 0.30, -0.22] as [number,number,number], r: 0.09 },  // refrigerant compressor
+    { pos: [FED_X, -0.02, -0.34] as [number,number,number], r: 0.055 }, // belt tensioner
+    { pos: [FED_X, -0.40, -0.10] as [number,number,number], r: 0.065 }, // lower idler
   ];
   pulleyData.forEach(p => {
-    add(new THREE.CylinderGeometry(p.r, p.r, 0.055, 20), M.chrome, { pos: p.pos, rot: [Math.PI / 2, 0, 0] });
-    add(new THREE.CylinderGeometry(p.r * 0.45, p.r * 0.45, 0.06, 14), M.darkMetal, { pos: p.pos, rot: [Math.PI / 2, 0, 0] });
+    add(new THREE.CylinderGeometry(p.r, p.r, 0.055, 20), M.chrome, { pos: p.pos, rot: [0, 0, Math.PI / 2] });
+    add(new THREE.CylinderGeometry(p.r * 0.45, p.r * 0.45, 0.06, 14), M.darkMetal, { pos: p.pos, rot: [0, 0, Math.PI / 2] });
   });
   tick();
 
-  // Serpentine belt path
+  // Serpentine belt: a loop in the y–z plane around the pulleys and the
+  // crank damper (damper center y −0.06, z 0, r ≈ 0.155)
   const beltPath = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(-0.48, 0.13, 0.385),
-    new THREE.Vector3(0.55, 0.08, 0.385),
-    new THREE.Vector3(0.55, -0.04, 0.385),
-    new THREE.Vector3(0.12, -0.45, 0.385),
-    new THREE.Vector3(-0.48, -0.15, 0.385),
-    new THREE.Vector3(-0.48, 0.0, 0.385),
+    new THREE.Vector3(FED_X, 0.415, 0.16),   // over upper idler
+    new THREE.Vector3(FED_X, 0.39, -0.22),   // over compressor
+    new THREE.Vector3(FED_X, -0.02, -0.40),  // around tensioner
+    new THREE.Vector3(FED_X, -0.465, -0.10), // under lower idler
+    new THREE.Vector3(FED_X, -0.215, 0.05),  // under crank damper
+    new THREE.Vector3(FED_X, -0.03, 0.155),  // up the damper's right side
   ], true);
   add(new THREE.TubeGeometry(beltPath, 60, 0.018, 6, true), M.rubber, { shadow: false });
   tick();
