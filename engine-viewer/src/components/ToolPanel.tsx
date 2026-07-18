@@ -1,8 +1,7 @@
-// Floating tool chest (side buttons). The chest is hierarchical, like a real
-// mechanic's box: top-level drawers (Sockets / Wrenches / Specialty / General),
-// Sockets and Wrenches split into Metric vs Standard (SAE), and only then do
-// you see the individual sizes. Clicking a size drops that tool into your TOOL
-// TRAY; clicking a tool in the tray puts it in your hand (selects it).
+// Tool chest contents. The chest itself is a real 3D object in the scene
+// (see buildVolvoD13's toolbox section) with physical drawers that slide
+// open on click. This panel just shows what's inside whichever drawer is
+// currently open — no flat UI navigation, the 3D drawers ARE the navigation.
 
 export type Tool =
   // metric sockets
@@ -83,7 +82,9 @@ export const TOOLS: Record<Tool, { name: string; icon: string; desc: string }> =
 
 export const TOOL_ORDER = Object.keys(TOOLS) as Tool[];
 
-// Drawer structure of the chest
+// Drawer contents — each key here corresponds 1:1 to a physical, openable
+// drawer on the 3D toolbox (see buildVolvoD13). Opening the drawer in 3D
+// shows its contents below; there's no separate flat menu to navigate.
 const SOCKETS_METRIC: Tool[] = ["socket8", "socket10", "socket12", "socket13", "socket14", "socket15", "socket17", "socket19", "socket21", "socket24"];
 const SOCKETS_STANDARD: Tool[] = ["socketS516", "socketS38", "socketS716", "socketS12", "socketS916", "socketS58", "socketS34", "socketS1316", "socketS78", "socketS1516"];
 const WRENCHES_METRIC: Tool[] = ["wrenchM8", "wrenchM10", "wrenchM12", "wrenchM13", "wrenchM14", "wrenchM15", "wrenchM17", "wrenchM19", "wrenchM21", "wrenchM24"];
@@ -91,28 +92,44 @@ const WRENCHES_STANDARD: Tool[] = ["wrenchS516", "wrenchS38", "wrenchS716", "wre
 const SPECIALTY: Tool[] = ["filterWrench", "lineWrench", "torqueWrench", "feelerGauge", "feeler36", "dialIndicator", "barringTool"];
 const GENERAL: Tool[] = ["ratchet", "extension", "drainPan", "funnel", "screwdriver", "key", "towel"];
 
-type ChestView =
-  | "root"
-  | "sockets" | "sockets-metric" | "sockets-standard"
-  | "wrenches" | "wrenches-metric" | "wrenches-standard"
-  | "specialty" | "general";
+export const CATEGORY_TOOLS = {
+  "sockets-metric": SOCKETS_METRIC,
+  "sockets-standard": SOCKETS_STANDARD,
+  "wrenches-metric": WRENCHES_METRIC,
+  "wrenches-standard": WRENCHES_STANDARD,
+  specialty: SPECIALTY,
+  general: GENERAL,
+} as const;
 
-import { useState } from "react";
+export const CATEGORY_LABELS: Record<DrawerKey, string> = {
+  "sockets-metric": "Metric Sockets",
+  "sockets-standard": "Standard (SAE) Sockets",
+  "wrenches-metric": "Metric Wrenches",
+  "wrenches-standard": "Standard (SAE) Wrenches",
+  specialty: "Specialty — Volvo Service Tools",
+  general: "General",
+};
+
+export type DrawerKey = keyof typeof CATEGORY_TOOLS;
 
 interface ToolPanelProps {
+  /** Which physical drawer is currently open — determines the contents shown. */
+  drawerKey: DrawerKey;
   selectedTool: Tool | null;
   /** Tools the mechanic has pulled into the tray. */
   tray: Tool[];
-  /** Chest click: toggle a tool in/out of the tray. */
+  /** Tool click: toggle a tool in/out of the tray. */
   onGrab: (tool: Tool) => void;
   /** Tray click: put the tool in your hand. */
   onSelect: (tool: Tool) => void;
   /** Tools the active repair calls for — highlighted with a "NEED" badge. */
   requiredTools?: Tool[];
+  /** Closes the panel AND slides the drawer shut in 3D. */
   onClose?: () => void;
 }
 
 export default function ToolPanel({
+  drawerKey,
   selectedTool,
   tray,
   onGrab,
@@ -120,31 +137,7 @@ export default function ToolPanel({
   requiredTools = [],
   onClose,
 }: ToolPanelProps) {
-  const [view, setView] = useState<ChestView>("root");
-
-  const drawer = (label: string, icon: string, target: ChestView, count: number, needed: number) => (
-    <button
-      key={target}
-      onClick={() => setView(target)}
-      className={`flex w-full items-center gap-3 rounded-lg border p-2.5 text-left transition-all duration-200 ${
-        needed > 0
-          ? "bg-amber-500/15 border-amber-500/60"
-          : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20"
-      }`}
-    >
-      <span className="text-xl">{icon}</span>
-      <div className="min-w-0 flex-1">
-        <div className="text-xs font-semibold text-white">{label}</div>
-        <div className="text-[11px] text-gray-400">{count} tools</div>
-      </div>
-      {needed > 0 && (
-        <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-black">
-          NEED {needed}
-        </span>
-      )}
-      <span className="text-gray-500">›</span>
-    </button>
-  );
+  const tools = CATEGORY_TOOLS[drawerKey];
 
   const toolButton = (tool: Tool) => {
     const info = TOOLS[tool];
@@ -176,32 +169,14 @@ export default function ToolPanel({
     );
   };
 
-  const neededIn = (tools: Tool[]) => requiredTools.filter(t => tools.includes(t) && !tray.includes(t)).length;
-
-  const back = (to: ChestView, label: string) => (
-    <button onClick={() => setView(to)} className="mb-2 flex items-center gap-1 px-1 text-[11px] font-semibold text-cyan-300 hover:text-white">
-      ‹ {label}
-    </button>
-  );
-
-  const listViews: Partial<Record<ChestView, { back: [ChestView, string]; title: string; tools: Tool[] }>> = {
-    "sockets-metric":   { back: ["sockets", "Sockets"], title: "Metric Sockets", tools: SOCKETS_METRIC },
-    "sockets-standard": { back: ["sockets", "Sockets"], title: "Standard (SAE) Sockets", tools: SOCKETS_STANDARD },
-    "wrenches-metric":  { back: ["wrenches", "Wrenches"], title: "Metric Wrenches", tools: WRENCHES_METRIC },
-    "wrenches-standard":{ back: ["wrenches", "Wrenches"], title: "Standard (SAE) Wrenches", tools: WRENCHES_STANDARD },
-    "specialty":        { back: ["root", "Tool Chest"], title: "Specialty — Volvo Service Tools", tools: SPECIALTY },
-    "general":          { back: ["root", "Tool Chest"], title: "General", tools: GENERAL },
-  };
-  const list = listViews[view];
-
   return (
     <div className="absolute left-4 top-32 z-30 w-72 max-h-[70vh] overflow-y-auto rounded-xl border border-cyan-400/25 bg-black/75 p-3 backdrop-blur-md">
       <div className="mb-2 flex items-center justify-between px-1">
         <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-cyan-300">
-          <span className="text-base">🧰</span> Tool Chest
+          <span className="text-base">🧰</span> {CATEGORY_LABELS[drawerKey]}
         </span>
         {onClose && (
-          <button onClick={onClose} className="text-sm text-gray-500 hover:text-white">✕</button>
+          <button onClick={onClose} className="text-sm text-gray-500 hover:text-white" title="Close drawer">✕</button>
         )}
       </div>
 
@@ -211,7 +186,7 @@ export default function ToolPanel({
           🧲 Tool Tray {tray.length > 0 && <span className="text-gray-400">({tray.length})</span>}
         </div>
         {tray.length === 0 ? (
-          <p className="px-1 text-[11px] text-gray-500">Empty — open a drawer and grab tools.</p>
+          <p className="px-1 text-[11px] text-gray-500">Empty — grab a tool from the drawer below.</p>
         ) : (
           <div className="flex flex-wrap gap-1">
             {tray.map(tool => (
@@ -241,39 +216,10 @@ export default function ToolPanel({
         </p>
       </div>
 
-      {/* ── Chest navigation ── */}
-      {view === "root" && (
-        <div className="space-y-1.5">
-          {drawer("Sockets", "⚙️", "sockets", SOCKETS_METRIC.length + SOCKETS_STANDARD.length, neededIn([...SOCKETS_METRIC, ...SOCKETS_STANDARD]))}
-          {drawer("Wrenches", "🔧", "wrenches", WRENCHES_METRIC.length + WRENCHES_STANDARD.length, neededIn([...WRENCHES_METRIC, ...WRENCHES_STANDARD]))}
-          {drawer("Specialty — Volvo Tools", "🎯", "specialty", SPECIALTY.length, neededIn(SPECIALTY))}
-          {drawer("General", "🛠️", "general", GENERAL.length, neededIn(GENERAL))}
-        </div>
-      )}
-
-      {view === "sockets" && (
-        <div className="space-y-1.5">
-          {back("root", "Tool Chest")}
-          {drawer("Metric Sockets", "⚙️", "sockets-metric", SOCKETS_METRIC.length, neededIn(SOCKETS_METRIC))}
-          {drawer("Standard (SAE) Sockets", "⚙️", "sockets-standard", SOCKETS_STANDARD.length, neededIn(SOCKETS_STANDARD))}
-        </div>
-      )}
-
-      {view === "wrenches" && (
-        <div className="space-y-1.5">
-          {back("root", "Tool Chest")}
-          {drawer("Metric Wrenches", "🔧", "wrenches-metric", WRENCHES_METRIC.length, neededIn(WRENCHES_METRIC))}
-          {drawer("Standard (SAE) Wrenches", "🔧", "wrenches-standard", WRENCHES_STANDARD.length, neededIn(WRENCHES_STANDARD))}
-        </div>
-      )}
-
-      {list && (
-        <div className="space-y-1.5">
-          {back(...list.back)}
-          <div className="px-1 pb-1 text-[11px] font-bold uppercase tracking-wider text-gray-300">{list.title}</div>
-          {list.tools.map(toolButton)}
-        </div>
-      )}
+      {/* ── This drawer's contents ── */}
+      <div className="space-y-1.5">
+        {tools.map(toolButton)}
+      </div>
     </div>
   );
 }

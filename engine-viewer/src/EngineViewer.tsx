@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import ToolPanel, { TOOLS, type Tool } from './components/ToolPanel';
+import ToolPanel, { TOOLS, type Tool, type DrawerKey } from './components/ToolPanel';
 import HandHUD from './components/HandHUD';
 import ProcedurePanel, { type ProcStep } from './components/ProcedurePanel';
 import ReferencePanel from './components/ReferencePanel';
@@ -433,6 +433,35 @@ export default function EngineViewer() {
     else hinges.push({ obj, prop, target });
   }, []);
 
+  /** Animate a toolbox drawer's position toward a target along one local axis. */
+  const setSlide = useCallback((name: string, axis: 'x' | 'y' | 'z', target: number) => {
+    const eg = engineGroupRef.current;
+    if (!eg) return;
+    const obj = eg.getObjectByName(name);
+    if (!obj) return;
+    const slides: { obj: THREE.Object3D; axis: 'x' | 'y' | 'z'; target: number }[] =
+      eg.userData.slides ?? (eg.userData.slides = []);
+    const s = slides.find(x => x.obj === obj && x.axis === axis);
+    if (s) s.target = target;
+    else slides.push({ obj, axis, target });
+  }, []);
+
+  /** Open/close one toolbox drawer, closing whichever was previously open. */
+  const toggleDrawer = useCallback((key: DrawerKey) => {
+    const eg = engineGroupRef.current;
+    const slideDrawer = (k: DrawerKey, open: boolean) => {
+      const obj = eg?.getObjectByName(`toolbox-drawer-${k}`);
+      if (!obj) return;
+      setSlide(obj.name, 'z', open ? obj.userData.openZ : obj.userData.closedZ);
+    };
+    setOpenDrawer(prev => {
+      if (prev === key) { slideDrawer(key, false); return null; }
+      if (prev) slideDrawer(prev, false);
+      slideDrawer(key, true);
+      return key;
+    });
+  }, [setSlide]);
+
   const clickDoor = () => {
     if (!doorUnlocked) {
       if (selectedTool === 'key') {
@@ -803,7 +832,8 @@ export default function EngineViewer() {
   const [screenPositions, setScreenPositions] = useState<Record<string, { x: number; y: number; visible: boolean }>>({});
   const [rpm, setRpm] = useState(800);
   const [engineOn, setEngineOn] = useState(false);
-  const [toolboxOpen, setToolboxOpen] = useState(false);
+  // Which physical drawer on the 3D toolbox is currently slid open.
+  const [openDrawer, setOpenDrawer] = useState<DrawerKey | null>(null);
   const [referenceOpen, setReferenceOpen] = useState(false);
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
   // Tools the mechanic has pulled from the chest drawers into the tray.
@@ -1054,6 +1084,14 @@ export default function EngineViewer() {
         });
       }
 
+      // Sliding toolbox drawers easing toward open/closed
+      const slides = engineGroup.userData.slides as { obj: THREE.Object3D; axis: 'x' | 'y' | 'z'; target: number }[] | undefined;
+      if (slides) {
+        slides.forEach(s => {
+          s.obj.position[s.axis] += (s.target - s.obj.position[s.axis]) * 0.12;
+        });
+      }
+
       // Turbo failure: oil + coolant puddles spreading under the engine
       const spill = engineGroup.userData.turboSpill as { t: number; duration: number } | undefined;
       if (spill) {
@@ -1118,7 +1156,7 @@ export default function EngineViewer() {
       const hits = raycaster.intersectObjects(engineGroup.children, true);
       for (const h of hits) {
         let o: THREE.Object3D | null = h.object;
-        while (o && !o.name.startsWith('service-') && !o.name.startsWith('truck-')) o = o.parent;
+        while (o && !o.name.startsWith('service-') && !o.name.startsWith('truck-') && !o.name.startsWith('toolbox-')) o = o.parent;
         if (o) { partClickRef.current(o.name); return; }
       }
     };
@@ -1154,6 +1192,11 @@ export default function EngineViewer() {
     if (name === 'truck-door') { clickDoor(); return; }
     if (name === 'truck-hood') { clickHood(); return; }
     if (name.startsWith('truck-')) return;
+    if (name.startsWith('toolbox-drawer-')) {
+      toggleDrawer(name.slice('toolbox-drawer-'.length) as DrawerKey);
+      return;
+    }
+    if (name.startsWith('toolbox-')) return;
     if (!hoodOpen) { setServiceMsg('The hood is closed — unlock the cab, set the parking brake, then open the hood.'); return; }
     if (name.startsWith('service-pan-bolt-')) {
       if (activeRepair === 'oil-change' || activeRepair === 'pan-gasket') removeBolt(Number(name.slice('service-pan-bolt-'.length)));
@@ -1308,9 +1351,9 @@ export default function EngineViewer() {
                 🔧 Repairs
               </button>
               <button
-                onClick={() => setToolboxOpen(o => !o)}
+                onClick={() => toggleDrawer(openDrawer ?? 'general')}
                 className={`px-2.5 py-1 text-[11px] font-bold rounded border transition-all uppercase tracking-wider ${
-                  toolboxOpen
+                  openDrawer
                     ? 'text-cyan-300 border-cyan-400/60 bg-cyan-400/10'
                     : 'text-gray-500 border-gray-700 hover:text-cyan-300 hover:border-cyan-500/50 bg-black/30'
                 }`}
@@ -1344,9 +1387,10 @@ export default function EngineViewer() {
         </div>
       </div>
 
-      {/* Tool chest panel */}
-      {toolboxOpen && !isLoading && (
+      {/* Tool chest panel — shows whichever physical drawer is slid open */}
+      {openDrawer && !isLoading && (
         <ToolPanel
+          drawerKey={openDrawer}
           selectedTool={selectedTool}
           tray={tray}
           onGrab={(t) => {
@@ -1360,7 +1404,7 @@ export default function EngineViewer() {
           }}
           onSelect={(t) => setSelectedTool(prev => (prev === t ? null : t))}
           requiredTools={requiredTools}
-          onClose={() => setToolboxOpen(false)}
+          onClose={() => toggleDrawer(openDrawer)}
         />
       )}
 
@@ -2673,6 +2717,90 @@ function buildVolvoD13(
   add(new THREE.BoxGeometry(0.06, 0.14, 0.32), M.white, { pos: [0.05, 0.32, 0.55], parent: hood });
   add(new THREE.BoxGeometry(0.06, 0.14, 0.32), M.white, { pos: [0.05, 0.32, -0.55], parent: hood });
   add(new THREE.BoxGeometry(0.25, 0.22, 1.7), grilleDark, { pos: [0.1, 0.05, 0], parent: hood });
+  tick();
+
+  // ══════════════════════════════════════
+  // 17. TOOLBOX — rolling 2-tier service chest, ground level near the
+  // driver's side. Six physical, clickable drawers slide open toward +z
+  // (see userData.slides, advanced in EngineViewer's animate loop) and
+  // map 1:1 to the six categories in ToolPanel.tsx's CATEGORY_TOOLS — the
+  // drawer names below (`toolbox-drawer-<key>`) must match those keys
+  // exactly, since ToolPanel is driven by whichever drawer is open.
+  // Scale basis: wheel Ø = 1.0 scene unit ≈ 43in (Class-8 steer tire), so
+  // 1 scene unit ≈ 43in — chest dims below are real inches × IN.
+  // Silhouette loosely after docs/reference/toolbox-snapon-reference.png
+  // (generic black/red rolling chest proportions; no branding modeled).
+  // ══════════════════════════════════════
+  const IN = 1 / 43;
+  const toolbox = new THREE.Group();
+  toolbox.name = 'toolbox-chest';
+  toolbox.position.set(-1.7, -1.1, -1.55);
+  group.add(toolbox);
+
+  // Casters
+  [[-0.26, -0.16], [0.26, -0.16], [-0.26, 0.16], [0.26, 0.16]].forEach(([cx, cz]) => {
+    add(new THREE.CylinderGeometry(0.035, 0.035, 0.03, 12), M.rubber, { pos: [cx, 0.035, cz], rot: [Math.PI / 2, 0, 0], parent: toolbox });
+  });
+
+  // Bottom roller cabinet: 27w x 18d x 34h (real inches)
+  const botW = 27 * IN, botD = 18 * IN, botH = 34 * IN;
+  const botY = 0.07 + botH / 2;
+  add(new THREE.BoxGeometry(botW, botH, botD), M.black, { pos: [0, botY, 0], parent: toolbox });
+  add(new THREE.BoxGeometry(botW + 0.01, 0.05, botD + 0.01), M.red, { pos: [0, 0.095, 0], parent: toolbox });
+  const worktopY = botY + botH / 2 + 0.01;
+  add(new THREE.BoxGeometry(botW + 0.02, 0.02, botD + 0.02), M.chrome, { pos: [0, worktopY, 0], parent: toolbox });
+
+  // Top chest: 27w x 12d x 18h, front face flush with the bottom cabinet's
+  const topW = 27 * IN, topD = 12 * IN, topH = 18 * IN;
+  const frontZ = botD / 2;
+  const topY = worktopY + 0.01 + topH / 2;
+  add(new THREE.BoxGeometry(topW, topH, topD), M.black, { pos: [0, topY, frontZ - topD / 2], parent: toolbox });
+  add(new THREE.BoxGeometry(topW + 0.02, 0.015, topD + 0.02), M.chrome, { pos: [0, topY + topH / 2 + 0.008, frontZ - topD / 2], parent: toolbox });
+
+  // A drawer: recessed body + front face + pull handle + groove line,
+  // grouped so opening it slides the whole assembly out along local +z.
+  const buildDrawer = (key: DrawerKey, w: number, h: number, d: number, pos: [number, number, number]) => {
+    const d0 = new THREE.Group();
+    d0.name = `toolbox-drawer-${key}`;
+    d0.position.set(...pos);
+    d0.userData.closedZ = pos[2];
+    d0.userData.openZ = pos[2] + d * 0.6;
+    toolbox.add(d0);
+    add(new THREE.BoxGeometry(w - 0.015, h - 0.01, d), M.darkMetal, { pos: [0, 0, -d / 2], parent: d0 });
+    add(new THREE.BoxGeometry(w, h, 0.02), M.red, { pos: [0, 0, 0.01], parent: d0 });
+    add(new THREE.BoxGeometry(w * 0.92, 0.006, 0.006), M.darkMetal, { pos: [0, h * 0.26, 0.022], parent: d0 });
+    add(new THREE.BoxGeometry(w * 0.35, 0.018, 0.02), M.chrome, { pos: [0, 0, 0.03], parent: d0 });
+    return d0;
+  };
+
+  // Bottom cabinet: 4 drawers, biggest/deepest tools at the bottom
+  const bottomSpecs: { key: DrawerKey; frac: number }[] = [
+    { key: 'general', frac: 0.30 },
+    { key: 'specialty', frac: 0.24 },
+    { key: 'wrenches-standard', frac: 0.23 },
+    { key: 'wrenches-metric', frac: 0.23 },
+  ];
+  const gap = 0.008, margin = 0.02;
+  const bottomUsable = botH - margin * 2 - gap * (bottomSpecs.length - 1);
+  let cy = (botY - botH / 2) + margin;
+  bottomSpecs.forEach(({ key, frac }) => {
+    const h = bottomUsable * frac;
+    buildDrawer(key, botW - 0.02, h, botD * 0.85, [0, cy + h / 2, frontZ]);
+    cy += h + gap;
+  });
+
+  // Top chest: 2 drawers, small parts (sockets) up top and closest to hand
+  const topSpecs: { key: DrawerKey; frac: number }[] = [
+    { key: 'sockets-standard', frac: 0.5 },
+    { key: 'sockets-metric', frac: 0.5 },
+  ];
+  const topUsable = topH - margin * 2 - gap * (topSpecs.length - 1);
+  cy = (topY - topH / 2) + margin;
+  topSpecs.forEach(({ key, frac }) => {
+    const h = topUsable * frac;
+    buildDrawer(key, topW - 0.02, h, topD * 0.85, [0, cy + h / 2, frontZ]);
+    cy += h + gap;
+  });
   tick();
 
   // ══════════════════════════════════════
