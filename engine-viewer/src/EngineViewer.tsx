@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import ToolPanel, { TOOLS, type Tool, type DrawerKey } from './components/ToolPanel';
 import HandHUD from './components/HandHUD';
 import ProcedurePanel, { type ProcStep } from './components/ProcedurePanel';
@@ -897,6 +898,13 @@ export default function EngineViewer() {
     renderer.toneMappingExposure = 1.4;
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
+
+    // Soft studio environment so chrome + the toolbox's clearcoat black
+    // actually reflect something (kept faint to not wash the shop lighting)
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    scene.environmentIntensity = 0.25;
+    pmrem.dispose();
 
     // Orbit Controls
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -2926,87 +2934,175 @@ export function buildVolvoD13(
   tick();
 
   // ══════════════════════════════════════
-  // 17. TOOLBOX — rolling 2-tier service chest, ground level near the
-  // driver's side. Six physical, clickable drawers slide open toward +z
-  // (see userData.slides, advanced in EngineViewer's animate loop) and
-  // map 1:1 to the six categories in ToolPanel.tsx's CATEGORY_TOOLS — the
-  // drawer names below (`toolbox-drawer-<key>`) must match those keys
-  // exactly, since ToolPanel is driven by whichever drawer is open.
-  // Scale basis: wheel Ø = 1.0 scene unit ≈ 43in (Class-8 steer tire), so
-  // 1 scene unit ≈ 43in — chest dims below are real inches × IN.
-  // Silhouette loosely after docs/reference/toolbox-snapon-reference.png
-  // (generic black/red rolling chest proportions; no branding modeled).
+  // 17. TOOLBOX — Snap-on "MR. BIG" wall, rebuilt to the proportions
+  // measured off docs/reference/toolbox-snapon-reference.png (scale basis:
+  // the two mechanics in frame ≈ 70in tall → wall ≈ 216in wide, 88in tall,
+  // 24in deep; counter at 43in hits them mid-torso like the photo).
+  // Layout left→right: tall locker · drawer bay A · drawer bay B ·
+  // stacked bay C with the big "MR. BIG" bottom drawer · double-door locker.
+  // Six drawers stay functional (names `toolbox-drawer-<key>` map 1:1 to
+  // ToolPanel's CATEGORY_TOOLS and slide via userData.slides); the rest of
+  // the ~40 drawer faces are facade (`toolbox-facade`, click-inert).
+  // Scale basis: wheel Ø = 1.0 scene unit ≈ 43in, dims are inches × IN.
   // ══════════════════════════════════════
   const IN = 1 / 43;
   const toolbox = new THREE.Group();
   toolbox.name = 'toolbox-chest';
-  toolbox.position.set(-1.7, -1.1, -1.55);
+  toolbox.position.set(-0.35, -1.1, -2.5); // along the back of the shop, facing the truck
   group.add(toolbox);
 
-  // Casters
-  [[-0.26, -0.16], [0.26, -0.16], [-0.26, 0.16], [0.26, 0.16]].forEach(([cx, cz]) => {
-    add(new THREE.CylinderGeometry(0.035, 0.035, 0.03, 12), M.rubber, { pos: [cx, 0.035, cz], rot: [Math.PI / 2, 0, 0], parent: toolbox });
+  // Gloss-black powder-coat: clearcoat catches the shop lights like the photo.
+  const gloss = new THREE.MeshPhysicalMaterial({ color: 0x0b0b0e, metalness: 0.85, roughness: 0.3, clearcoat: 1.0, clearcoatRoughness: 0.08 });
+  const glossFace = new THREE.MeshPhysicalMaterial({ color: 0x16161b, metalness: 0.8, roughness: 0.35, clearcoat: 0.8, clearcoatRoughness: 0.15 });
+  const steel = new THREE.MeshStandardMaterial({ color: 0xb9bcc2, metalness: 0.9, roughness: 0.25 });
+
+  // Text decal on a transparent canvas — logos, badge, placards.
+  const decal = (text: string, w: number, h: number, opts?: { color?: string; bg?: string; italic?: boolean; header?: string }) => {
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = Math.max(64, Math.round(512 * (h / w)));
+    const g = c.getContext('2d')!;
+    if (opts?.bg) { g.fillStyle = opts.bg; g.fillRect(0, 0, c.width, c.height); }
+    if (opts?.header) { // placard style: colored band on top with the text
+      g.fillStyle = '#b81f2d'; g.fillRect(0, 0, c.width, c.height * 0.28);
+      g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.font = `bold ${Math.round(c.height * 0.17)}px sans-serif`;
+      g.fillText(opts.header, c.width / 2, c.height * 0.14);
+    } else {
+      g.fillStyle = opts?.color ?? '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.font = `${opts?.italic === false ? '' : 'italic '}bold ${Math.round(c.height * 0.62)}px sans-serif`;
+      g.fillText(text, c.width / 2, c.height / 2);
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
+    m.name = 'toolbox-decal';
+    return m;
+  };
+  const putDecal = (mesh: THREE.Mesh, x: number, y: number, z: number) => { mesh.position.set(x, y, z); toolbox.add(mesh); };
+
+  // Vertical stack: casters → base cab (counter at 43") → open riser → canopy → crown rail
+  const CASTER_H = 5 * IN, COUNTER_Y = 43 * IN, RISER_H = 18 * IN, CAN_H = 20 * IN, CROWN_H = 8 * IN;
+  const CAN_Y0 = COUNTER_Y + RISER_H, TOP_Y = CAN_Y0 + CAN_H;
+  const W = 216 * IN, D = 24 * IN, CAN_D = 18 * IN;
+  const frontZ = D / 2;
+  const canFrontZ = -D / 2 + CAN_D; // canopy sits against the back plane
+
+  // Bay widths (inches, left→right) measured off the photo
+  const BAYS = { lockerL: 21, bankA: 47, bankB: 52, bankC: 43, lockerR: 53 };
+  const bayX = {} as Record<keyof typeof BAYS, [number, number]>;
+  {
+    let x = -W / 2;
+    (Object.keys(BAYS) as (keyof typeof BAYS)[]).forEach(k => { bayX[k] = [x, x + BAYS[k] * IN]; x += BAYS[k] * IN; });
+  }
+  const mid = (k: keyof typeof BAYS) => (bayX[k][0] + bayX[k][1]) / 2;
+  const bw = (k: keyof typeof BAYS) => BAYS[k] * IN;
+
+  // Casters: a pair under every bay seam
+  for (let i = 0; i <= 6; i++) {
+    const cx = -W / 2 + (i / 6) * W * 0.98 + W * 0.01;
+    [[-D * 0.32], [D * 0.32]].forEach(([cz]) => {
+      add(new THREE.CylinderGeometry(2.5 * IN, 2.5 * IN, 1.6 * IN, 12), M.rubber, { pos: [cx, 2.5 * IN, cz], rot: [Math.PI / 2, 0, 0], parent: toolbox });
+    });
+  }
+  // Kick rail behind the casters
+  add(new THREE.BoxGeometry(W, CASTER_H * 0.7, D * 0.86), M.darkMetal, { pos: [0, CASTER_H * 0.6, 0], parent: toolbox });
+
+  // ── Drawer-bay carcasses (bays A/B/C): base cab + stainless counter + riser back + canopy + lift door
+  (['bankA', 'bankB', 'bankC'] as const).forEach(k => {
+    const w = bw(k), cx = mid(k);
+    add(new THREE.BoxGeometry(w, COUNTER_Y - CASTER_H, D), gloss, { pos: [cx, CASTER_H + (COUNTER_Y - CASTER_H) / 2, 0], parent: toolbox });
+    add(new THREE.BoxGeometry(w + 0.006, 1.2 * IN, D + 0.02), steel, { pos: [cx, COUNTER_Y + 0.6 * IN, 0], parent: toolbox });
+    add(new THREE.BoxGeometry(w, RISER_H, 2 * IN), gloss, { pos: [cx, COUNTER_Y + RISER_H / 2, -D / 2 + IN], parent: toolbox });
+    add(new THREE.BoxGeometry(w, CAN_H, CAN_D), gloss, { pos: [cx, CAN_Y0 + CAN_H / 2, canFrontZ - CAN_D / 2], parent: toolbox });
+    // Lift-up canopy door: glossy panel, chrome lip along its bottom edge
+    add(new THREE.BoxGeometry(w - 1.5 * IN, CAN_H - 2 * IN, 0.5 * IN), glossFace, { pos: [cx, CAN_Y0 + CAN_H / 2, canFrontZ + 0.3 * IN], parent: toolbox });
+    add(new THREE.BoxGeometry(w - 1.5 * IN, 0.8 * IN, 0.9 * IN), M.chrome, { pos: [cx, CAN_Y0 + 1.6 * IN, canFrontZ + 0.4 * IN], parent: toolbox });
   });
 
-  // Bottom roller cabinet: 27w x 18d x 34h (real inches)
-  const botW = 27 * IN, botD = 18 * IN, botH = 34 * IN;
-  const botY = 0.07 + botH / 2;
-  add(new THREE.BoxGeometry(botW, botH, botD), M.black, { pos: [0, botY, 0], parent: toolbox });
-  add(new THREE.BoxGeometry(botW + 0.01, 0.05, botD + 0.01), M.red, { pos: [0, 0.095, 0], parent: toolbox });
-  const worktopY = botY + botH / 2 + 0.01;
-  add(new THREE.BoxGeometry(botW + 0.02, 0.02, botD + 0.02), M.chrome, { pos: [0, worktopY, 0], parent: toolbox });
+  // ── Crown rail across the three drawer bays, carrying the script logos
+  const crownW = bayX.lockerR[0] - bayX.bankA[0];
+  const crownX = (bayX.bankA[0] + bayX.lockerR[0]) / 2;
+  add(new THREE.BoxGeometry(crownW, CROWN_H, CAN_D), gloss, { pos: [crownX, TOP_Y + CROWN_H / 2, canFrontZ - CAN_D / 2], parent: toolbox });
+  putDecal(decal('Snap-on', 14 * IN, 4 * IN), mid('bankA'), TOP_Y + CROWN_H / 2, canFrontZ + 0.01);
+  putDecal(decal('Snap-on', 14 * IN, 4 * IN), mid('bankC'), TOP_Y + CROWN_H / 2, canFrontZ + 0.01);
 
-  // Top chest: 27w x 12d x 18h, front face flush with the bottom cabinet's
-  const topW = 27 * IN, topD = 12 * IN, topH = 18 * IN;
-  const frontZ = botD / 2;
-  const topY = worktopY + 0.01 + topH / 2;
-  add(new THREE.BoxGeometry(topW, topH, topD), M.black, { pos: [0, topY, frontZ - topD / 2], parent: toolbox });
-  add(new THREE.BoxGeometry(topW + 0.02, 0.015, topD + 0.02), M.chrome, { pos: [0, topY + topH / 2 + 0.008, frontZ - topD / 2], parent: toolbox });
+  // ── Tall lockers (left single, right double) rise flush to the canopy top
+  (['lockerL', 'lockerR'] as const).forEach(k => {
+    const w = bw(k), cx = mid(k), lockerH = TOP_Y + CROWN_H - CASTER_H;
+    add(new THREE.BoxGeometry(w, lockerH, D), gloss, { pos: [cx, CASTER_H + lockerH / 2, 0], parent: toolbox });
+    const doors = k === 'lockerR' ? 2 : 1;
+    for (let i = 0; i < doors; i++) {
+      const dw = (w - 2 * IN) / doors;
+      const dx = cx - (w - 2 * IN) / 2 + dw * (i + 0.5);
+      add(new THREE.BoxGeometry(dw - 0.4 * IN, lockerH - 2 * IN, 0.5 * IN), glossFace, { pos: [dx, CASTER_H + lockerH / 2, frontZ + 0.15 * IN], parent: toolbox });
+      add(new THREE.CylinderGeometry(0.7 * IN, 0.7 * IN, 0.6 * IN, 12), M.chrome, { pos: [dx + (i === 0 ? 1 : -1) * dw * 0.32, COUNTER_Y + 9 * IN, frontZ + 0.5 * IN], rot: [Math.PI / 2, 0, 0], parent: toolbox });
+    }
+    // red-headed IMPORTANT placard, like the cards taped to the photo's lockers
+    putDecal(decal('', 7 * IN, 9.5 * IN, { bg: '#f4f2ee', header: 'IMPORTANT' }), cx - (k === 'lockerR' ? bw(k) * 0.24 : 0), COUNTER_Y + RISER_H + 2 * IN, frontZ + 0.45 * IN);
+  });
+  putDecal(decal('Snap-on', 10 * IN, 3 * IN, { color: '#3a3a40' }), mid('lockerR') + bw('lockerR') * 0.22, COUNTER_Y + 2 * IN, frontZ + 0.45 * IN);
 
-  // A drawer: recessed body + front face + pull handle + groove line,
-  // grouped so opening it slides the whole assembly out along local +z.
-  const buildDrawer = (key: DrawerKey, w: number, h: number, d: number, pos: [number, number, number]) => {
+  // ── Chrome trim strip on every bay seam
+  (Object.keys(BAYS) as (keyof typeof BAYS)[]).slice(0, -1).forEach(k => {
+    add(new THREE.BoxGeometry(0.8 * IN, TOP_Y - CASTER_H, 0.5 * IN), M.chrome, { pos: [bayX[k][1], CASTER_H + (TOP_Y - CASTER_H) / 2, frontZ + 0.1 * IN], parent: toolbox });
+  });
+
+  // ── Drawers. Functional ones slide (userData contract shared with toggleDrawer);
+  // facade ones are solid faces with the same full-width Snap-on pull.
+  const drawerFace = (w: number, h: number, cx: number, cy: number, parent: THREE.Group) => {
+    add(new THREE.BoxGeometry(w, h - 0.3 * IN, 0.5 * IN), glossFace, { pos: [cx, cy, 0.25 * IN], parent });
+    add(new THREE.BoxGeometry(w * 0.95, 0.7 * IN, 0.7 * IN), M.chrome, { pos: [cx, cy + h / 2 - 0.75 * IN, 0.45 * IN], parent });
+  };
+  const buildDrawer = (key: DrawerKey, w: number, h: number, cx: number, cy: number) => {
     const d0 = new THREE.Group();
     d0.name = `toolbox-drawer-${key}`;
-    d0.position.set(...pos);
-    d0.userData.closedZ = pos[2];
-    d0.userData.openZ = pos[2] + d * 0.6;
+    d0.position.set(cx, cy, frontZ);
+    d0.userData.closedZ = frontZ;
+    d0.userData.openZ = frontZ + D * 0.55;
     toolbox.add(d0);
-    add(new THREE.BoxGeometry(w - 0.015, h - 0.01, d), M.darkMetal, { pos: [0, 0, -d / 2], parent: d0 });
-    add(new THREE.BoxGeometry(w, h, 0.02), M.red, { pos: [0, 0, 0.01], parent: d0 });
-    add(new THREE.BoxGeometry(w * 0.92, 0.006, 0.006), M.darkMetal, { pos: [0, h * 0.26, 0.022], parent: d0 });
-    add(new THREE.BoxGeometry(w * 0.35, 0.018, 0.02), M.chrome, { pos: [0, 0, 0.03], parent: d0 });
+    add(new THREE.BoxGeometry(w - 0.8 * IN, h - 0.5 * IN, D * 0.8), M.darkMetal, { pos: [0, 0, -D * 0.4], parent: d0 });
+    add(new THREE.BoxGeometry(w, h - 0.3 * IN, 0.5 * IN), glossFace, { pos: [0, 0, 0.25 * IN], parent: d0 });
+    add(new THREE.BoxGeometry(w * 0.95, 0.7 * IN, 0.7 * IN), M.chrome, { pos: [0, h / 2 - 0.75 * IN, 0.45 * IN], parent: d0 });
     return d0;
   };
+  const facade = new THREE.Group();
+  facade.name = 'toolbox-facade';
+  facade.position.set(0, 0, frontZ);
+  toolbox.add(facade);
 
-  // Bottom cabinet: 4 drawers, biggest/deepest tools at the bottom
-  const bottomSpecs: { key: DrawerKey; frac: number }[] = [
-    { key: 'general', frac: 0.30 },
-    { key: 'specialty', frac: 0.24 },
-    { key: 'wrenches-standard', frac: 0.23 },
-    { key: 'wrenches-metric', frac: 0.23 },
-  ];
-  const gap = 0.008, margin = 0.02;
-  const bottomUsable = botH - margin * 2 - gap * (bottomSpecs.length - 1);
-  let cy = (botY - botH / 2) + margin;
-  bottomSpecs.forEach(({ key, frac }) => {
-    const h = bottomUsable * frac;
-    buildDrawer(key, botW - 0.02, h, botD * 0.85, [0, cy + h / 2, frontZ]);
-    cy += h + gap;
+  // Fill a column with drawer rows; rows in `live` become the functional drawers.
+  const column = (cx: number, w: number, rows: number[], live: Partial<Record<number, DrawerKey>>) => {
+    const usable = COUNTER_Y - CASTER_H - 2 * IN;
+    const total = rows.reduce((a, b) => a + b, 0);
+    let y = COUNTER_Y - 1 * IN; // fill top→down like the photo's shallow-to-deep banks
+    rows.forEach((rh, i) => {
+      const h = (rh / total) * usable;
+      const cy = y - h / 2;
+      const key = live[i];
+      if (key) buildDrawer(key, w - 0.8 * IN, h - 0.25 * IN, cx, cy);
+      else drawerFace(w - 0.8 * IN, h - 0.25 * IN, cx, cy, facade);
+      y -= h;
+    });
+  };
+
+  // Bay A: wide column of 6 + narrow column of 8 (sockets live top-right, like a real setup —
+  // small parts closest to hand). Rows are relative heights, shallow up top.
+  column(mid('bankA') - bw('bankA') * 0.23, bw('bankA') * 0.52, [2, 2, 2.6, 3, 3.6, 4.2], {});
+  column(mid('bankA') + bw('bankA') * 0.27, bw('bankA') * 0.42, [2, 2, 2, 2.4, 2.8, 3, 3.4, 3.8], { 0: 'sockets-metric', 1: 'sockets-standard' });
+
+  // Bay B: two even banks of 8 shallow rows; wrenches live in the left bank
+  column(mid('bankB') - bw('bankB') * 0.25, bw('bankB') * 0.46, [2, 2, 2.2, 2.4, 2.8, 3, 3.4, 3.8], { 0: 'wrenches-metric', 1: 'wrenches-standard' });
+  column(mid('bankB') + bw('bankB') * 0.25, bw('bankB') * 0.46, [2, 2, 2.2, 2.4, 2.8, 3, 3.4, 3.8], {});
+  // keypad locks on the counter rail, silver discs like the photo
+  [mid('bankB') - 4 * IN, mid('bankB') + 4 * IN].forEach(x => {
+    add(new THREE.CylinderGeometry(1.1 * IN, 1.1 * IN, 0.5 * IN, 16), steel, { pos: [x, COUNTER_Y + 0.62 * IN, frontZ - 2 * IN], parent: toolbox });
   });
 
-  // Top chest: 2 drawers, small parts (sockets) up top and closest to hand
-  const topSpecs: { key: DrawerKey; frac: number }[] = [
-    { key: 'sockets-standard', frac: 0.5 },
-    { key: 'sockets-metric', frac: 0.5 },
-  ];
-  const topUsable = topH - margin * 2 - gap * (topSpecs.length - 1);
-  cy = (topY - topH / 2) + margin;
-  topSpecs.forEach(({ key, frac }) => {
-    const h = topUsable * frac;
-    buildDrawer(key, topW - 0.02, h, topD * 0.85, [0, cy + h / 2, frontZ]);
-    cy += h + gap;
-  });
+  // Bay C: full-width stack — specialty on top, the deep "MR. BIG" drawer (general) at the bottom
+  column(mid('bankC'), bw('bankC'), [2, 2.2, 2.6, 3, 3.6, 6.5], { 0: 'specialty', 5: 'general' });
+  putDecal(decal('Snap-on', 9 * IN, 2.6 * IN), mid('bankC'), COUNTER_Y - 1 * IN - (COUNTER_Y - CASTER_H - 2 * IN) * 0.45, frontZ + 0.6 * IN);
+  putDecal(decal('MR. BIG', 10 * IN, 3.2 * IN, { color: '#d7d9dd', italic: false }), mid('bankC') - bw('bankC') * 0.22, CASTER_H + 2.6 * IN, frontZ + 0.6 * IN);
+
   tick();
 
   // ══════════════════════════════════════
