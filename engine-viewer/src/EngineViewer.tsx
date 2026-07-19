@@ -325,6 +325,161 @@ const HOTSPOT_DATA = [
 ];
 
 // ─────────────────────────────────────────────────────────
+// X-RAY FLOW MODE — ghost the metal to ~12% opacity and stream additive
+// particles along the REAL routes, anchored to the same coordinates the
+// parts are modeled at: air (blue) in through the cleaner → turbo
+// compressor → charge pipe → intake manifold, pale air snaking down
+// through all six cylinders, hot exhaust (orange) out the log → turbine
+// → downpipe; coolant (teal) pump → block → head → thermostat →
+// radiator loop; oil (gold) pickup → filters → gallery → rockers →
+// drain-back, plus crank-splash droplets hopping in the pan; fuel
+// (yellow) filters → rail → injector.
+// ─────────────────────────────────────────────────────────
+type FlowSystem = {
+  points: THREE.Points;
+  path?: THREE.CurvePath<THREE.Vector3>;
+  count: number;
+  speed: number;
+  splash?: { x0: number; x1: number; z0: number; z1: number; floor: number; height: number };
+  seeds: Float32Array;
+};
+
+const flowPath = (pts: [number, number, number][]) => {
+  const path = new THREE.CurvePath<THREE.Vector3>();
+  path.add(new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(...p))));
+  return path;
+};
+
+const makeFlow = (
+  parent: THREE.Group, color: number, count: number, size: number, speed: number,
+  path?: THREE.CurvePath<THREE.Vector3>, splash?: FlowSystem['splash'],
+): FlowSystem => {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(count * 3), 3));
+  const mat = new THREE.PointsMaterial({
+    color, size, transparent: true, opacity: 0.9, depthWrite: false,
+    blending: THREE.AdditiveBlending, sizeAttenuation: true,
+  });
+  const points = new THREE.Points(geo, mat);
+  points.name = 'flow-points';
+  points.frustumCulled = false;
+  parent.add(points);
+  const seeds = new Float32Array(count * 3);
+  for (let i = 0; i < count * 3; i++) seeds[i] = Math.random();
+  return { points, path, count, speed, splash, seeds };
+};
+
+const buildFlowSystems = (): { flowGroup: THREE.Group; systems: FlowSystem[] } => {
+  const flowGroup = new THREE.Group();
+  flowGroup.name = 'flow-systems';
+  flowGroup.visible = false;
+  const systems: FlowSystem[] = [];
+
+  // Cool intake air: cleaner duct → compressor → charge pipe → intake manifold
+  systems.push(makeFlow(flowGroup, 0x7fd0ff, 130, 0.05, 0.055, flowPath([
+    [1.25, 0.15, 0.75],
+    [0.85, 0.24, 0.62],
+    [0.73, 0.26, 0.52],
+    [0.6, -0.06, 0.58],
+    [0.98, -0.02, 0.2],
+    [0.98, 0.34, -0.22],
+    [0.85, 0.42, -0.3],
+    [-0.85, 0.42, -0.3],
+  ])));
+
+  // Air working through the six cylinders: intake port → bore → exhaust port
+  const cyl: [number, number, number][] = [];
+  for (let i = 0; i < 6; i++) {
+    const rx = -0.78 + i * 0.31;
+    cyl.push([rx, 0.40, -0.24], [rx, -0.15, 0], [rx, 0.44, 0.36], [rx, 0.60, 0.52]);
+  }
+  systems.push(makeFlow(flowGroup, 0xb9c7d2, 120, 0.045, 0.05, flowPath(cyl)));
+
+  // Hot exhaust: log → turbine flange → through the turbo → downpipe out back
+  systems.push(makeFlow(flowGroup, 0xff9a55, 90, 0.055, 0.06, flowPath([
+    [-0.78, 0.60, 0.52],
+    [0.33, 0.60, 0.52],
+    [0.33, 0.50, 0.52],
+    [0.47, 0.26, 0.52],
+    [0.42, -0.1, 0.72],
+    [0.9, -0.55, 0.9],
+    [1.7, -0.6, 0.95],
+  ])));
+
+  // Coolant loop: pump → block gallery → head → thermostat → radiator → pump
+  systems.push(makeFlow(flowGroup, 0x35e0c8, 110, 0.045, 0.045, flowPath([
+    [-0.98, 0.02, 0.16],
+    [-0.5, 0.05, 0.22],
+    [0.4, 0.1, 0.22],
+    [0.85, 0.2, 0.1],
+    [0.8, 0.45, 0.0],
+    [-0.5, 0.48, 0.05],
+    [-0.95, 0.36, 0.12],
+    [-1.35, 0.4, 0.1],
+    [-1.55, 0.05, 0.05],
+    [-1.35, -0.3, 0.1],
+    [-0.98, 0.02, 0.16],
+  ])));
+
+  // Oil circulation: pan pickup → spin-on filters → main gallery → rockers → drain-back
+  systems.push(makeFlow(flowGroup, 0xffb340, 90, 0.05, 0.04, flowPath([
+    [0.2, -0.72, 0.05],
+    [0.2, -0.7, 0.39],
+    [0.02, -0.65, 0.39],
+    [0.4, -0.3, 0.3],
+    [0.4, 0.0, 0.28],
+    [-0.3, 0.3, 0.2],
+    [-0.3, 0.55, 0.0],
+    [-0.1, 0.1, -0.1],
+    [0.0, -0.55, 0.0],
+  ])));
+
+  // Oil splash: crank-thrown droplets hopping around inside the pan
+  systems.push(makeFlow(flowGroup, 0xffa726, 80, 0.04, 1.4, undefined,
+    { x0: -0.95, x1: 0.95, z0: -0.27, z1: 0.27, floor: -0.72, height: 0.35 }));
+
+  // Fuel: left-side filters → around the head → rail run → injector → cylinder
+  systems.push(makeFlow(flowGroup, 0xffe14d, 60, 0.04, 0.05, flowPath([
+    [-0.35, -0.45, -0.42],
+    [-0.5, 0.0, -0.35],
+    [-0.75, 0.3, 0.1],
+    [-0.77, 0.3, 0.22],
+    [0.78, 0.3, 0.22],
+    [0.79, 0.2, 0.22],
+    [0.79, 0.05, 0.1],
+  ])));
+
+  return { flowGroup, systems };
+};
+
+const updateFlows = (systems: FlowSystem[], t: number) => {
+  const v = new THREE.Vector3();
+  systems.forEach(sys => {
+    const pos = sys.points.geometry.getAttribute('position') as THREE.BufferAttribute;
+    for (let i = 0; i < sys.count; i++) {
+      if (sys.path) {
+        const u = (sys.seeds[i * 3] + t * sys.speed) % 1;
+        sys.path.getPoint(u, v);
+        // slight scatter so streams read as moving volume, not a bead chain
+        pos.setXYZ(i,
+          v.x + (sys.seeds[i * 3 + 1] - 0.5) * 0.035,
+          v.y + (sys.seeds[i * 3 + 2] - 0.5) * 0.035,
+          v.z + (sys.seeds[i * 3] - 0.5) * 0.035);
+      } else if (sys.splash) {
+        const s = sys.splash;
+        const p = sys.seeds[i * 3] * Math.PI * 2;
+        const hop = Math.abs(Math.sin(t * sys.speed + p * 3));
+        pos.setXYZ(i,
+          s.x0 + sys.seeds[i * 3 + 1] * (s.x1 - s.x0) + Math.sin(t * 0.9 + p) * 0.05,
+          s.floor + hop * s.height * (0.3 + sys.seeds[i * 3 + 2] * 0.7),
+          s.z0 + sys.seeds[i * 3 + 2] * (s.z1 - s.z0) + Math.cos(t * 1.1 + p) * 0.04);
+      }
+    }
+    pos.needsUpdate = true;
+  });
+};
+
+// ─────────────────────────────────────────────────────────
 // Main Component
 // ─────────────────────────────────────────────────────────
 export default function EngineViewer() {
