@@ -2013,7 +2013,7 @@ export default function EngineViewer() {
 // ─────────────────────────────────────────────────────────
 // Procedural Volvo D13 Engine Builder
 // ─────────────────────────────────────────────────────────
-function buildVolvoD13(
+export function buildVolvoD13(
   group: THREE.Group,
   setProgress: (n: number) => void,
   setLoading: (b: boolean) => void,
@@ -2370,29 +2370,235 @@ function buildVolvoD13(
   // ══════════════════════════════════════
   add(new THREE.BoxGeometry(1.8, 0.12, 0.2), M.teal, { pos: [0, 0.42, -0.3] });
 
-  // EGR cooler: long finned aluminium box along the right side, above
-  // the exhaust manifold (top photo: the plated "VOLVO D13" box)
-  add(new THREE.BoxGeometry(0.78, 0.13, 0.16), M.brushedMetal, { pos: [-0.30, 0.74, 0.50] });
-  for (let i = 0; i < 4; i++) {
-    add(new THREE.BoxGeometry(0.78, 0.012, 0.17), M.darkMetal, { pos: [-0.30, 0.695 + i * 0.03, 0.50] });
+  // EGR cooler — docs/reference/egr/01 + 02: Volvo-green CAST housing
+  // (not bare aluminium) lying along the right side above the exhaust
+  // manifold. Recognition features from the photos: rounded cast body
+  // with vertical rib lines, TWO bright steel band clamps around the
+  // shell, a stainless bellows at the front end, and a rust-red
+  // silicone coupler joining the hot pipe at the rear.
+  const egrCooler = new THREE.Group();
+  egrCooler.name = 'egr-cooler';
+  group.add(egrCooler);
+  const EGR_Y = 0.74, EGR_Z = 0.50;
+  // Rounded cast shell: box core + half-round crown along the top
+  add(new THREE.BoxGeometry(0.74, 0.13, 0.16), M.teal, { pos: [-0.30, EGR_Y, EGR_Z], parent: egrCooler });
+  add(new THREE.CylinderGeometry(0.08, 0.08, 0.74, 16, 1, false, 0, Math.PI), M.teal,
+    { pos: [-0.30, EGR_Y + 0.055, EGR_Z], rot: [0, 0, Math.PI / 2], parent: egrCooler });
+  // Cast rib lines around the shell (photo 01)
+  for (let i = 0; i < 6; i++) {
+    add(new THREE.BoxGeometry(0.012, 0.145, 0.175), M.darkTeal,
+      { pos: [-0.60 + i * 0.12, EGR_Y, EGR_Z], parent: egrCooler, shadow: false });
   }
-  // Hot-side feed: exhaust manifold rear up into the cooler
+  // Two bright band clamps with a small tensioner block on top
+  for (const bx of [-0.46, -0.13]) {
+    add(new THREE.CylinderGeometry(0.098, 0.098, 0.024, 18, 1, true), M.chrome,
+      { pos: [bx, EGR_Y + 0.01, EGR_Z], rot: [0, 0, Math.PI / 2], parent: egrCooler, shadow: false });
+    add(new THREE.BoxGeometry(0.03, 0.025, 0.02), M.brushedMetal,
+      { pos: [bx, EGR_Y + 0.105, EGR_Z], parent: egrCooler, shadow: false });
+  }
+  // Cooled-gas outlet at the FRONT end: short stainless bellows section,
+  // then a cast pipe diving down-forward to meet the EGR valve's down-
+  // facing elbow mouth from below (photo 02 shows the valve's elbow
+  // pointing down into a clamped coupler like this)
   add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
-    new THREE.Vector3(-0.70, 0.60, 0.52),
-    new THREE.Vector3(-0.69, 0.68, 0.51),
-    new THREE.Vector3(-0.66, 0.74, 0.50),
-  ]), 8, 0.034, 10, false), M.darkMetal, { shadow: false });
-  // EGR crossover with venturi flow-measurement section: cooler outlet
-  // over the valve cover to the intake manifold
+    new THREE.Vector3(0.07, EGR_Y - 0.02, EGR_Z),
+    new THREE.Vector3(0.078, 0.63, EGR_Z + 0.005),
+    new THREE.Vector3(0.105, 0.545, EGR_Z),
+  ]), 12, 0.038, 10, false), castIron, { parent: egrCooler, shadow: false });
+  for (let i = 0; i < 3; i++) {
+    add(new THREE.TorusGeometry(0.045, 0.010, 8, 18), M.brushedMetal,
+      { pos: [0.071 + i * 0.004, 0.70 - i * 0.026, EGR_Z], rot: [Math.PI / 2, 0, 0], parent: egrCooler, shadow: false });
+  }
+  // Rust-red silicone coupler + clamps at the REAR, joining the hot pipe
+  add(new THREE.CylinderGeometry(0.05, 0.05, 0.09, 14), M.red,
+    { pos: [-0.71, EGR_Y, EGR_Z], rot: [0, 0, Math.PI / 2], parent: egrCooler, shadow: false });
+  for (const cx of [-0.745, -0.675]) {
+    add(new THREE.CylinderGeometry(0.056, 0.056, 0.012, 14, 1, true), M.chrome,
+      { pos: [cx, EGR_Y, EGR_Z], rot: [0, 0, Math.PI / 2], parent: egrCooler, shadow: false });
+  }
+  // Hot-side feed: exhaust manifold rear up into the cooler rear coupler
   add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0.06, 0.74, 0.50),
-    new THREE.Vector3(0.14, 0.84, 0.20),
-    new THREE.Vector3(0.16, 0.84, -0.10),
-    new THREE.Vector3(0.15, 0.60, -0.28),
-    new THREE.Vector3(0.15, 0.48, -0.29),
-  ]), 16, 0.032, 10, false), M.chrome, { shadow: false });
-  // Venturi taper at the intake end (the D13 measures EGR flow here)
-  add(new THREE.CylinderGeometry(0.045, 0.032, 0.09, 12), M.chrome, { pos: [0.15, 0.55, -0.285], shadow: false });
+    new THREE.Vector3(-0.80, 0.60, 0.52),
+    new THREE.Vector3(-0.80, 0.70, 0.51),
+    new THREE.Vector3(-0.76, EGR_Y, EGR_Z),
+  ]), 8, 0.042, 10, false), castIron, { parent: egrCooler, shadow: false });
+  tick();
+
+  // EGR VALVE / coolant-transfer-tube assembly — docs/reference/egr/04,
+  // all three views in that screenshot (main eBay photo lying on its
+  // side, YouTube inset standing next to the black venturi, bench inset).
+  // Measured off the main photo with the green barrel OD as anchor A:
+  //   overall length ≈ 5.7 A · ribbed black 90° elbow tube OD ≈ 1.1 A,
+  //   mouth flare ≈ 1.3 A · steel band clamp ≈ 0.5 A wide at the
+  //   elbow↔casting joint · actuator box ≈ 1.6 A × 0.8 A on top with a
+  //   round cap and a connector on its end face · last ≈ 1.5 A of the
+  //   barrel heat-stained · outlet snout flares 0.75 A → 1.15 A, open
+  //   flanged mouth angled slightly up.
+  // Scene scale: A = 0.10 units (engine block 2.1 units ≈ 1366 mm).
+  const egrValve = new THREE.Group();
+  egrValve.name = 'service-egr-valve';
+  group.add(egrValve);
+  // Green cast barrel, spans x 0.235–0.555 (3.2 A), slight taper
+  add(new THREE.CylinderGeometry(0.048, 0.050, 0.32, 14), M.teal,
+    { pos: [0.395, EGR_Y, EGR_Z], rot: [0, 0, Math.PI / 2], parent: egrValve });
+  // Cast step rings (photo: two visible diameter steps along the body)
+  add(new THREE.CylinderGeometry(0.057, 0.057, 0.028, 14), M.darkTeal,
+    { pos: [0.28, EGR_Y, EGR_Z], rot: [0, 0, Math.PI / 2], parent: egrValve, shadow: false });
+  add(new THREE.CylinderGeometry(0.054, 0.054, 0.022, 14), M.darkTeal,
+    { pos: [0.47, EGR_Y, EGR_Z], rot: [0, 0, Math.PI / 2], parent: egrValve, shadow: false });
+  // Casting webs under the body (bench inset shows chunky webs)
+  add(new THREE.BoxGeometry(0.10, 0.05, 0.016), M.teal,
+    { pos: [0.33, EGR_Y - 0.035, EGR_Z], parent: egrValve, shadow: false });
+  add(new THREE.BoxGeometry(0.08, 0.04, 0.016), M.teal,
+    { pos: [0.46, EGR_Y - 0.03, EGR_Z], parent: egrValve, shadow: false });
+  // Green inlet stub + wide bright band clamp at the elbow↔casting joint
+  add(new THREE.CylinderGeometry(0.048, 0.048, 0.055, 14), M.teal,
+    { pos: [0.2075, EGR_Y, EGR_Z], rot: [0, 0, Math.PI / 2], parent: egrValve });
+  add(new THREE.CylinderGeometry(0.0565, 0.0565, 0.045, 18, 1, true), M.chrome,
+    { pos: [0.213, EGR_Y, EGR_Z], rot: [0, 0, Math.PI / 2], parent: egrValve, shadow: false });
+  add(new THREE.BoxGeometry(0.03, 0.028, 0.022), M.brushedMetal,
+    { pos: [0.213, EGR_Y + 0.062, EGR_Z], parent: egrValve, shadow: false });
+  // Ribbed BLACK 90° elbow: quarter-bend off the barrel axis, mouth
+  // facing straight down (photo 04 main + photo 02 installed)
+  add(new THREE.TorusGeometry(0.075, 0.050, 10, 14, Math.PI / 2), M.black,
+    { pos: [0.18, 0.665, EGR_Z], rot: [0, 0, Math.PI / 2], parent: egrValve });
+  add(new THREE.CylinderGeometry(0.050, 0.050, 0.065, 14), M.black,
+    { pos: [0.105, 0.6325, EGR_Z], parent: egrValve });
+  // Raised rings that make the elbow read as ribbed
+  for (let i = 0; i < 3; i++) {
+    add(new THREE.TorusGeometry(0.052, 0.010, 8, 16), M.black,
+      { pos: [0.105, 0.655 - i * 0.022, EGR_Z], rot: [Math.PI / 2, 0, 0], parent: egrValve, shadow: false });
+  }
+  // Flared mouth ring at the bottom of the elbow
+  add(new THREE.CylinderGeometry(0.056, 0.056, 0.014, 14), M.black,
+    { pos: [0.105, 0.598, EGR_Z], parent: egrValve, shadow: false });
+  // Actuator/motor housing on a cast pedestal: 1.6 A × 0.8 A box with a
+  // darker lid, round cap boss, and connector on the +x end face
+  add(new THREE.BoxGeometry(0.10, 0.05, 0.06), M.teal,
+    { pos: [0.34, EGR_Y + 0.035, EGR_Z], parent: egrValve });
+  add(new THREE.BoxGeometry(0.16, 0.075, 0.09), M.teal,
+    { pos: [0.34, EGR_Y + 0.088, EGR_Z], parent: egrValve });
+  add(new THREE.BoxGeometry(0.15, 0.012, 0.082), M.darkTeal,
+    { pos: [0.34, EGR_Y + 0.130, EGR_Z], parent: egrValve, shadow: false });
+  add(new THREE.CylinderGeometry(0.020, 0.020, 0.012, 12), M.darkTeal,
+    { pos: [0.30, EGR_Y + 0.140, EGR_Z], parent: egrValve, shadow: false });
+  // Mounting bosses under the heat-stained end (bolts are separate,
+  // removable service parts added below)
+  for (const bx of [0.36, 0.52]) {
+    add(new THREE.CylinderGeometry(0.014, 0.014, 0.035, 8), M.darkTeal,
+      { pos: [bx, EGR_Y - 0.055, EGR_Z], parent: egrValve, shadow: false });
+  }
+  // Heat-stained sleeve over the outlet end of the barrel
+  add(new THREE.CylinderGeometry(0.0505, 0.0505, 0.06, 14), castIron,
+    { pos: [0.525, EGR_Y, EGR_Z], rot: [0, 0, Math.PI / 2], parent: egrValve, shadow: false });
+  // Flared outlet snout, open flanged mouth, angled slightly up
+  add(new THREE.CylinderGeometry(0.058, 0.036, 0.11, 14), M.darkMetal,
+    { pos: [0.605, EGR_Y + 0.012, EGR_Z], rot: [0, 0, Math.PI / 2 - 0.12], parent: egrValve });
+  add(new THREE.CylinderGeometry(0.062, 0.062, 0.012, 14), M.darkMetal,
+    { pos: [0.652, EGR_Y + 0.018, EGR_Z], rot: [0, 0, Math.PI / 2 - 0.12], parent: egrValve, shadow: false });
+  tick();
+
+  // Detachable EGR valve service parts (stay behind / come off separately
+  // when the valve is removed — same pattern as the turbo parts)
+  // Harness connector on the actuator end face, with a short cable
+  const egrHarness = new THREE.Group();
+  egrHarness.name = 'service-egr-harness';
+  group.add(egrHarness);
+  add(new THREE.BoxGeometry(0.035, 0.03, 0.035), M.black,
+    { pos: [0.435, EGR_Y + 0.088, EGR_Z], parent: egrHarness, shadow: false });
+  add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.45, EGR_Y + 0.088, EGR_Z),
+    new THREE.Vector3(0.52, EGR_Y + 0.11, EGR_Z + 0.03),
+    new THREE.Vector3(0.60, EGR_Y + 0.10, EGR_Z + 0.06),
+  ]), 8, 0.008, 6, false), M.rubber, { parent: egrHarness, shadow: false });
+  // Rust-red silicone coupler + two worm clamps joining the elbow mouth
+  // to the cooler outlet pipe below it
+  const egrCoupler = new THREE.Group();
+  egrCoupler.name = 'service-egr-coupler';
+  group.add(egrCoupler);
+  add(new THREE.CylinderGeometry(0.052, 0.052, 0.048, 14), M.red,
+    { pos: [0.105, 0.568, EGR_Z], parent: egrCoupler, shadow: false });
+  for (const cy of [0.586, 0.550]) {
+    add(new THREE.CylinderGeometry(0.057, 0.057, 0.011, 14, 1, true), M.chrome,
+      { pos: [0.105, cy, EGR_Z], parent: egrCoupler, shadow: false });
+  }
+  // V-band clamp holding the crossover pipe onto the snout mouth
+  add(new THREE.CylinderGeometry(0.066, 0.066, 0.016, 16, 1, true), M.chrome,
+    { pos: [0.660, EGR_Y + 0.019, EGR_Z], rot: [0, 0, Math.PI / 2 - 0.12], shadow: false }).name = 'service-egr-vband';
+  // Two mounting bolts under the bosses
+  [0.36, 0.52].forEach((bx, i) => {
+    add(new THREE.CylinderGeometry(0.011, 0.011, 0.03, 6), M.darkMetal,
+      { pos: [bx, EGR_Y - 0.078, EGR_Z], shadow: false }).name = `service-egr-bolt-${i}`;
+  });
+  tick();
+
+  // EGR crossover: valve snout up and over the valve cover to the
+  // venturi on the intake side (the one legitimate side-crossing pipe)
+  add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.665, EGR_Y + 0.02, EGR_Z),
+    new THREE.Vector3(0.30, 0.90, 0.20),
+    new THREE.Vector3(0.19, 0.90, -0.10),
+    new THREE.Vector3(0.15, 0.73, -0.26),
+    new THREE.Vector3(0.15, 0.668, -0.285),
+  ]), 20, 0.030, 10, false), M.darkMetal, { shadow: false });
+
+  // VENTURI pipe — docs/reference/egr/04, YouTube inset "EGR Venturi
+  // Pipe (Volvo/Freightliner)": the separate BLACK tube standing next to
+  // the green valve. Measured off that inset with the tube OD as anchor:
+  //   height ≈ 4 × OD · near-STRAIGHT outside (the venturi profile is
+  //   internal — no external hourglass) with one cast step ring at ≈ 40%
+  //   height · oval bottom flange ≈ 1.6 × OD · round two-bolt sensor pad
+  //   facing sideways mid-body · slight collar at the top where the
+  //   crossover clamps on. Delta-P taps per exploded diagram 03 (#16).
+  const egrVenturi = new THREE.Group();
+  egrVenturi.name = 'service-egr-venturi';
+  group.add(egrVenturi);
+  const VX = 0.15, VZ = -0.285;
+  // Lower tube, step ring, upper tube — straight silhouette per photo
+  add(new THREE.CylinderGeometry(0.028, 0.028, 0.075, 16), M.black,
+    { pos: [VX, 0.514, VZ], parent: egrVenturi });
+  add(new THREE.CylinderGeometry(0.033, 0.033, 0.020, 16), M.black,
+    { pos: [VX, 0.560, VZ], parent: egrVenturi, shadow: false });
+  add(new THREE.CylinderGeometry(0.0255, 0.0255, 0.085, 16), M.black,
+    { pos: [VX, 0.6125, VZ], parent: egrVenturi });
+  // Oval bottom flange (bolts are separate, removable service parts)
+  const vFlange = add(new THREE.CylinderGeometry(0.045, 0.045, 0.016, 14), M.black,
+    { pos: [VX, 0.468, VZ], parent: egrVenturi });
+  vFlange.scale.x = 1.6;
+  // Round two-bolt delta-P sensor pad facing outward mid-body
+  add(new THREE.CylinderGeometry(0.019, 0.019, 0.014, 12), M.darkMetal,
+    { pos: [VX, 0.585, VZ - 0.030], rot: [Math.PI / 2, 0, 0], parent: egrVenturi, shadow: false });
+  for (const nx of [VX - 0.011, VX + 0.011]) {
+    add(new THREE.CylinderGeometry(0.006, 0.006, 0.018, 6), M.darkMetal,
+      { pos: [nx, 0.585, VZ - 0.038], rot: [Math.PI / 2, 0, 0], parent: egrVenturi, shadow: false });
+  }
+  // Delta-P pressure taps: inlet-side and throat-side nipples
+  add(new THREE.CylinderGeometry(0.009, 0.009, 0.03, 8), M.darkMetal,
+    { pos: [VX + 0.038, 0.628, VZ], rot: [0, 0, Math.PI / 2], parent: egrVenturi, shadow: false });
+  add(new THREE.CylinderGeometry(0.009, 0.009, 0.03, 8), M.darkMetal,
+    { pos: [VX + 0.040, 0.535, VZ], rot: [0, 0, Math.PI / 2], parent: egrVenturi, shadow: false });
+  tick();
+
+  // Detachable venturi service parts
+  // Sensor line joining the two taps into the delta-P sensor block
+  const venturiLine = new THREE.Group();
+  venturiLine.name = 'service-venturi-line';
+  group.add(venturiLine);
+  add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+    new THREE.Vector3(VX + 0.053, 0.628, VZ),
+    new THREE.Vector3(VX + 0.09, 0.582, VZ + 0.01),
+    new THREE.Vector3(VX + 0.055, 0.535, VZ),
+  ]), 8, 0.004, 6, false), M.black, { parent: venturiLine, shadow: false });
+  add(new THREE.BoxGeometry(0.035, 0.025, 0.02), M.darkMetal,
+    { pos: [VX + 0.095, 0.582, VZ + 0.015], parent: venturiLine, shadow: false });
+  // Clamp collar holding the crossover onto the venturi top
+  add(new THREE.CylinderGeometry(0.031, 0.031, 0.016, 16, 1, true), M.chrome,
+    { pos: [VX, 0.660, VZ], shadow: false }).name = 'service-venturi-clamp';
+  // Two flange bolts through the oval foot
+  [VX - 0.058, VX + 0.058].forEach((fx, i) => {
+    add(new THREE.CylinderGeometry(0.010, 0.010, 0.028, 6), M.darkMetal,
+      { pos: [fx, 0.478, VZ], shadow: false }).name = `service-venturi-bolt-${i}`;
+  });
   tick();
 
   // Charge pipe: compressor outlet flange forward over the front-top of
