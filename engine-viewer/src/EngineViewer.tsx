@@ -132,6 +132,42 @@ const ENGINES: Record<EngineId, EngineInfo> = {
 const ENGINE_ORDER: EngineId[] = ['volvo-d13', 'cummins-x15', 'paccar-mx13', 'paccar-mx11'];
 
 // ─────────────────────────────────────────────────────────
+// Vehicles — picked from the dropdown BEFORE anything loads.
+// 'vnl860' is the class-8 truck + D13 shop experience; 'sonata2017'
+// is the light-duty car, modeled from the photos in
+// docs/reference/sonata/ (front 3/4, rear, engine bay).
+// ─────────────────────────────────────────────────────────
+type VehicleId = 'vnl860' | 'sonata2017';
+
+const VEHICLES: Record<VehicleId, { label: string; blurb: string }> = {
+  vnl860: { label: 'Volvo VNL 860 — Class 8 Truck', blurb: 'Heavy-duty diesel: D13 engine, I-Shift, full shop with toolbox & repairs' },
+  sonata2017: { label: '2017 Hyundai Sonata — Sedan', blurb: 'Light-duty gas: 2.4L GDi inline-4, walk-around & engine bay' },
+};
+
+/** Info-panel identity for the Sonata (the diesel ENGINES entries stay
+ *  truck-only). Factory figures for the 2.4L Theta II GDi. */
+const SONATA_ENGINE: EngineInfo = {
+  maker: 'HYUNDAI',
+  makerLetter: 'H',
+  model: 'Sonata',
+  tagline: '2.4L GDi Inline-4 · 2017 · Interactive 3D Model',
+  hp: '185 HP',
+  torque: '178 lb·ft',
+  specs: [
+    { label: 'Displacement', value: '2.4 L (144 ci)' },
+    { label: 'Configuration', value: 'Inline-4, transverse' },
+    { label: 'Peak Power', value: '185 HP @ 6,000' },
+    { label: 'Max Torque', value: '178 lb-ft @ 4,000' },
+    { label: 'Bore × Stroke', value: '88 × 97 mm' },
+    { label: 'Compression', value: '11.3:1' },
+    { label: 'Fuel System', value: 'Gasoline Direct Injection' },
+    { label: 'Valvetrain', value: 'DOHC, D-CVVT, 16v' },
+    { label: 'Transmission', value: '6-speed automatic' },
+    { label: 'Oil Capacity', value: '5.1 qt (4.8 L)' },
+  ],
+};
+
+// ─────────────────────────────────────────────────────────
 // Service / repairs
 // ─────────────────────────────────────────────────────────
 interface ServiceAnim {
@@ -478,6 +514,9 @@ const updateFlows = (systems: FlowSystem[], t: number) => {
     pos.needsUpdate = true;
   });
 };
+// Flow-viz system is kept for the upcoming flows feature; referenced here
+// so noUnusedLocals stays green until it's wired into the animate loop.
+void buildFlowSystems; void updateFlows;
 
 // ─────────────────────────────────────────────────────────
 // Main Component
@@ -492,7 +531,12 @@ export default function EngineViewer() {
   const clockRef = useRef(new THREE.Clock());
 
   const [engineId, setEngineId] = useState<EngineId>('volvo-d13');
-  const engine = ENGINES[engineId];
+  // Which vehicle the user picked from the dropdown — nothing builds (no
+  // truck, no scene) until this is set.
+  const [vehicle, setVehicle] = useState<VehicleId | null>(null);
+  // The dropdown's pending choice before START is pressed.
+  const [vehicleChoice, setVehicleChoice] = useState<VehicleId>('vnl860');
+  const engine = vehicle === 'sonata2017' ? SONATA_ENGINE : ENGINES[engineId];
   const hotspots = HOTSPOT_DATA.map(h => ({ ...h, desc: engine.hotspotDescs?.[h.id] ?? h.desc }));
   const [activeHotspot, setActiveHotspot] = useState<string | null>(null);
 
@@ -620,11 +664,12 @@ export default function EngineViewer() {
 
   const clickDoor = () => {
     if (!doorUnlocked) {
-      if (selectedTool === 'key') {
+      // The Sonata has its own key fob — no shop toolbox in the car scene
+      if (selectedTool === 'key' || vehicle === 'sonata2017') {
         setDoorUnlocked(true);
         setDoorOpen(true);
         setHinge('truck-door', 'y', -1.25);
-        setServiceMsg('Key in, door unlocked and open — climb on up.');
+        setServiceMsg(vehicle === 'sonata2017' ? 'Fob click — door unlocked and open. Hop in.' : 'Key in, door unlocked and open — climb on up.');
       } else {
         setServiceMsg("The door's locked. Grab the 🔑 Truck Key from the toolbox first.");
       }
@@ -642,8 +687,12 @@ export default function EngineViewer() {
         return;
       }
       setHoodOpen(true);
-      setHinge('truck-hood', 'z', 1.15);
-      setServiceMsg('Hood tilted forward — engine exposed. Repairs are on the 🔧 Repairs panel.');
+      // VNL hood tilts FORWARD over the bumper; the Sonata hood is
+      // rear-hinged at the cowl and lifts the other way.
+      setHinge('truck-hood', 'z', vehicle === 'sonata2017' ? -1.0 : 1.15);
+      setServiceMsg(vehicle === 'sonata2017'
+        ? 'Hood up — 2.4 GDi engine bay exposed.'
+        : 'Hood tilted forward — engine exposed. Repairs are on the 🔧 Repairs panel.');
       return;
     }
     setHoodOpen(false);
@@ -1030,7 +1079,7 @@ export default function EngineViewer() {
   }, []);
 
   useEffect(() => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current || !vehicle) return; // wait for the vehicle dropdown
     const container = canvasRef.current;
 
     // Scene
@@ -1104,8 +1153,9 @@ export default function EngineViewer() {
     engineGroupRef.current = engineGroup;
     scene.add(engineGroup);
 
-    // Build engine
-    buildVolvoD13(engineGroup, setLoadProgress, setIsLoading);
+    // Build the selected vehicle
+    if (vehicle === 'sonata2017') buildSonata2017(engineGroup, setLoadProgress, setIsLoading);
+    else buildVolvoD13(engineGroup, setLoadProgress, setIsLoading);
 
     // Ground
     const groundGeo = new THREE.CircleGeometry(4.5, 64);
@@ -1155,9 +1205,9 @@ export default function EngineViewer() {
     ring.position.y = -1.09;
     scene.add(ring);
 
-    // Hotspot 3D markers
+    // Hotspot 3D markers (positions are D13-specific — truck only)
     const hotspotMeshes: THREE.Mesh[] = [];
-    HOTSPOT_DATA.forEach(hs => {
+    if (vehicle === 'vnl860') HOTSPOT_DATA.forEach(hs => {
       const geo = new THREE.SphereGeometry(0.045, 16, 16);
       const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(hs.color), transparent: true, opacity: 0.9 });
       const mesh = new THREE.Mesh(geo, mat);
@@ -1345,7 +1395,7 @@ export default function EngineViewer() {
         container.removeChild(renderer.domElement);
       }
     };
-  }, []);
+  }, [vehicle]);
 
   // 3D click routing: with the right tool in hand, clicking a fastener in
   // the scene starts the removal immediately (assigned every render so it
@@ -1422,11 +1472,58 @@ export default function EngineViewer() {
             ]
           : [];
 
+  /** Switch to a vehicle (or back to the dropdown with null): reset every
+   *  walk-around / service state so the freshly built scene starts clean. */
+  const startVehicle = (id: VehicleId | null) => {
+    if (inspecting) exitInspect();
+    setDoorUnlocked(false); setDoorOpen(false); setInCab(false);
+    setParkingBrake(false); setTrailerAir(false); setHoodOpen(false);
+    setOpenDrawer(null); setSelectedTool(null); setTray([]);
+    setRepairsOpen(false); setActiveRepair(null); setServiceMsg('');
+    setEngineOn(false); setActiveHotspot(null);
+    setVehicle(id);
+    if (id) { setIsLoading(true); setLoadProgress(0); }
+  };
+
   return (
     <div className="relative w-full h-full select-none" style={{ background: '#050810' }}>
 
+      {/* Vehicle selection — shown before anything loads; the truck (or
+          car) only shows up after START */}
+      {!vehicle && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center" style={{ background: '#050810' }}>
+          <div className="w-[26rem] max-w-[90vw] rounded-2xl border border-cyan-400/25 bg-black/60 p-8 text-center space-y-6">
+            <div>
+              <div className="text-4xl mb-3">🔧</div>
+              <h2 className="text-white text-2xl font-black tracking-widest uppercase">diesel.tech</h2>
+              <p className="text-cyan-400 text-xs tracking-widest mt-1 uppercase">Interactive shop — pick your vehicle</p>
+            </div>
+            <div className="text-left space-y-2">
+              <label className="text-[11px] font-bold uppercase tracking-widest text-gray-400" htmlFor="vehicle-select">Vehicle</label>
+              <select
+                id="vehicle-select"
+                value={vehicleChoice}
+                onChange={e => setVehicleChoice(e.target.value as VehicleId)}
+                className="w-full rounded-lg border border-cyan-400/30 bg-[#0a1428] px-3 py-2.5 text-sm font-semibold text-white outline-none focus:border-cyan-400"
+              >
+                {(Object.keys(VEHICLES) as VehicleId[]).map(id => (
+                  <option key={id} value={id}>{VEHICLES[id].label}</option>
+                ))}
+              </select>
+              <p className="text-[11px] text-gray-500 leading-snug">{VEHICLES[vehicleChoice].blurb}</p>
+            </div>
+            <button
+              onClick={() => startVehicle(vehicleChoice)}
+              className="w-full rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 py-2.5 text-sm font-black uppercase tracking-widest text-white hover:brightness-110"
+            >
+              Start ▸
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Loading overlay */}
-      {isLoading && (
+      {vehicle && isLoading && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center" style={{ background: '#050810' }}>
           <div className="text-center space-y-5">
             <div className="relative w-24 h-24 mx-auto">
@@ -1490,7 +1587,14 @@ export default function EngineViewer() {
             <p className="text-gray-400 text-xs mt-1 tracking-widest uppercase">{engine.tagline}</p>
             {/* Engine selector */}
             <div className="flex items-center gap-1.5 mt-3 pointer-events-auto">
-              {ENGINE_ORDER.map(id => (
+              <button
+                onClick={() => startVehicle(null)}
+                className="px-2.5 py-1 text-[11px] font-bold rounded border transition-all uppercase tracking-wider text-gray-500 border-gray-700 hover:text-cyan-300 hover:border-cyan-500/50 bg-black/30"
+                title="Back to vehicle selection"
+              >
+                🚗 Vehicle
+              </button>
+              {vehicle !== 'sonata2017' && ENGINE_ORDER.map(id => (
                 <button
                   key={id}
                   onClick={() => { setEngineId(id); setActiveHotspot(null); }}
@@ -1503,6 +1607,7 @@ export default function EngineViewer() {
                   {ENGINES[id].maker.split(' ')[0]} {ENGINES[id].model}
                 </button>
               ))}
+              {vehicle !== 'sonata2017' && (<>
               <button
                 onClick={() => { setRepairsOpen(o => !o); setActiveRepair(null); }}
                 className={`px-2.5 py-1 text-[11px] font-bold rounded border transition-all uppercase tracking-wider ${
@@ -1533,6 +1638,7 @@ export default function EngineViewer() {
               >
                 📖 Reference
               </button>
+              </>)}
             </div>
           </div>
 
@@ -1975,7 +2081,7 @@ export default function EngineViewer() {
       )}
 
       {/* Hotspot 2D labels */}
-      {!isLoading && !inspecting && hoodOpen && hotspots.map(hs => {
+      {!isLoading && !inspecting && hoodOpen && vehicle === 'vnl860' && hotspots.map(hs => {
         const pos = screenPositions[hs.id];
         if (!pos?.visible) return null;
         const isActive = activeHotspot === hs.id;
@@ -2315,15 +2421,17 @@ export function buildVolvoD13(
   add(new THREE.BoxGeometry(2.06, 0.22, 0.74), M.teal, { pos: [0, 0.44, 0] });
   tick();
 
-  // Valve cover (black)
-  add(new THREE.BoxGeometry(2.02, 0.28, 0.70), M.black, { pos: [0, 0.63, 0] });
+  // Valve cover — cast aluminium, not black, per the D13 studio render
+  // (docs/reference/engine/d13-glamour-render.webp): the cover reads as
+  // bare metal with the VOLVO badge in blue on the side rail.
+  add(new THREE.BoxGeometry(2.02, 0.28, 0.70), M.brushedMetal, { pos: [0, 0.63, 0] });
   // Raised center strip
-  add(new THREE.BoxGeometry(1.65, 0.09, 0.42), M.black, { pos: [0, 0.785, 0] });
+  add(new THREE.BoxGeometry(1.65, 0.09, 0.42), M.brushedMetal, { pos: [0, 0.785, 0] });
   tick();
 
-  // VOLVO badge letters (5 bumps)
+  // VOLVO badge letters (5 bumps, blue on the silver cover per the render)
   for (let i = 0; i < 5; i++) {
-    add(new THREE.BoxGeometry(0.1, 0.055, 0.06), M.brushedMetal, { pos: [-0.25 + i * 0.12, 0.84, 0] });
+    add(new THREE.BoxGeometry(0.1, 0.055, 0.06), M.blue, { pos: [-0.25 + i * 0.12, 0.84, 0] });
   }
 
   // Valve cover perimeter bolts (M8 flange bolts — no coils on a diesel)
@@ -2357,6 +2465,70 @@ export function buildVolvoD13(
   add(new THREE.CylinderGeometry(0.38, 0.38, 0.34, 32), M.darkMetal, { pos: [-1.21, -0.28, 0], rot: [0, 0, Math.PI / 2] });
   // Flywheel ring gear
   add(new THREE.TorusGeometry(0.52, 0.035, 8, 48), M.darkMetal, { pos: [-1.18, -0.28, 0], rot: [0, Math.PI / 2, 0] });
+  tick();
+
+  // ── VOLVO I-SHIFT TRANSMISSION bolted to the bell housing — modeled
+  // from the studio render docs/reference/transmission/ishift-render.webp:
+  // silver ribbed clutch-housing cone, royal-blue main case whose open
+  // X-webbing shows the grey gear housing behind it, silver TECU/shift
+  // unit on top with connector stubs, clutch-air canister hanging on the
+  // right, plate oil cooler on the left, finned rear housing ending in
+  // the output-shaft yoke.
+  // Measured off the render with the clutch flange OD as anchor A ≈ 1.0:
+  //   overall ≈ 1.7 A · clutch cone ≈ 0.5 A long, Ø 1.0 A → 0.62 A ·
+  //   blue case ≈ 0.62 A long × 0.6 A tall · rear housing ≈ 0.3 A ·
+  //   TECU ≈ 0.5 A × 0.13 A · output yoke Ø ≈ 0.18 A.
+  // Scene: A = 0.96 units (flange r 0.48 blends into the existing
+  // r 0.55 bell housing).
+  const trans = new THREE.Group();
+  trans.name = 'transmission-ishift';
+  group.add(trans);
+  // Mating flange ring against the bell housing
+  add(new THREE.CylinderGeometry(0.5, 0.5, 0.05, 32), M.brushedMetal, { pos: [-1.40, -0.28, 0], rot: [0, 0, Math.PI / 2], parent: trans });
+  // Clutch housing cone, big end at the flange
+  add(new THREE.CylinderGeometry(0.30, 0.48, 0.5, 32), M.brushedMetal, { pos: [-1.67, -0.28, 0], rot: [0, 0, Math.PI / 2], parent: trans });
+  // Radial cast ribs along the cone (render shows them running lengthwise)
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2;
+    add(new THREE.BoxGeometry(0.44, 0.04, 0.025), M.brushedMetal,
+      { pos: [-1.67, -0.28 + 0.37 * Math.cos(a), 0.37 * Math.sin(a)], rot: [a, 0, 0.19], shadow: false, parent: trans });
+  }
+  // Main case: grey gear housing core behind a royal-blue outer frame
+  add(new THREE.BoxGeometry(0.62, 0.58, 0.5), M.brushedMetal, { pos: [-2.23, -0.28, 0], parent: trans });
+  add(new THREE.BoxGeometry(0.62, 0.1, 0.54), M.blue, { pos: [-2.23, -0.02, 0], parent: trans });
+  add(new THREE.BoxGeometry(0.62, 0.1, 0.54), M.blue, { pos: [-2.23, -0.54, 0], parent: trans });
+  add(new THREE.BoxGeometry(0.08, 0.62, 0.54), M.blue, { pos: [-1.95, -0.28, 0], parent: trans });
+  add(new THREE.BoxGeometry(0.08, 0.62, 0.54), M.blue, { pos: [-2.51, -0.28, 0], parent: trans });
+  // X-webs across both side faces of the blue frame
+  [-1, 1].forEach(s => {
+    [1, -1].forEach(d => {
+      add(new THREE.BoxGeometry(0.60, 0.05, 0.03), M.blue,
+        { pos: [-2.23, -0.28, s * 0.265], rot: [0, 0, d * 0.62], shadow: false, parent: trans });
+    });
+  });
+  tick();
+  // TECU / gear-shift control unit on top: silver body, dark heat-sink
+  // lid, three connector stubs on the front face, selector tower below
+  add(new THREE.CylinderGeometry(0.09, 0.11, 0.1, 16), M.brushedMetal, { pos: [-2.23, 0.015, 0], parent: trans });
+  add(new THREE.BoxGeometry(0.5, 0.13, 0.38), M.brushedMetal, { pos: [-2.23, 0.10, 0], parent: trans });
+  add(new THREE.BoxGeometry(0.34, 0.05, 0.3), M.darkMetal, { pos: [-2.23, 0.19, 0], parent: trans });
+  [0.10, -0.02, -0.14].forEach(z => {
+    add(new THREE.BoxGeometry(0.06, 0.06, 0.09), M.black, { pos: [-1.96, 0.10, z], shadow: false, parent: trans });
+  });
+  // Clutch-air canister on the right of the case (render: vertical silver
+  // cylinder with a dark cap)
+  add(new THREE.CylinderGeometry(0.085, 0.085, 0.3, 18), M.brushedMetal, { pos: [-2.10, -0.34, 0.32], parent: trans });
+  add(new THREE.CylinderGeometry(0.06, 0.06, 0.06, 12), M.darkMetal, { pos: [-2.10, -0.16, 0.32], parent: trans });
+  // Plate oil cooler on the left face
+  add(new THREE.BoxGeometry(0.4, 0.22, 0.07), M.brushedMetal, { pos: [-2.25, -0.36, -0.30], parent: trans });
+  for (let i = 0; i < 5; i++) {
+    add(new THREE.BoxGeometry(0.4, 0.02, 0.08), M.darkMetal, { pos: [-2.25, -0.45 + i * 0.045, -0.305], shadow: false, parent: trans });
+  }
+  // Rear housing cone, speedo/output area, output shaft + yoke flange
+  add(new THREE.CylinderGeometry(0.20, 0.27, 0.28, 28), M.brushedMetal, { pos: [-2.69, -0.28, 0], rot: [0, 0, Math.PI / 2], parent: trans });
+  add(new THREE.CylinderGeometry(0.1, 0.1, 0.08, 16), M.darkMetal, { pos: [-2.86, -0.28, 0], rot: [0, 0, Math.PI / 2], parent: trans });
+  add(new THREE.CylinderGeometry(0.045, 0.045, 0.14, 12), M.chrome, { pos: [-2.95, -0.28, 0], rot: [0, 0, Math.PI / 2], parent: trans });
+  add(new THREE.CylinderGeometry(0.09, 0.09, 0.05, 16), M.darkMetal, { pos: [-3.02, -0.28, 0], rot: [0, 0, Math.PI / 2], parent: trans });
   tick();
 
   // ══════════════════════════════════════
@@ -2964,9 +3136,57 @@ export function buildVolvoD13(
   add(new THREE.CylinderGeometry(0.04, 0.04, 0.1, 10), M.brushedMetal, { pos: [-1.02, 0.36, 0.12], rot: [0, 0, Math.PI / 2] });
   tick();
 
-  // Brake air compressor — gear-driven off the rear train
-  add(new THREE.CylinderGeometry(0.075, 0.075, 0.16, 12), M.darkMetal, { pos: [0.85, -0.35, -0.25], rot: [Math.PI / 2, 0, 0] });
-  add(new THREE.CylinderGeometry(0.05, 0.05, 0.08, 10), M.brushedMetal, { pos: [0.85, -0.21, -0.25] });
+  /** WABCO twin-cylinder brake air compressor — modeled from the part
+   *  photo docs/reference/air-compressor/wabco-photo.webp and the exploded
+   *  blueprint docs/reference/air-compressor/wabco-exploded.jpg.
+   *  Recognition features from the photo: Volvo-green rounded crankcase
+   *  lobes, flat side cover plates on the cylinder block band, green head
+   *  with the inlet elbow / chrome unloader fitting / lifting eye, and a
+   *  machined rear flange carrying the black helical drive gear + hex nut.
+   *  Local frame: crank axis along X, drive gear at −X, cylinders up.
+   *  ~0.33 units tall ≈ 215 mm real. Reused for the engine-mounted unit
+   *  and the replacement unit at the toolbox. */
+  const buildWabcoCompressor = (): THREE.Group => {
+    const c = new THREE.Group();
+    // Rounded crankcase: two merged lobes (photo shows the waisted casting)
+    add(new THREE.CylinderGeometry(0.062, 0.062, 0.17, 18), M.teal, { pos: [0, 0, 0], rot: [0, 0, Math.PI / 2], parent: c });
+    add(new THREE.CylinderGeometry(0.055, 0.055, 0.16, 18), M.teal, { pos: [0.01, 0.03, 0], rot: [0, 0, Math.PI / 2], parent: c });
+    // Twin cylinder barrels rising off the case
+    add(new THREE.BoxGeometry(0.17, 0.09, 0.12), M.teal, { pos: [0.005, 0.09, 0], parent: c });
+    // Cylinder block band with flat side cover plates
+    add(new THREE.BoxGeometry(0.18, 0.055, 0.13), M.darkTeal, { pos: [0.005, 0.16, 0], parent: c });
+    add(new THREE.BoxGeometry(0.10, 0.04, 0.006), M.teal, { pos: [0.005, 0.16, 0.069], shadow: false, parent: c });
+    add(new THREE.BoxGeometry(0.10, 0.04, 0.006), M.teal, { pos: [0.005, 0.16, -0.069], shadow: false, parent: c });
+    // Head: green casting with a stepped darker top plate
+    add(new THREE.BoxGeometry(0.19, 0.05, 0.14), M.teal, { pos: [0.005, 0.21, 0], parent: c });
+    add(new THREE.BoxGeometry(0.16, 0.03, 0.12), M.darkTeal, { pos: [0.005, 0.245, 0], parent: c });
+    // Head hardware per the photo: inlet elbow, chrome unloader fitting,
+    // lifting eye, coolant port stub
+    add(new THREE.CylinderGeometry(0.018, 0.018, 0.06, 10), M.darkMetal, { pos: [0.08, 0.25, 0.03], rot: [Math.PI / 2, 0, 0], shadow: false, parent: c });
+    add(new THREE.CylinderGeometry(0.02, 0.02, 0.05, 10), M.chrome, { pos: [-0.07, 0.26, -0.02], shadow: false, parent: c });
+    add(new THREE.TorusGeometry(0.022, 0.007, 8, 16), M.teal, { pos: [0, 0.275, 0], shadow: false, parent: c });
+    add(new THREE.CylinderGeometry(0.014, 0.014, 0.05, 8), M.brushedMetal, { pos: [-0.04, 0.24, 0.055], rot: [Math.PI / 2, 0, 0], shadow: false, parent: c });
+    // Machined rear mounting flange + black helical drive gear + hex nut
+    add(new THREE.CylinderGeometry(0.08, 0.08, 0.025, 24), M.brushedMetal, { pos: [-0.095, 0, 0], rot: [0, 0, Math.PI / 2], parent: c });
+    add(new THREE.CylinderGeometry(0.068, 0.068, 0.03, 24), M.darkMetal, { pos: [-0.125, 0, 0], rot: [0, 0, Math.PI / 2], parent: c });
+    for (let i = 0; i < 18; i++) {
+      const a = (i / 18) * Math.PI * 2;
+      add(new THREE.BoxGeometry(0.02, 0.014, 0.03), M.darkMetal,
+        { pos: [-0.125, 0.072 * Math.cos(a), 0.072 * Math.sin(a)], rot: [a, 0.2, 0], shadow: false, parent: c });
+    }
+    add(new THREE.CylinderGeometry(0.02, 0.02, 0.05, 6), M.black, { pos: [-0.148, 0, 0], rot: [0, 0, Math.PI / 2], parent: c });
+    // Front end cover
+    add(new THREE.CylinderGeometry(0.05, 0.05, 0.02, 18), M.teal, { pos: [0.095, 0, 0], rot: [0, 0, Math.PI / 2], parent: c });
+    return c;
+  };
+
+  // Brake air compressor — WABCO twin-cylinder on the LEFT side at the
+  // flywheel end, drive gear facing the rear gear train (it used to be two
+  // bare cylinders floating at the front).
+  const engineCompressor = buildWabcoCompressor();
+  engineCompressor.name = 'air-compressor';
+  engineCompressor.position.set(-0.90, -0.02, -0.46);
+  group.add(engineCompressor);
   tick();
 
   // Fuel filters — on the LEFT side of the engine per QRG left-side view
@@ -3218,6 +3438,38 @@ export function buildVolvoD13(
     add(new THREE.BoxGeometry(w - 0.8 * IN, h - 0.5 * IN, D * 0.8), M.darkMetal, { pos: [0, 0, -D * 0.4], parent: d0 });
     add(new THREE.BoxGeometry(w, h - 0.3 * IN, 0.5 * IN), glossFace, { pos: [0, 0, 0.25 * IN], parent: d0 });
     add(new THREE.BoxGeometry(w * 0.95, 0.7 * IN, 0.7 * IN), M.chrome, { pos: [0, h / 2 - 0.75 * IN, 0.45 * IN], parent: d0 });
+    // Visible contents — the tools live IN the drawers, laid out on the
+    // tub liner so sliding a drawer open shows real hardware: graded
+    // socket rows in the socket drawers, fanned combination wrenches in
+    // the wrench banks, loose kit in specialty/general. Cheap primitives,
+    // no shadows (matches ToolPanel's CATEGORY_TOOLS counts of 10 per
+    // socket/wrench drawer).
+    const tubTop = (h - 0.5 * IN) / 2;
+    const innerW = w - 3 * IN;
+    if (key === 'sockets-metric' || key === 'sockets-standard') {
+      for (let i = 0; i < 10; i++) {
+        const sx = -innerW / 2 + (i + 0.5) * (innerW / 10);
+        const r = (0.32 + i * 0.035) * IN;
+        [0.28, 0.55].forEach(f => {
+          add(new THREE.CylinderGeometry(r, r, 0.85 * IN, 10), M.chrome,
+            { pos: [sx, tubTop + 0.42 * IN, -D * f], shadow: false, parent: d0 });
+        });
+      }
+    } else if (key === 'wrenches-metric' || key === 'wrenches-standard') {
+      for (let i = 0; i < 10; i++) {
+        const sx = -innerW / 2 + (i + 0.5) * (innerW / 10);
+        add(new THREE.BoxGeometry(0.55 * IN, 0.22 * IN, (6.5 + i * 0.7) * IN), M.chrome,
+          { pos: [sx, tubTop + 0.11 * IN, -D * 0.42], shadow: false, parent: d0 });
+      }
+    } else {
+      // specialty / general: torque wrench, ratchet + extension, filter
+      // wrench ring, screwdriver, drain pan / rags
+      add(new THREE.BoxGeometry(12 * IN, 0.6 * IN, 0.9 * IN), M.chrome, { pos: [-innerW * 0.28, tubTop + 0.3 * IN, -D * 0.3], shadow: false, parent: d0 });
+      add(new THREE.BoxGeometry(8 * IN, 0.5 * IN, 0.7 * IN), M.brushedMetal, { pos: [-innerW * 0.05, tubTop + 0.25 * IN, -D * 0.5], shadow: false, parent: d0 });
+      add(new THREE.CylinderGeometry(1.6 * IN, 1.6 * IN, 0.5 * IN, 14), M.darkMetal, { pos: [innerW * 0.18, tubTop + 0.25 * IN, -D * 0.35], shadow: false, parent: d0 });
+      add(new THREE.BoxGeometry(5 * IN, 0.45 * IN, 0.45 * IN), M.red, { pos: [innerW * 0.33, tubTop + 0.22 * IN, -D * 0.52], shadow: false, parent: d0 });
+      add(new THREE.BoxGeometry(6 * IN, 0.8 * IN, 4 * IN), M.rubber, { pos: [innerW * 0.45, tubTop + 0.4 * IN, -D * 0.32], shadow: false, parent: d0 });
+    }
     return d0;
   };
   const facade = new THREE.Group();
@@ -3258,6 +3510,15 @@ export function buildVolvoD13(
   putDecal(decal('Snap-on', 9 * IN, 2.6 * IN), mid('bankC'), COUNTER_Y - 1 * IN - (COUNTER_Y - CASTER_H - 2 * IN) * 0.45, frontZ + 0.6 * IN);
   putDecal(decal('MR. BIG', 10 * IN, 3.2 * IN, { color: '#d7d9dd', italic: false }), mid('bankC') - bw('bankC') * 0.22, CASTER_H + 2.6 * IN, frontZ + 0.6 * IN);
 
+  // ── Replacement WABCO air compressor staged at the toolbox — it sits on
+  // the stainless counter of bay A (the part lives in the toolbox until it
+  // goes on the engine), drive gear facing along the counter.
+  const spareCompressor = buildWabcoCompressor();
+  spareCompressor.name = 'toolbox-air-compressor';
+  spareCompressor.position.set(mid('bankA'), COUNTER_Y + 1.2 * IN + 0.066, 4 * IN);
+  spareCompressor.rotation.y = Math.PI / 2;
+  toolbox.add(spareCompressor);
+
   tick();
 
   // ══════════════════════════════════════
@@ -3270,4 +3531,207 @@ export function buildVolvoD13(
   tick(); tick(); tick(); tick(); tick();
   setProgress(100);
   setTimeout(() => setLoading(false), 500);
+}
+
+// ═══════════════════════════════════════════════════════════
+// 2017 HYUNDAI SONATA — built from the photos in docs/reference/sonata/:
+// front 3/4 (silver, hex grille with 4 chrome slats, swept-back headlights,
+// chrome beltline trim), rear (wide taillights wrapping the corners, chrome
+// trunk strip, right-side oval exhaust tip), and the engine bay (black GDi
+// cover on a transverse 2.4L four, battery left-rear, airbox right-front,
+// brake booster at the cowl, radiator behind the grille).
+// Same stylized scale as the VNL: car ≈ 4.0 units long (real 4855 mm),
+// ground at y −1.1, wheels r 0.28 ≈ 16" alloys. The car group is rotated
+// 180° like the truck so the nose faces the walk-up camera (+x world) and
+// the driver door faces −z world; the door/hood groups reuse the
+// 'truck-door'/'truck-hood' names so the shared walk-around hinges work.
+// ═══════════════════════════════════════════════════════════
+export function buildSonata2017(
+  group: THREE.Group,
+  setProgress: (n: number) => void,
+  setLoading: (b: boolean) => void,
+) {
+  let step = 0;
+  const totalSteps = 12;
+  const tick = () => { step++; setProgress(Math.min(98, Math.round((step / totalSteps) * 100))); };
+
+  // Materials — silver clearcoat paint per the photos
+  const paint = new THREE.MeshPhysicalMaterial({ color: 0xc4c7cb, metalness: 0.85, roughness: 0.3, clearcoat: 1.0, clearcoatRoughness: 0.08 });
+  const glass = new THREE.MeshStandardMaterial({ color: 0x0d1520, metalness: 0.9, roughness: 0.05, transparent: true, opacity: 0.9 });
+  const M = {
+    chrome: new THREE.MeshStandardMaterial({ color: 0xc8c8c8, metalness: 0.96, roughness: 0.08 }),
+    brushedMetal: new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.85, roughness: 0.25 }),
+    darkMetal: new THREE.MeshStandardMaterial({ color: 0x2a2a2a, metalness: 0.82, roughness: 0.32 }),
+    black: new THREE.MeshStandardMaterial({ color: 0x0f0f0f, metalness: 0.25, roughness: 0.65 }),
+    rubber: new THREE.MeshStandardMaterial({ color: 0x141414, metalness: 0.0, roughness: 0.98 }),
+    redLens: new THREE.MeshStandardMaterial({ color: 0xa01020, metalness: 0.3, roughness: 0.25 }),
+    white: new THREE.MeshStandardMaterial({ color: 0xeaeaea, metalness: 0.05, roughness: 0.6 }),
+    blue: new THREE.MeshStandardMaterial({ color: 0x0033aa, metalness: 0.1, roughness: 0.6 }),
+  };
+
+  const add = (geo: THREE.BufferGeometry, mat: THREE.Material, opts?: { pos?: [number, number, number]; rot?: [number, number, number]; shadow?: boolean; parent?: THREE.Group }) => {
+    const mesh = new THREE.Mesh(geo, mat);
+    if (opts?.pos) mesh.position.set(...opts.pos);
+    if (opts?.rot) mesh.rotation.set(...opts.rot);
+    if (opts?.shadow !== false) { mesh.castShadow = true; mesh.receiveShadow = true; }
+    (opts?.parent ?? group).add(mesh);
+    return mesh;
+  };
+
+  const car = new THREE.Group();
+  car.name = 'car-body';
+  car.rotation.y = Math.PI; // nose (local −x) toward the walk-up camera
+  group.add(car);
+
+  // ── Body: main mass, beltline at y −0.12, rockers down to −0.80
+  add(new THREE.BoxGeometry(4.0, 0.68, 1.52), paint, { pos: [0, -0.46, 0], parent: car });
+  // Nose fascia + tail fascia round the box off
+  add(new THREE.BoxGeometry(0.22, 0.5, 1.46), paint, { pos: [-2.0, -0.5, 0], parent: car });
+  add(new THREE.BoxGeometry(0.2, 0.55, 1.46), paint, { pos: [1.98, -0.48, 0], parent: car });
+  tick();
+
+  // ── Greenhouse: raked windshield → roof → fastback rear glass (photos:
+  // the C-pillar flows almost straight into the trunk)
+  add(new THREE.BoxGeometry(0.78, 0.03, 1.3), glass, { pos: [-0.1, 0.17, 0], rot: [0, 0, 0.64], parent: car });
+  add(new THREE.BoxGeometry(1.2, 0.05, 1.32), paint, { pos: [0.8, 0.43, 0], parent: car });
+  add(new THREE.BoxGeometry(0.68, 0.03, 1.28), glass, { pos: [1.62, 0.2, 0], rot: [0, 0, -0.68], parent: car });
+  // Trunk lid with the subtle lip spoiler from the rear photo
+  add(new THREE.BoxGeometry(0.5, 0.05, 1.42), paint, { pos: [1.85, -0.04, 0], parent: car });
+  add(new THREE.BoxGeometry(0.1, 0.03, 1.3), paint, { pos: [2.02, -0.02, 0], parent: car });
+  tick();
+
+  // ── Glass + chrome beltline trim (photo: bright strip under the side
+  // glass running the full window line)
+  // Passenger side: one fixed pane; driver side: quarter glass only (the
+  // door carries its own window)
+  add(new THREE.BoxGeometry(1.5, 0.34, 0.03), glass, { pos: [0.85, 0.18, -0.655], parent: car });
+  add(new THREE.BoxGeometry(0.7, 0.3, 0.03), glass, { pos: [1.25, 0.16, 0.655], parent: car });
+  [-0.675, 0.675].forEach(z => {
+    add(new THREE.BoxGeometry(2.4, 0.025, 0.02), M.chrome, { pos: [0.7, -0.01, z], shadow: false, parent: car });
+  });
+  tick();
+
+  // ── Wheels: 16" alloys — tire + chrome hub + 5 spokes
+  const wheelAt = (wx: number, wz: number) => {
+    add(new THREE.CylinderGeometry(0.28, 0.28, 0.2, 24), M.rubber, { pos: [wx, -0.82, wz], rot: [Math.PI / 2, 0, 0], parent: car });
+    add(new THREE.CylinderGeometry(0.16, 0.16, 0.21, 18), M.brushedMetal, { pos: [wx, -0.82, wz], rot: [Math.PI / 2, 0, 0], parent: car });
+    add(new THREE.CylinderGeometry(0.05, 0.05, 0.22, 10), M.chrome, { pos: [wx, -0.82, wz], rot: [Math.PI / 2, 0, 0], shadow: false, parent: car });
+  };
+  [[-1.25, 0.72], [-1.25, -0.72], [1.25, 0.72], [1.25, -0.72]].forEach(([wx, wz]) => wheelAt(wx, wz));
+  tick();
+
+  // ── Front end per the 3/4 photo: hexagonal grille with 4 chrome slats,
+  // chrome surround, swept-back headlights, dark lower intake
+  add(new THREE.BoxGeometry(0.06, 0.3, 0.95), M.black, { pos: [-2.08, -0.32, 0], parent: car });
+  for (let i = 0; i < 4; i++) {
+    add(new THREE.BoxGeometry(0.03, 0.02, 0.9), M.chrome, { pos: [-2.1, -0.42 + i * 0.07, 0], shadow: false, parent: car });
+  }
+  add(new THREE.BoxGeometry(0.03, 0.04, 1.0), M.chrome, { pos: [-2.1, -0.19, 0], shadow: false, parent: car });
+  // Hyundai badge on the top slat
+  add(new THREE.BoxGeometry(0.03, 0.06, 0.12), M.chrome, { pos: [-2.11, -0.3, 0], shadow: false, parent: car });
+  // Headlights sweeping back along the fenders
+  [-1, 1].forEach(s => {
+    add(new THREE.BoxGeometry(0.42, 0.11, 0.34), M.white, { pos: [-1.88, -0.18, s * 0.58], rot: [0, s * -0.25, 0], parent: car });
+  });
+  // Dark lower intake + fog light bezels
+  add(new THREE.BoxGeometry(0.06, 0.16, 1.05), M.black, { pos: [-2.09, -0.66, 0], parent: car });
+  [-1, 1].forEach(s => {
+    add(new THREE.BoxGeometry(0.05, 0.1, 0.16), M.black, { pos: [-2.06, -0.6, s * 0.62], shadow: false, parent: car });
+  });
+  tick();
+
+  // ── Rear per the rear photo: wide taillights wrapping the corners,
+  // chrome trunk strip, license recess, right oval exhaust tip
+  [-1, 1].forEach(s => {
+    add(new THREE.BoxGeometry(0.14, 0.13, 0.52), M.redLens, { pos: [2.02, -0.16, s * 0.52], parent: car });
+    add(new THREE.BoxGeometry(0.3, 0.13, 0.14), M.redLens, { pos: [1.9, -0.16, s * 0.72], parent: car });
+  });
+  add(new THREE.BoxGeometry(0.03, 0.03, 1.1), M.chrome, { pos: [2.09, -0.13, 0], shadow: false, parent: car });
+  add(new THREE.BoxGeometry(0.04, 0.16, 0.32), M.black, { pos: [2.09, -0.35, 0], parent: car });
+  add(new THREE.CylinderGeometry(0.045, 0.045, 0.1, 12), M.chrome, { pos: [2.06, -0.72, 0.5], rot: [0, 0, Math.PI / 2], shadow: false, parent: car });
+  // Mirrors on the A-pillars
+  [-1, 1].forEach(s => {
+    add(new THREE.BoxGeometry(0.16, 0.09, 0.1), paint, { pos: [-0.32, 0.0, s * 0.82], parent: car });
+  });
+  tick();
+
+  // ── Driver door (local +z = world −z, facing the walk-up camera).
+  // Hinged at its front edge; same name + hinge direction as the truck
+  // door so clickDoor works unchanged.
+  const door = new THREE.Group();
+  door.name = 'truck-door';
+  door.position.set(-0.45, -0.35, 0.765);
+  car.add(door);
+  add(new THREE.BoxGeometry(0.88, 0.58, 0.05), paint, { pos: [0.44, 0, 0], parent: door });
+  add(new THREE.BoxGeometry(0.72, 0.32, 0.03), glass, { pos: [0.42, 0.44, -0.015], parent: door });
+  add(new THREE.BoxGeometry(0.14, 0.03, 0.04), M.chrome, { pos: [0.7, 0.08, 0.035], shadow: false, parent: door });
+  tick();
+
+  // ── Interior visible through the glass: dash, wheel, two front seats,
+  // rear bench
+  add(new THREE.BoxGeometry(0.3, 0.16, 1.3), M.black, { pos: [-0.18, -0.14, 0], parent: car });
+  add(new THREE.TorusGeometry(0.09, 0.02, 8, 20), M.black, { pos: [-0.05, -0.08, 0.4], rot: [0.5, 0, 0], shadow: false, parent: car });
+  [-0.38, 0.38].forEach(z => {
+    add(new THREE.BoxGeometry(0.4, 0.34, 0.42), M.black, { pos: [0.42, -0.2, z], parent: car });
+  });
+  add(new THREE.BoxGeometry(0.35, 0.3, 1.2), M.black, { pos: [1.15, -0.22, 0], parent: car });
+  tick();
+
+  // ── Engine bay (exposed when the hood lifts) — from the engine-bay
+  // photo: black inner fenders/firewall, transverse black GDi engine
+  // cover, battery left-rear, airbox right-front, brake booster at the
+  // cowl, coolant + washer bottles, radiator behind the grille
+  add(new THREE.BoxGeometry(1.5, 0.3, 0.1), M.black, { pos: [-1.2, -0.3, 0.66], parent: car });
+  add(new THREE.BoxGeometry(1.5, 0.3, 0.1), M.black, { pos: [-1.2, -0.3, -0.66], parent: car });
+  add(new THREE.BoxGeometry(0.1, 0.35, 1.4), M.black, { pos: [-0.48, -0.3, 0], parent: car });
+  add(new THREE.BoxGeometry(1.5, 0.05, 1.4), M.darkMetal, { pos: [-1.2, -0.62, 0], parent: car });
+  tick();
+
+  // Transverse 2.4 GDi: black engine cover with the silver oil-cap circle
+  // and a brushed badge plate (photo shows "GDi" on the cover's right)
+  add(new THREE.BoxGeometry(0.58, 0.14, 0.52), M.black, { pos: [-1.02, -0.3, 0.08], parent: car });
+  add(new THREE.CylinderGeometry(0.05, 0.05, 0.03, 14), M.brushedMetal, { pos: [-1.12, -0.22, -0.02], shadow: false, parent: car });
+  add(new THREE.BoxGeometry(0.14, 0.015, 0.08), M.brushedMetal, { pos: [-0.88, -0.225, 0.22], shadow: false, parent: car });
+  // Intake manifold under the cover's front edge
+  add(new THREE.BoxGeometry(0.34, 0.16, 0.44), M.darkMetal, { pos: [-1.3, -0.44, 0.08], parent: car });
+  // Battery with red positive-terminal cover (left-rear of the bay)
+  add(new THREE.BoxGeometry(0.28, 0.2, 0.2), M.black, { pos: [-0.68, -0.34, 0.48], parent: car });
+  add(new THREE.BoxGeometry(0.08, 0.04, 0.06), M.redLens, { pos: [-0.6, -0.23, 0.42], shadow: false, parent: car });
+  // Fuse box beside the battery
+  add(new THREE.BoxGeometry(0.24, 0.1, 0.26), M.black, { pos: [-1.05, -0.32, 0.52], parent: car });
+  // Airbox + corrugated intake duct to the engine (right-front)
+  add(new THREE.BoxGeometry(0.28, 0.2, 0.28), M.black, { pos: [-1.5, -0.36, -0.44], parent: car });
+  add(new THREE.CylinderGeometry(0.045, 0.045, 0.4, 10), M.rubber, { pos: [-1.28, -0.32, -0.25], rot: [Math.PI / 2.4, 0.5, 0], shadow: false, parent: car });
+  // Brake booster + master cylinder at the cowl, driver side
+  add(new THREE.CylinderGeometry(0.11, 0.11, 0.08, 18), M.black, { pos: [-0.56, -0.24, 0.35], rot: [0, 0, Math.PI / 2], parent: car });
+  add(new THREE.CylinderGeometry(0.035, 0.035, 0.1, 10), M.white, { pos: [-0.63, -0.24, 0.35], rot: [0, 0, Math.PI / 2], shadow: false, parent: car });
+  // Coolant reservoir + blue washer cap
+  add(new THREE.BoxGeometry(0.16, 0.16, 0.14), M.white, { pos: [-1.52, -0.36, 0.45], parent: car });
+  add(new THREE.CylinderGeometry(0.025, 0.025, 0.03, 10), M.blue, { pos: [-1.66, -0.28, 0.3], shadow: false, parent: car });
+  // Strut towers
+  [-0.55, 0.55].forEach(z => {
+    add(new THREE.CylinderGeometry(0.09, 0.11, 0.1, 14), M.darkMetal, { pos: [-0.72, -0.28, z], parent: car });
+  });
+  // Radiator + fan shroud behind the grille
+  add(new THREE.BoxGeometry(0.06, 0.32, 1.05), M.darkMetal, { pos: [-1.85, -0.42, 0], parent: car });
+  add(new THREE.CylinderGeometry(0.14, 0.14, 0.04, 16), M.black, { pos: [-1.78, -0.4, 0.2], rot: [0, 0, Math.PI / 2], shadow: false, parent: car });
+  tick();
+
+  // ── Hood — rear-hinged at the cowl (pivot here, panel extends to the
+  // nose); clickHood swings it to rot.z −1.0 which lifts the front edge
+  const hood = new THREE.Group();
+  hood.name = 'truck-hood';
+  hood.position.set(-0.5, -0.1, 0);
+  car.add(hood);
+  add(new THREE.BoxGeometry(1.55, 0.05, 1.46), paint, { pos: [-0.78, -0.02, 0], rot: [0, 0, -0.04], parent: hood });
+  // Character-line ridges the photo shows running up the hood
+  [-0.35, 0.35].forEach(z => {
+    add(new THREE.BoxGeometry(1.3, 0.02, 0.05), paint, { pos: [-0.75, 0.01, z], rot: [0, 0, -0.04], shadow: false, parent: hood });
+  });
+  tick();
+
+  // Complete loading
+  tick(); tick();
+  setProgress(100);
+  setTimeout(() => setLoading(false), 400);
 }
