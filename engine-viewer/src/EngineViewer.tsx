@@ -861,6 +861,30 @@ export default function EngineViewer() {
     controls.update();
   }, []);
 
+  /** Zoom the camera in on one specific drawer, full-frame, instead of the
+   *  wide whole-toolbox shot focusToolbox() gives — distance is scaled off
+   *  the drawer's own stored height (userData.h, set in buildDrawer) so a
+   *  small sockets drawer and the big "MR. BIG" general drawer both roughly
+   *  fill the 42°-FOV frame instead of one fixed distance under/overshooting.
+   *  Actually moves the camera by queuing engineGroup.userData.cameraMove,
+   *  eased once per frame in animate() — same lerp-toward-target pattern as
+   *  userData.hinges/slides, just for the camera instead of a mesh. */
+  const focusDrawer = useCallback((key: DrawerKey) => {
+    const eg = engineGroupRef.current;
+    const obj = eg?.getObjectByName(`toolbox-drawer-${key}`);
+    if (!eg || !obj) return;
+    const worldPos = new THREE.Vector3();
+    obj.getWorldPosition(worldPos);
+    const h = (obj.userData.h as number | undefined) ?? 0.15;
+    const dist = Math.min(0.95, Math.max(0.32, h * 1.9));
+    eg.userData.cameraMove = {
+      pos: new THREE.Vector3(worldPos.x, worldPos.y, worldPos.z + dist),
+      look: worldPos.clone(),
+    };
+    if (controlsRef.current) controlsRef.current.autoRotate = false;
+    setAutoRotate(false);
+  }, []);
+
   /** Open/close one toolbox drawer, closing whichever was previously open. */
   const toggleDrawer = useCallback((key: DrawerKey) => {
     const eg = engineGroupRef.current;
@@ -870,13 +894,13 @@ export default function EngineViewer() {
       setSlide(obj.name, 'z', open ? obj.userData.openZ : obj.userData.closedZ);
     };
     setOpenDrawer(prev => {
-      if (prev === key) { slideDrawer(key, false); return null; }
+      if (prev === key) { slideDrawer(key, false); focusToolbox(); return null; }
       if (prev) slideDrawer(prev, false);
       slideDrawer(key, true);
-      focusToolbox();
+      focusDrawer(key);
       return key;
     });
-  }, [setSlide, focusToolbox]);
+  }, [setSlide, focusToolbox, focusDrawer]);
 
   const clickDoor = () => {
     if (!doorUnlocked) {
@@ -1660,6 +1684,21 @@ export default function EngineViewer() {
         slides.forEach(s => {
           s.obj.position[s.axis] += (s.target - s.obj.position[s.axis]) * 0.12;
         });
+      }
+
+      // Camera easing toward a queued drawer close-up (focusDrawer) or the
+      // wide toolbox shot (focusToolbox uses an instant set, but this same
+      // queue could carry it too) — one-shot: cleared once close enough so
+      // OrbitControls hands full control back to the user instead of the
+      // lerp fighting their next drag.
+      const camMove = engineGroup.userData.cameraMove as { pos: THREE.Vector3; look: THREE.Vector3 } | undefined;
+      if (camMove) {
+        camera.position.lerp(camMove.pos, 0.12);
+        controls.target.lerp(camMove.look, 0.12);
+        controls.update();
+        if (camera.position.distanceTo(camMove.pos) < 0.01 && controls.target.distanceTo(camMove.look) < 0.01) {
+          engineGroup.userData.cameraMove = undefined;
+        }
       }
 
       // Turbo failure: oil + coolant puddles spreading under the engine
@@ -4278,6 +4317,8 @@ export function buildVolvoD13(
     d0.position.set(cx, cy, frontZ);
     d0.userData.closedZ = frontZ;
     d0.userData.openZ = frontZ + D * 0.55;
+    d0.userData.w = w;
+    d0.userData.h = h; // read by focusDrawer to frame a close-up sized to this drawer
     toolbox.add(d0);
     add(new THREE.BoxGeometry(w - 0.8 * IN, h - 0.5 * IN, D * 0.8), M.darkMetal, { pos: [0, 0, -D * 0.4], parent: d0 });
     add(new THREE.BoxGeometry(w, h - 0.3 * IN, 0.5 * IN), glossFace, { pos: [0, 0, 0.25 * IN], parent: d0 });
