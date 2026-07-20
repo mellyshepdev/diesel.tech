@@ -3262,8 +3262,10 @@ export function buildVolvoD13(
     add(new THREE.CylinderGeometry(0.22, 0.22, 0.29, 16), M.chrome, { pos: [wx, -0.6, wz], rot: [Math.PI / 2, 0, 0], parent: truckBody });
   };
   [[-1.5, 0.75], [-1.5, -0.75], [2.4, 0.78], [2.4, -0.78], [3.3, 0.78], [3.3, -0.78]].forEach(([wx, wz]) => wheelAt(wx, wz));
-  // Cab shell + sleeper (VNL 860 tall roof)
-  add(new THREE.BoxGeometry(2.2, 1.9, 1.7), paint, { pos: [2.55, 0.55, 0], parent: truckBody });
+  // Cab shell + sleeper (VNL 860 tall roof). Cab floor stops at y 0.28 —
+  // above the I-Shift (tops out ~0.22) so the transmission hangs visibly
+  // under the cab like the real truck instead of being engulfed by it.
+  add(new THREE.BoxGeometry(2.2, 1.22, 1.7), paint, { pos: [2.55, 0.89, 0], parent: truckBody });
   add(new THREE.BoxGeometry(2.0, 0.85, 1.6), paint, { pos: [2.65, 1.85, 0], rot: [0, 0, 0.06], parent: truckBody });
   // Windshield + side glass
   add(new THREE.BoxGeometry(0.06, 0.75, 1.5), glass, { pos: [1.48, 1.05, 0], rot: [0, 0, -0.12], parent: truckBody });
@@ -3282,7 +3284,8 @@ export function buildVolvoD13(
   door.name = 'truck-door';
   door.position.set(1.68, 0.35, 0.86);
   truckBody.add(door);
-  add(new THREE.BoxGeometry(0.85, 1.45, 0.06), paint, { pos: [0.45, 0.15, 0], parent: door });
+  // Door bottom flush with the raised cab floor (y 0.28 truck-local)
+  add(new THREE.BoxGeometry(0.85, 0.95, 0.06), paint, { pos: [0.45, 0.40, 0], parent: door });
   add(new THREE.BoxGeometry(0.7, 0.5, 0.04), glass, { pos: [0.45, 0.75, 0.01], parent: door });
   add(new THREE.BoxGeometry(0.14, 0.035, 0.05), grilleDark, { pos: [0.75, 0.05, 0.05], parent: door });
 
