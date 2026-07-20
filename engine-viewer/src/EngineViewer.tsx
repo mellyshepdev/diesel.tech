@@ -192,10 +192,11 @@ interface OilFlow {
 
 type RepairId = 'fluid-check' | 'oil-change' | 'hood-cable' | 'pan-gasket' | 'overhead-adjust' | 'turbo-replace';
 
-// Tools that gate a repair beyond the level check — only the two specialty
-// tools that are actually load-bearing in that repair's procSteps (see
-// TOOL_PRICES in ToolPanel.tsx for why the rest of the specialty drawer
-// isn't priced). Checked in openRepair alongside the level gate.
+// Tools a repair actually can't be started without — the two specialty
+// tools its procSteps checks for (`requiredTool`). Every specialty tool is
+// priced now (see TOOL_PRICES in ToolPanel.tsx), but only these two are
+// load-bearing enough to block openRepair; the rest are worth owning
+// without gating anything specific yet. Checked alongside the level gate.
 const REPAIR_REQUIRED_TOOL: Partial<Record<RepairId, Tool>> = {
   'oil-change': 'filterWrench',
   'turbo-replace': 'lineWrench',
@@ -2089,6 +2090,7 @@ export default function EngineViewer() {
           requiredTools={requiredTools}
           ownedTools={ownedTools}
           coins={coins}
+          mechanicLevel={mechanicLevel.level}
           onBuyTool={buyTool}
           onClose={() => toggleDrawer(openDrawer)}
         />
