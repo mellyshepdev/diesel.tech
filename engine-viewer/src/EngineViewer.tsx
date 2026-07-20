@@ -191,32 +191,65 @@ interface OilFlow {
 
 type RepairId = 'oil-change' | 'pan-gasket' | 'turbo-replace' | 'overhead-adjust';
 
-const REPAIRS: { id: RepairId; icon: string; label: string; desc: string }[] = [
+// Mechanic career ladder: each repair sits at a tier, pays coins on
+// completion, and stays locked until the player's level (derived from total
+// coins earned, see `levelForCoins`) reaches `unlockLevel`. Oil change is the
+// deliberate floor — cheapest tool list, no special sequencing, available
+// from level 1 — with each tier up adding more steps/systems and a bigger
+// payout, so "better diesel tech" reads as "handles harder jobs," not just
+// a number going up.
+const REPAIRS: { id: RepairId; icon: string; label: string; desc: string; tier: number; unlockLevel: number; coinReward: number }[] = [
   {
     id: 'oil-change',
     icon: '🛢️',
     label: 'Oil & Filter Change',
     desc: 'Drain (plug: 60 ± 10 Nm on install), spin off the three filters with the 9998487 filter wrench, then drop the pan. The 22 pan screws need the 10" socket extension + electric runner or hand tools. Refill: VDS-4 10W-30, 25–30 L sump.',
+    tier: 1,
+    unlockLevel: 1,
+    coinReward: 100,
   },
   {
     id: 'pan-gasket',
     icon: '🔩',
     label: 'Oil Pan Gasket Repair',
     desc: 'Break all 22 spring-tension pan screws loose one at a time, drop the pan, fit the new gasket, re-torque 24 ± 4 Nm from the middle outwards.',
-  },
-  {
-    id: 'turbo-replace',
-    icon: '🌀',
-    label: 'Turbocharger R&R',
-    desc: 'Remove & replace the VGT turbo. Select the right tool, then click each fastener in 3D (or use the buttons): harness → V-bands → oil feed → coolant × 2 → oil drain → 4 flange nuts → lift. The turbo shares the engine\'s OIL and COOLANT — reconnect everything and PRIME the oil before starting, or it grenades.',
+    tier: 2,
+    unlockLevel: 2,
+    coinReward: 150,
   },
   {
     id: 'overhead-adjust',
     icon: '🔧',
     label: 'Valve Lash Adjustment',
     desc: 'Pull the 16 valve cover perimeter bolts (13mm) one at a time, then lift the cover off to expose the rockers. Check/adjust lash at TDC compression per cylinder, then reinstall with a fresh gasket, bolts snugged in a criss-cross pattern.',
+    tier: 3,
+    unlockLevel: 3,
+    coinReward: 200,
+  },
+  {
+    id: 'turbo-replace',
+    icon: '🌀',
+    label: 'Turbocharger R&R',
+    desc: 'Remove & replace the VGT turbo. Select the right tool, then click each fastener in 3D (or use the buttons): harness → V-bands → oil feed → coolant × 2 → oil drain → 4 flange nuts → lift. The turbo shares the engine\'s OIL and COOLANT — reconnect everything and PRIME the oil before starting, or it grenades.',
+    tier: 4,
+    unlockLevel: 4,
+    coinReward: 300,
   },
 ];
+
+// Career levels — title reflects the *kind* of job that level's mechanic can
+// take on, not just a number. Coin thresholds are sized so hitting the next
+// level takes a small mix of jobs at the current tier, not one grind: e.g.
+// level 2 (250 coins) is ~2.5 oil changes, matching "the easiest repair
+// unlocks the next tier of harder ones" progression the player asked for.
+const LEVELS: { level: number; title: string; coinsRequired: number }[] = [
+  { level: 1, title: 'Lube Tech', coinsRequired: 0 },
+  { level: 2, title: 'Shop Mechanic', coinsRequired: 250 },
+  { level: 3, title: 'Journeyman Tech', coinsRequired: 600 },
+  { level: 4, title: 'Master Diesel Tech', coinsRequired: 1200 },
+];
+const levelForCoins = (coins: number) => [...LEVELS].reverse().find(l => coins >= l.coinsRequired) ?? LEVELS[0];
+const nextLevel = (level: number) => LEVELS.find(l => l.level === level + 1);
 
 // The real D13 pan is clamped by 22 spring-tension screws (QRG p.14/35):
 // 8 along each long side of the flange, 3 across each end.
