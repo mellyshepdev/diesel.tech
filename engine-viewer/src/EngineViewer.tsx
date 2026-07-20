@@ -1967,6 +1967,23 @@ export default function EngineViewer() {
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-400/10 border border-yellow-400/30 text-yellow-300 font-mono">
                   🪙 {coins}
                 </span>
+                {loggedIn ? (
+                  <button
+                    onClick={kcLogout}
+                    className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/5 border border-white/15 text-gray-300 hover:text-white hover:border-white/30 pointer-events-auto"
+                    title="Sign out"
+                  >
+                    👤 {playerName ?? 'signed in'} · sign out
+                  </button>
+                ) : (
+                  <button
+                    onClick={kcLogin}
+                    className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-400/10 border border-cyan-400/30 text-cyan-300 hover:bg-cyan-400/20 pointer-events-auto"
+                    title="Sign in to save your level/coins to your account, not just this browser"
+                  >
+                    🔑 Sign in to save progress
+                  </button>
+                )}
               </div>
             )}
             {/* Engine selector */}
