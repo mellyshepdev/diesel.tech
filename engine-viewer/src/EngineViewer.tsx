@@ -1340,9 +1340,11 @@ export default function EngineViewer() {
       setServiceMsg(`🔒 You need the ${TOOLS[neededTool].name} for this job — buy it in the 🧰 Toolbox's Specialty drawer (🪙 ${TOOL_PRICES[neededTool]}).`);
       return;
     }
-    // Fluid Top-Off needs no hood/cab walk-around — it's the one job a brand
-    // new tech can do without unlocking anything first.
-    if (id !== 'fluid-check' && !hoodOpen) {
+    // PM Service and Annual Inspection need no hood/cab walk-around — the
+    // two jobs a brand new tech can do without unlocking anything first
+    // (fluid checks/greasing at the front, axle/diff torque checks at the
+    // back — neither is under the hood).
+    if (id !== 'fluid-check' && id !== 'annual-inspection' && !hoodOpen) {
       setServiceMsg('You can\'t wrench through a closed hood: 🔑 unlock the door, 🅿 set the parking brake in the cab, then open the hood.');
       return;
     }
