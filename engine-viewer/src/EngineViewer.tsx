@@ -191,32 +191,65 @@ interface OilFlow {
 
 type RepairId = 'oil-change' | 'pan-gasket' | 'turbo-replace' | 'overhead-adjust';
 
-const REPAIRS: { id: RepairId; icon: string; label: string; desc: string }[] = [
+// Mechanic career ladder: each repair sits at a tier, pays coins on
+// completion, and stays locked until the player's level (derived from total
+// coins earned, see `levelForCoins`) reaches `unlockLevel`. Oil change is the
+// deliberate floor — cheapest tool list, no special sequencing, available
+// from level 1 — with each tier up adding more steps/systems and a bigger
+// payout, so "better diesel tech" reads as "handles harder jobs," not just
+// a number going up.
+const REPAIRS: { id: RepairId; icon: string; label: string; desc: string; tier: number; unlockLevel: number; coinReward: number }[] = [
   {
     id: 'oil-change',
     icon: '🛢️',
     label: 'Oil & Filter Change',
     desc: 'Drain (plug: 60 ± 10 Nm on install), spin off the three filters with the 9998487 filter wrench, then drop the pan. The 22 pan screws need the 10" socket extension + electric runner or hand tools. Refill: VDS-4 10W-30, 25–30 L sump.',
+    tier: 1,
+    unlockLevel: 1,
+    coinReward: 100,
   },
   {
     id: 'pan-gasket',
     icon: '🔩',
     label: 'Oil Pan Gasket Repair',
     desc: 'Break all 22 spring-tension pan screws loose one at a time, drop the pan, fit the new gasket, re-torque 24 ± 4 Nm from the middle outwards.',
-  },
-  {
-    id: 'turbo-replace',
-    icon: '🌀',
-    label: 'Turbocharger R&R',
-    desc: 'Remove & replace the VGT turbo. Select the right tool, then click each fastener in 3D (or use the buttons): harness → V-bands → oil feed → coolant × 2 → oil drain → 4 flange nuts → lift. The turbo shares the engine\'s OIL and COOLANT — reconnect everything and PRIME the oil before starting, or it grenades.',
+    tier: 2,
+    unlockLevel: 2,
+    coinReward: 150,
   },
   {
     id: 'overhead-adjust',
     icon: '🔧',
     label: 'Valve Lash Adjustment',
     desc: 'Pull the 16 valve cover perimeter bolts (13mm) one at a time, then lift the cover off to expose the rockers. Check/adjust lash at TDC compression per cylinder, then reinstall with a fresh gasket, bolts snugged in a criss-cross pattern.',
+    tier: 3,
+    unlockLevel: 3,
+    coinReward: 200,
+  },
+  {
+    id: 'turbo-replace',
+    icon: '🌀',
+    label: 'Turbocharger R&R',
+    desc: 'Remove & replace the VGT turbo. Select the right tool, then click each fastener in 3D (or use the buttons): harness → V-bands → oil feed → coolant × 2 → oil drain → 4 flange nuts → lift. The turbo shares the engine\'s OIL and COOLANT — reconnect everything and PRIME the oil before starting, or it grenades.',
+    tier: 4,
+    unlockLevel: 4,
+    coinReward: 300,
   },
 ];
+
+// Career levels — title reflects the *kind* of job that level's mechanic can
+// take on, not just a number. Coin thresholds are sized so hitting the next
+// level takes a small mix of jobs at the current tier, not one grind: e.g.
+// level 2 (250 coins) is ~2.5 oil changes, matching "the easiest repair
+// unlocks the next tier of harder ones" progression the player asked for.
+const LEVELS: { level: number; title: string; coinsRequired: number }[] = [
+  { level: 1, title: 'Lube Tech', coinsRequired: 0 },
+  { level: 2, title: 'Shop Mechanic', coinsRequired: 250 },
+  { level: 3, title: 'Journeyman Tech', coinsRequired: 600 },
+  { level: 4, title: 'Master Diesel Tech', coinsRequired: 1200 },
+];
+const levelForCoins = (coins: number) => [...LEVELS].reverse().find(l => coins >= l.coinsRequired) ?? LEVELS[0];
+const nextLevel = (level: number) => LEVELS.find(l => l.level === level + 1);
 
 // The real D13 pan is clamped by 22 spring-tension screws (QRG p.14/35):
 // 8 along each long side of the flange, 3 across each end.
@@ -570,6 +603,25 @@ export default function EngineViewer() {
   // ── Repairs / service mode ──
   const [repairsOpen, setRepairsOpen] = useState(false);
   const [activeRepair, setActiveRepair] = useState<RepairId | null>(null);
+  // Career progression: coins earned per finished repair (see REPAIRS'
+  // coinReward), persisted across reloads so the career ladder isn't wiped
+  // out by a refresh. Level is *derived* from total coins (levelForCoins),
+  // not stored separately, so it can never drift out of sync with the total.
+  const [coins, setCoins] = useState<number>(() => {
+    if (typeof window === 'undefined') return 0;
+    const saved = Number(window.localStorage.getItem('diesel-tech-coins'));
+    return Number.isFinite(saved) && saved > 0 ? saved : 0;
+  });
+  useEffect(() => {
+    if (typeof window !== 'undefined') window.localStorage.setItem('diesel-tech-coins', String(coins));
+  }, [coins]);
+  const mechanicLevel = levelForCoins(coins);
+  const [levelUpMsg, setLevelUpMsg] = useState<string | null>(null);
+  useEffect(() => {
+    if (!levelUpMsg) return;
+    const t = setTimeout(() => setLevelUpMsg(null), 4000);
+    return () => clearTimeout(t);
+  }, [levelUpMsg]);
   const [socketExt, setSocketExt] = useState<'none' | 'stubby' | 'long'>('none');
   const [snapOnExt, setSnapOnExt] = useState<'none' | 'three' | 'six'>('none');
   const [driver, setDriver] = useState<'electric' | 'hand' | null>(null);
@@ -649,6 +701,11 @@ export default function EngineViewer() {
   const [parkingBrake, setParkingBrake] = useState(false);
   const [trailerAir, setTrailerAir] = useState(false);
   const [hoodOpen, setHoodOpen] = useState(false);
+  // Real VNLs release the primary hood latch from a lever inside the cab —
+  // clicking the hood shell itself doesn't open it. Pulled inside the cab,
+  // consumed by climbing back out and clicking the hood; re-latches (goes
+  // back to false) whenever the hood is closed again.
+  const [hoodLeverPulled, setHoodLeverPulled] = useState(false);
 
   /** Animate a hinged truck panel (door / hood) toward a target angle. */
   const setHinge = useCallback((name: string, prop: 'y' | 'z', target: number) => {
@@ -731,6 +788,18 @@ export default function EngineViewer() {
         setServiceMsg('⚠️ Set the parking brake before opening the hood — she could roll on you. (Climb in the cab.)');
         return;
       }
+      // VNL only: the hood shell itself won't budge until the in-cab release
+      // lever has been pulled, and you can't pull it and lift the hood in
+      // the same breath — you're sitting down. The Sonata has no such
+      // interior-latch step, so it skips straight to the parking-brake gate.
+      if (vehicle !== 'sonata2017' && !hoodLeverPulled) {
+        setServiceMsg("🔒 Hood's still latched — pull the hood-release lever in the cab first, then climb out.");
+        return;
+      }
+      if (vehicle !== 'sonata2017' && inCab) {
+        setServiceMsg("You can't reach the hood from the driver's seat — climb out first.");
+        return;
+      }
       setHoodOpen(true);
       // VNL hood tilts FORWARD over the bumper; the Sonata hood is
       // rear-hinged at the cowl and lifts the other way.
@@ -742,6 +811,8 @@ export default function EngineViewer() {
     }
     setHoodOpen(false);
     setHinge('truck-hood', 'z', 0);
+    // Latch re-engages on close — the lever has to be pulled again next time.
+    if (vehicle !== 'sonata2017') setHoodLeverPulled(false);
   };
 
   // Engine hotspot markers only make sense with the hood open
@@ -1068,18 +1139,36 @@ export default function EngineViewer() {
   }, [restoreParts, exitInspect]);
 
   const finishRepair = () => {
+    const repair = REPAIRS.find(r => r.id === activeRepair);
     resetService();
-    setServiceMsg(activeRepair === 'pan-gasket'
+    setServiceMsg((activeRepair === 'pan-gasket'
       ? 'New gasket fitted; 22 screws torqued 24 ± 4 Nm middle-out, A & B re-checked, drain plug 60 ± 10 Nm ✓'
       : activeRepair === 'turbo-replace'
         ? 'Turbo R&R complete: smooth spool, oil pressure good, coolant stable, boost tracking rpm ✓'
         : activeRepair === 'overhead-adjust'
           ? 'Valve lash checked/adjusted at TDC per cylinder; all 16 cover bolts back in, snugged criss-cross ✓'
-          : 'New filters on (oiled gaskets, 3/4–1 turn), pan torqued 24 ± 4 Nm, filled with VDS-4 10W-30 ✓');
+          : 'New filters on (oiled gaskets, 3/4–1 turn), pan torqued 24 ± 4 Nm, filled with VDS-4 10W-30 ✓')
+      + (repair ? ` — 🪙 +${repair.coinReward} coins` : ''));
+    // Award coins and check for a level-up against the level *before* this
+    // job's payout, so a job that crosses a threshold announces the new
+    // level exactly once instead of every render after.
+    if (repair) {
+      const before = mechanicLevel;
+      const after = levelForCoins(coins + repair.coinReward);
+      setCoins(c => c + repair.coinReward);
+      if (after.level > before.level) {
+        setLevelUpMsg(`🎉 LEVEL UP — you're now a ${after.title} (Level ${after.level})`);
+      }
+    }
     setActiveRepair(null);
   };
 
   const openRepair = (id: RepairId) => {
+    const repair = REPAIRS.find(r => r.id === id)!;
+    if (mechanicLevel.level < repair.unlockLevel) {
+      setServiceMsg(`🔒 Locked — reach Level ${repair.unlockLevel} (${LEVELS.find(l => l.level === repair.unlockLevel)!.title}) to take this job.`);
+      return;
+    }
     if (!hoodOpen) {
       setServiceMsg('You can\'t wrench through a closed hood: 🔑 unlock the door, 🅿 set the parking brake in the cab, then open the hood.');
       return;
@@ -1625,7 +1714,7 @@ export default function EngineViewer() {
   const startVehicle = (id: VehicleId | null) => {
     if (inspecting) exitInspect();
     setDoorUnlocked(false); setDoorOpen(false); setInCab(false);
-    setParkingBrake(false); setTrailerAir(false); setHoodOpen(false);
+    setParkingBrake(false); setTrailerAir(false); setHoodOpen(false); setHoodLeverPulled(false);
     setOpenDrawer(null); setSelectedTool(null); setTray([]);
     setRepairsOpen(false); setActiveRepair(null); setServiceMsg('');
     setEngineOn(false); setActiveHotspot(null);
@@ -1736,6 +1825,16 @@ export default function EngineViewer() {
               {engine.model} <span className="text-transparent bg-clip-text" style={{ backgroundImage: 'linear-gradient(90deg, #00d4ff, #00ffaa)' }}>Engine</span>
             </h1>
             <p className="text-gray-400 text-xs mt-1 tracking-widest uppercase">{engine.tagline}</p>
+            {vehicle !== 'sonata2017' && (
+              <div className="mt-1.5 flex items-center gap-2 pointer-events-none">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400/10 border border-amber-400/30 text-amber-300">
+                  ⭐ Lv.{mechanicLevel.level} {mechanicLevel.title}
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-400/10 border border-yellow-400/30 text-yellow-300 font-mono">
+                  🪙 {coins}
+                </span>
+              </div>
+            )}
             {/* Engine selector */}
             <div className="flex items-center gap-1.5 mt-3 pointer-events-auto">
               <button
@@ -1842,16 +1941,48 @@ export default function EngineViewer() {
                 <span className="text-amber-300 text-xs font-bold tracking-widest uppercase">Engine Repairs</span>
                 <button onClick={() => setRepairsOpen(false)} className="text-gray-500 hover:text-white text-sm">✕</button>
               </div>
-              {REPAIRS.map(r => (
-                <button
-                  key={r.id}
-                  onClick={() => openRepair(r.id)}
-                  className="w-full text-left p-3 rounded-lg border border-white/10 bg-white/5 hover:bg-amber-400/10 hover:border-amber-400/40 transition"
-                >
-                  <div className="text-white text-sm font-bold">{r.icon} {r.label}</div>
-                  <div className="text-gray-400 text-xs mt-1 leading-relaxed">{r.desc}</div>
-                </button>
-              ))}
+              <div className="flex items-center justify-between px-1 -mt-1 mb-1">
+                <span className="text-white text-xs font-bold">⭐ Lv.{mechanicLevel.level} — {mechanicLevel.title}</span>
+                <span className="text-yellow-300 text-xs font-bold font-mono">🪙 {coins}</span>
+              </div>
+              {nextLevel(mechanicLevel.level) && (
+                <div className="h-1 rounded-full bg-white/10 overflow-hidden -mt-1 mb-2">
+                  <div
+                    className="h-full bg-gradient-to-r from-amber-400 to-yellow-300"
+                    style={{
+                      width: `${Math.min(100, Math.round(
+                        ((coins - mechanicLevel.coinsRequired) / (nextLevel(mechanicLevel.level)!.coinsRequired - mechanicLevel.coinsRequired)) * 100
+                      ))}%`,
+                    }}
+                  />
+                </div>
+              )}
+              {REPAIRS.map(r => {
+                const locked = mechanicLevel.level < r.unlockLevel;
+                return (
+                  <button
+                    key={r.id}
+                    onClick={() => openRepair(r.id)}
+                    className={`w-full text-left p-3 rounded-lg border transition ${
+                      locked
+                        ? 'border-white/5 bg-white/[0.02] opacity-60 cursor-not-allowed hover:bg-white/[0.02]'
+                        : 'border-white/10 bg-white/5 hover:bg-amber-400/10 hover:border-amber-400/40'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="text-white text-sm font-bold">{locked ? '🔒' : r.icon} {r.label}</div>
+                      <div className="text-yellow-300 text-xs font-bold font-mono shrink-0 ml-2">🪙 {r.coinReward}</div>
+                    </div>
+                    {locked ? (
+                      <div className="text-gray-500 text-xs mt-1 leading-relaxed">
+                        Unlocks at Level {r.unlockLevel} — {LEVELS.find(l => l.level === r.unlockLevel)!.title}
+                      </div>
+                    ) : (
+                      <div className="text-gray-400 text-xs mt-1 leading-relaxed">{r.desc}</div>
+                    )}
+                  </button>
+                );
+              })}
               {serviceMsg && <p className="text-green-300 text-xs">{serviceMsg}</p>}
             </>
           ) : (
@@ -2137,12 +2268,23 @@ export default function EngineViewer() {
         </div>
       )}
 
+      {/* Level-up toast — fires from finishRepair when a job's coin payout
+          crosses the next LEVELS threshold; auto-dismisses after 4s. */}
+      {levelUpMsg && (
+        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl border border-amber-400/60 bg-gradient-to-r from-amber-500/20 to-yellow-400/20 backdrop-blur-md text-center pointer-events-none animate-pulse">
+          <p className="text-amber-200 text-sm font-black tracking-wide">{levelUpMsg}</p>
+        </div>
+      )}
+
       {/* Pre-trip checklist — the real-life steps before any wrenching */}
       {!isLoading && !hoodOpen && !inspecting && (
         <div className="absolute top-24 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded-xl bg-black/75 backdrop-blur-md border border-white/15 flex items-center gap-4 text-[11px] pointer-events-none">
           <span className={doorUnlocked ? 'text-green-300' : 'text-white font-bold'}>{doorUnlocked ? '✓' : '1.'} 🔑 Unlock the door (key in hand, click the door)</span>
           <span className={parkingBrake ? 'text-green-300' : doorUnlocked ? 'text-white font-bold' : 'text-gray-500'}>{parkingBrake ? '✓' : '2.'} 🅿 Set the parking brake (in the cab)</span>
-          <span className={hoodOpen ? 'text-green-300' : parkingBrake ? 'text-white font-bold' : 'text-gray-500'}>3. Open the hood (click it)</span>
+          {vehicle !== 'sonata2017' && (
+            <span className={hoodLeverPulled ? 'text-green-300' : parkingBrake ? 'text-white font-bold' : 'text-gray-500'}>{hoodLeverPulled ? '✓' : '3.'} 🔓 Pull the hood release (in the cab)</span>
+          )}
+          <span className={hoodOpen ? 'text-green-300' : (vehicle === 'sonata2017' ? parkingBrake : hoodLeverPulled) ? 'text-white font-bold' : 'text-gray-500'}>{vehicle === 'sonata2017' ? '3.' : '4.'} Open the hood (click it — outside the cab)</span>
         </div>
       )}
 
@@ -2206,10 +2348,26 @@ export default function EngineViewer() {
                 <span className="text-black text-[9px] font-bold block mt-1 leading-tight">PARKING<br />BRAKE</span>
                 <span className="text-yellow-900 text-[8px]">{parkingBrake ? 'PULLED — APPLIED ✓' : 'PULL TO APPLY'}</span>
               </button>
+              {vehicle !== 'sonata2017' && (
+                <button
+                  onClick={() => {
+                    if (hoodLeverPulled) return;
+                    setHoodLeverPulled(true);
+                    setServiceMsg('🔓 Hood latch released — climb out, then click the hood to lift it.');
+                  }}
+                  className={`w-32 rounded-lg border-2 p-2 text-center transition ${hoodLeverPulled ? 'border-neutral-500 bg-neutral-700/70' : 'border-neutral-400 bg-neutral-600 hover:brightness-110'}`}
+                >
+                  <span className={`block w-3 h-10 mx-auto rounded-full shadow-inner ${hoodLeverPulled ? 'bg-neutral-500' : 'bg-neutral-300'}`} />
+                  <span className="text-white text-[9px] font-bold block mt-1 leading-tight">HOOD<br />RELEASE</span>
+                  <span className="text-neutral-300 text-[8px]">{hoodLeverPulled ? 'RELEASED ✓' : 'PULL TO UNLATCH'}</span>
+                </button>
+              )}
             </div>
 
             <p className="text-gray-500 text-[11px] text-center leading-relaxed">
-              Pull the yellow diamond to set the spring brakes before you leave the cab.
+              {vehicle !== 'sonata2017'
+                ? 'Pull the yellow diamond to set the spring brakes, and the hood release if you\'re popping the hood, before you leave the cab.'
+                : 'Pull the yellow diamond to set the spring brakes before you leave the cab.'}
             </p>
             <button
               onClick={() => setInCab(false)}
@@ -2329,8 +2487,12 @@ export default function EngineViewer() {
         </div>
       </div>
 
-      {/* RPM / Engine status (bottom-left) */}
-      <div className="absolute bottom-20 left-5 pointer-events-auto hidden md:block">
+      {/* RPM / Engine status (bottom-left). Gated on height as well as width —
+          `md:` alone triggers on a short "widescreen" mobile-landscape phone
+          (width ≥768px but height only ~375-430px), where this panel and the
+          "Mobile specs strip" below used to render on top of each other
+          because both only checked width. Only one of the two now shows. */}
+      <div className="absolute bottom-20 left-5 pointer-events-auto hidden [@media(min-width:768px)_and_(min-height:520px)]:block">
         <div className="rounded-xl p-3" style={{ background: 'rgba(5,8,22,0.85)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)' }}>
           <div className="flex items-center gap-3">
             <div className={`w-2.5 h-2.5 rounded-full transition-colors duration-500 ${engineOn ? 'bg-green-400 shadow-[0_0_8px_#00ff88]' : 'bg-gray-700'}`} />
@@ -2393,8 +2555,11 @@ export default function EngineViewer() {
         </div>
       </div>
 
-      {/* Mobile specs strip */}
-      <div className="absolute bottom-20 left-4 right-4 xl:hidden pointer-events-none">
+      {/* Mobile specs strip — the fallback for when there isn't room for the
+          desktop RPM panel above. Was `xl:hidden` (width-only), which made it
+          render at the same time as that panel between 768-1280px width on a
+          short viewport; now the two conditions mirror each other exactly. */}
+      <div className="absolute bottom-20 left-4 right-4 pointer-events-none [@media(min-width:768px)_and_(min-height:520px)]:hidden">
         <div className="rounded-xl p-3 grid grid-cols-4 gap-2" style={{ background: 'rgba(5,8,22,0.88)', border: '1px solid rgba(255,255,255,0.08)' }}>
           {engine.specs.slice(0, 4).map(s => (
             <div key={s.label} className="text-center">
@@ -2459,11 +2624,15 @@ export default function EngineViewer() {
         >🔍-</button>
       </div>
 
-      {/* Interaction hint */}
-      <div className="absolute bottom-8 right-5 pointer-events-none text-right hidden md:block">
-        <p className="text-gray-700 text-xs">🖱 Drag · Scroll · Right-drag</p>
-        <p className="text-gray-600 text-xs mt-0.5">Click markers to explore</p>
-      </div>
+      {/* Interaction hint — hidden below 520px height for the same reason as
+          the RPM panel above, and also hidden while a tool is in hand since
+          it sits right where the HandHUD graphic renders bottom-right. */}
+      {!selectedTool && (
+        <div className="absolute bottom-8 right-5 pointer-events-none text-right hidden [@media(min-width:768px)_and_(min-height:520px)]:block">
+          <p className="text-gray-700 text-xs">🖱 Drag · Scroll · Right-drag</p>
+          <p className="text-gray-600 text-xs mt-0.5">Click markers to explore</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -3515,12 +3684,79 @@ export function buildVolvoD13(
   [-2.2, 0, 2.2].forEach(rx => {
     add(new THREE.BoxGeometry(0.08, 0.1, 0.86), M.darkMetal, { pos: [rx, -0.62, 0], parent: truckBody });
   });
-  // Wheels (front steer + rear duals) with chrome hubs
+  // Wheels (front steer + rear duals) with chrome hubs. The "duals" half of
+  // that comment was aspirational until now — docs/reference/truck/
+  // 08-rear-tandem-axle-top.png and 09-rear-tandem-fifthwheel-2.png both
+  // show two tires per hub on the drive axles; the front steer axle stays
+  // single, as on the real truck.
   const wheelAt = (wx: number, wz: number) => {
     add(new THREE.CylinderGeometry(0.5, 0.5, 0.28, 24), M.rubber, { pos: [wx, -0.6, wz], rot: [Math.PI / 2, 0, 0], parent: truckBody });
     add(new THREE.CylinderGeometry(0.22, 0.22, 0.29, 16), M.chrome, { pos: [wx, -0.6, wz], rot: [Math.PI / 2, 0, 0], parent: truckBody });
   };
-  [[-1.5, 0.75], [-1.5, -0.75], [2.4, 0.78], [2.4, -0.78], [3.3, 0.78], [3.3, -0.78]].forEach(([wx, wz]) => wheelAt(wx, wz));
+  // Outer tire sits 0.30 further out than the inner (tire width 0.28 + a
+  // ~0.02 gap, same tire-width anchor as the single-wheel geometry above).
+  const dualWheelAt = (wx: number, wz: number) => {
+    const outward = wz > 0 ? 1 : -1;
+    wheelAt(wx, wz);
+    wheelAt(wx, wz + outward * 0.30);
+  };
+  [[-1.5, 0.75], [-1.5, -0.75]].forEach(([wx, wz]) => wheelAt(wx, wz));
+  [[2.4, 0.78], [2.4, -0.78], [3.3, 0.78], [3.3, -0.78]].forEach(([wx, wz]) => dualWheelAt(wx, wz));
+
+  // Tandem rear suspension + interaxle driveline, per docs/reference/truck/
+  // 08-rear-tandem-axle-top.png and 09-rear-tandem-fifthwheel-2.png: two
+  // driven axles linked by a short interaxle shaft off the forward axle's
+  // differential, walking-beam arms tying each axle to the frame, and air
+  // springs riding on the beams above each hub. (No shaft running further
+  // forward to the transmission — that would have to cross from truckBody's
+  // rotated local frame into the engine's own top-level `group` frame, which
+  // isn't worth the coordinate risk for a driveline part that's mostly
+  // hidden behind the wheels anyway.)
+  const AXLE1_X = 2.4, AXLE2_X = 3.3;
+  [AXLE1_X, AXLE2_X].forEach(ax => {
+    add(new THREE.CylinderGeometry(0.045, 0.045, 1.62, 12), M.darkMetal, { pos: [ax, -0.64, 0], rot: [Math.PI / 2, 0, 0], parent: truckBody });
+    add(new THREE.SphereGeometry(0.11, 14, 12), M.darkMetal, { pos: [ax, -0.64, 0], parent: truckBody });
+  });
+  add(new THREE.CylinderGeometry(0.035, 0.035, AXLE2_X - AXLE1_X - 0.22, 10), M.brushedMetal,
+    { pos: [(AXLE1_X + AXLE2_X) / 2, -0.64, 0], rot: [0, 0, Math.PI / 2], parent: truckBody });
+  [0.78, -0.78].forEach(z => {
+    add(new THREE.BoxGeometry(AXLE2_X - AXLE1_X + 0.3, 0.06, 0.05), M.black, { pos: [(AXLE1_X + AXLE2_X) / 2, -0.7, z], parent: truckBody });
+    [AXLE1_X, AXLE2_X].forEach(ax => {
+      add(new THREE.CylinderGeometry(0.09, 0.1, 0.22, 14), M.black, { pos: [ax, -0.52, z], parent: truckBody });
+    });
+  });
+
+  // Fifth wheel — bolted to a support frame above the rails, just ahead of
+  // the forward tandem axle (fixed-mount; real sliders can move but this rig
+  // doesn't need that). Photo 06/09 anchor: greasy worn-steel casting, plate
+  // diameter roughly matching the frame rail spacing (rails at z ±0.42
+  // above), kingpin throat opening toward the cab (−x, per this file's
+  // truck-is-rotated-180° convention).
+  const fifthWheel = new THREE.Group();
+  fifthWheel.name = 'truck-fifthwheel';
+  fifthWheel.position.set(2.1, -0.42, 0);
+  truckBody.add(fifthWheel);
+  add(new THREE.CylinderGeometry(0.46, 0.46, 0.06, 20), M.darkMetal, { pos: [0, 0, 0], rot: [Math.PI / 2, 0, 0], parent: fifthWheel });
+  add(new THREE.BoxGeometry(0.16, 0.05, 0.3), M.darkMetal, { pos: [-0.4, 0, 0], parent: fifthWheel });
+  add(new THREE.CylinderGeometry(0.04, 0.04, 0.1, 10), M.brushedMetal, { pos: [-0.05, 0.05, 0], parent: fifthWheel });
+  [0.42, -0.42].forEach(z => {
+    add(new THREE.BoxGeometry(0.06, 0.24, 0.06), M.darkMetal, { pos: [2.05, -0.5, z], rot: [0.5, 0, 0], parent: truckBody });
+  });
+
+  // Rear crossmember, mud flaps, and marker-light bar — the very back of the
+  // frame, per docs/reference/truck/05-exterior-rear.png (three-light bar
+  // centered above the flaps: red-white-red; black flaps with a chrome trim
+  // strip; a grab handle on the cab's back wall above the fifth wheel).
+  add(new THREE.BoxGeometry(0.1, 0.08, 1.8), M.darkMetal, { pos: [3.5, -0.62, 0], parent: truckBody });
+  [0.5, 0, -0.5].forEach((z, i) => {
+    add(new THREE.BoxGeometry(0.03, 0.05, 0.16), i === 1 ? M.white : M.red, { pos: [3.56, -0.62, z], shadow: false, parent: truckBody });
+  });
+  [0.78, -0.78].forEach(z => {
+    add(new THREE.BoxGeometry(0.02, 0.34, 0.26), M.black, { pos: [3.48, -0.86, z], parent: truckBody });
+    add(new THREE.BoxGeometry(0.03, 0.04, 0.26), M.chrome, { pos: [3.48, -0.7, z], shadow: false, parent: truckBody });
+  });
+  add(new THREE.TorusGeometry(0.02, 0.008, 6, 12, Math.PI), M.chrome, { pos: [3.66, -0.1, 0], rot: [0, 0, Math.PI / 2], shadow: false, parent: truckBody });
+  tick();
   // Cab shell + sleeper (VNL 860 tall roof). Cab floor stops at y 0.28 —
   // above the I-Shift (tops out ~0.22) so the transmission hangs visibly
   // under the cab like the real truck instead of being engulfed by it.
@@ -3538,6 +3774,61 @@ export function buildVolvoD13(
   [0.86, -0.86].forEach(z => {
     add(new THREE.BoxGeometry(2.3, 0.42, 0.04), lowerBody, { pos: [2.5, -0.33, z], parent: truckBody });
   });
+
+  // ── Cab interior — dash, wheel, seats, and the full sleeper. Previously
+  // this was exterior-only ("interior controls modeled in the cab overlay
+  // from the dash photos; exterior is a recognizable VNL shape" — the 2D
+  // cab-overlay screen has no 3D counterpart behind the glass). Built from
+  // docs/reference/truck/15,20,21 (dash/wheel/seats — the overlay's air/
+  // parking-brake knob layout already matches these, so the same photos
+  // anchor the 3D dash) and 16-19 (sleeper: bunk, nightstand, overhead bins,
+  // folding ladder, fridge, climate panel).
+  const cabinTan = new THREE.MeshStandardMaterial({ color: 0xcabca6, metalness: 0, roughness: 0.85 }); // headliner/door-card beige, photos 16-20
+  const dashDark = new THREE.MeshStandardMaterial({ color: 0x232427, metalness: 0.1, roughness: 0.6 }); // dash/console charcoal plastic, photo 15/21
+  const seatFabric = new THREE.MeshStandardMaterial({ color: 0x5f584f, metalness: 0, roughness: 0.95 }); // gray-brown tweed, photo 15/20
+
+  // Dash — swept panel behind the windshield (x 1.48), full cab width
+  add(new THREE.BoxGeometry(0.22, 0.34, 1.66), dashDark, { pos: [1.58, 0.48, 0], parent: truckBody });
+  add(new THREE.BoxGeometry(0.3, 0.05, 1.66), dashDark, { pos: [1.52, 0.66, 0], rot: [0, 0, -0.08], parent: truckBody }); // sloped top shelf toward the glass
+  add(new THREE.BoxGeometry(0.16, 0.16, 0.5), dashDark, { pos: [1.66, 0.5, -0.1], parent: truckBody }); // center stack (radio/climate, photo 21)
+  // Steering column + wheel, driver side (+z, matches the door above)
+  add(new THREE.CylinderGeometry(0.025, 0.03, 0.35, 10), dashDark, { pos: [1.62, 0.58, 0.5], rot: [0, 0, Math.PI / 2.6], parent: truckBody });
+  add(new THREE.TorusGeometry(0.16, 0.02, 10, 20), M.black, { pos: [1.5, 0.72, 0.5], rot: [1.15, 0, 0], parent: truckBody });
+  add(new THREE.CylinderGeometry(0.03, 0.03, 0.03, 12), M.chrome, { pos: [1.5, 0.72, 0.5], rot: [1.15, 0, 0], shadow: false, parent: truckBody });
+  // Two pedestal seats (photo 15/20: driver +z, passenger −z)
+  [0.5, -0.5].forEach(z => {
+    add(new THREE.CylinderGeometry(0.09, 0.12, 0.22, 12), dashDark, { pos: [1.95, 0.4, z], parent: truckBody }); // pedestal
+    add(new THREE.BoxGeometry(0.44, 0.08, 0.42), seatFabric, { pos: [1.95, 0.52, z], parent: truckBody }); // cushion
+    add(new THREE.BoxGeometry(0.4, 0.5, 0.4), seatFabric, { pos: [1.78, 0.78, z], rot: [0, 0, 0.1], parent: truckBody }); // seatback
+    add(new THREE.BoxGeometry(0.32, 0.12, 0.3), seatFabric, { pos: [1.68, 1.06, z], rot: [0, 0, 0.1], parent: truckBody }); // headrest
+  });
+  add(new THREE.BoxGeometry(0.2, 0.28, 0.22), dashDark, { pos: [1.82, 0.5, 0], parent: truckBody }); // center console between seats
+
+  // Sleeper compartment (x 2.35–3.55, under the raised high-roof section)
+  add(new THREE.BoxGeometry(0.65, 0.28, 1.5), cabinTan, { pos: [3.2, 0.42, 0], parent: truckBody }); // bunk base/storage
+  add(new THREE.BoxGeometry(0.65, 0.06, 1.5), M.white, { pos: [3.2, 0.59, 0], parent: truckBody }); // mattress
+  // Rounded nightstand/side console at the head of the bunk, driver side (photo 16)
+  add(new THREE.CylinderGeometry(0.16, 0.18, 0.5, 16), cabinTan, { pos: [2.7, 0.53, 0.62], parent: truckBody });
+  add(new THREE.BoxGeometry(0.02, 0.1, 0.14), dashDark, { pos: [2.62, 0.6, 0.62], shadow: false, parent: truckBody }); // drawer face
+  // Overhead storage bins, both sides, under the high-roof section (photo 17/19)
+  [0.7, -0.7].forEach(z => {
+    add(new THREE.BoxGeometry(0.9, 0.28, 0.32), cabinTan, { pos: [2.95, 1.72, z], parent: truckBody });
+    add(new THREE.BoxGeometry(0.9, 0.03, 0.32), dashDark, { pos: [2.95, 1.58, z], shadow: false, parent: truckBody }); // fold-down door lip
+  });
+  // Folding ladder, stowed flat against the ceiling (photo 17/19)
+  add(new THREE.BoxGeometry(0.55, 0.03, 0.32), M.brushedMetal, { pos: [2.9, 1.9, -0.28], parent: truckBody });
+  for (let i = 0; i < 5; i++) {
+    add(new THREE.BoxGeometry(0.02, 0.032, 0.32), M.darkMetal, { pos: [2.68 + i * 0.11, 1.9, -0.28], shadow: false, parent: truckBody }); // rungs
+  }
+  // Mini-fridge at the foot of the bunk, passenger side (photo 18)
+  add(new THREE.BoxGeometry(0.34, 0.42, 0.34), M.white, { pos: [3.35, 0.48, -0.62], parent: truckBody });
+  add(new THREE.BoxGeometry(0.34, 0.04, 0.34), M.black, { pos: [3.35, 0.7, -0.62], shadow: false, parent: truckBody }); // lid trim
+  // Climate control panel on the driver-side wall (photo 18)
+  add(new THREE.BoxGeometry(0.03, 0.16, 0.22), dashDark, { pos: [3.63, 0.9, 0.6], shadow: false, parent: truckBody });
+  [0.05, -0.05].forEach(dz => {
+    add(new THREE.CylinderGeometry(0.025, 0.025, 0.015, 12), M.black, { pos: [3.645, 0.9, 0.6 + dz], rot: [0, 0, Math.PI / 2], shadow: false, parent: truckBody });
+  });
+
   // Mirrors, steps, fuel tank, exhaust stack
   // Aero mirror assemblies (photo 01/04: body-color housing on a dark arm,
   // roughly 0.4x the door-glass height per photo 01) — arm off the A-pillar,

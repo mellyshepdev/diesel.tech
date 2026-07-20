@@ -105,21 +105,48 @@ const Socket = ({ bottomY, size }: { bottomY: number; size: string }) => {
   );
 };
 
-/** Ratchet handle + head; drive square top lands at y 138. */
+/**
+ * Ratchet handle + head; drive square top lands at y 138.
+ * Styled off the mechanic's actual Snap-on reversible ratchet
+ * (docs/reference/tools/snapon-ratchet-reference.jpg): drop-forged chrome
+ * head with an etched "Snap-on" oval + ON marked reverse lever, a short
+ * chrome shaft, then a black cushion-grip handle with a red ferrule collar,
+ * red "Snap-on" wordmark, and a red buttcap tip.
+ */
 const RatchetBody = () => (
   <g>
-    {/* handle with knurled grip */}
+    {/* chrome handle base (collar + buttcap show through at the ends) */}
     <rect x="168" y="268" width="24" height="240" rx="10" fill="url(#hudChrome)" stroke="#565d66" strokeWidth="1" />
-    <rect x="168" y="360" width="24" height="120" rx="10" fill="url(#hudBlack)" />
-    {[0, 1, 2, 3, 4, 5].map(i => (
-      <line key={i} x1="170" y1={372 + i * 18} x2="190" y2={372 + i * 18} stroke="#000" strokeWidth="2" opacity="0.5" />
+    {/* red ferrule ring where the black grip meets the shaft */}
+    <rect x="166" y="270" width="28" height="14" rx="5" fill="url(#hudRed)" stroke="#4a0d08" strokeWidth="1" />
+    {/* black cushion grip (Snap-on's rubberized handle, not bare knurled chrome) */}
+    <rect x="168" y="284" width="24" height="196" rx="10" fill="url(#hudBlack)" />
+    {[0, 1, 2, 3, 4, 5, 6].map(i => (
+      <line key={i} x1="170" y1={298 + i * 24} x2="190" y2={298 + i * 24} stroke="#000" strokeWidth="2" opacity="0.4" />
     ))}
+    {/* "Snap-on" wordmark down the grip, red like the real handle */}
+    <text
+      x="180" y="388" textAnchor="middle" fontSize="11" fontWeight="800" fontStyle="italic"
+      fill="#e0472f" fontFamily="ui-serif, Georgia, serif" transform="rotate(90 180 388)"
+    >
+      Snap-on
+    </text>
+    {/* red buttcap */}
+    <rect x="168" y="480" width="24" height="28" rx="10" fill="url(#hudRed)" />
     {/* neck */}
     <rect x="173" y="205" width="14" height="70" fill="url(#hudChrome)" stroke="#565d66" strokeWidth="1" />
     {/* head */}
     <ellipse cx="180" cy="176" rx="31" ry="41" fill="url(#hudChrome)" stroke="#565d66" strokeWidth="1.5" />
     <circle cx="180" cy="172" r="16" fill="#3a4048" />
     <circle cx="180" cy="172" r="6" fill="#22262c" />
+    {/* "Snap-on" stamp etched into the drop-forged head, per the reference photo */}
+    <ellipse cx="180" cy="150" rx="17" ry="7" fill="none" stroke="#6b7280" strokeWidth="1" opacity="0.65" />
+    <text x="180" y="152.5" textAnchor="middle" fontSize="6" fontWeight="700" fontStyle="italic" fill="#5b6470" fontFamily="ui-serif, Georgia, serif">
+      Snap-on
+    </text>
+    {/* reverse switch, marked ON like the real ratchet's flip lever */}
+    <ellipse cx="180" cy="194" rx="6.5" ry="5" fill="#20252b" stroke="#111418" strokeWidth="1" />
+    <text x="180" y="196" textAnchor="middle" fontSize="4.5" fontWeight="800" fill="#8b939c">ON</text>
     {/* reverse lever */}
     <rect x="200" y="196" width="20" height="9" rx="4.5" transform="rotate(32 200 196)" fill="#31363d" />
     {/* 1/2" drive square sticking out the top */}
@@ -451,7 +478,12 @@ export default function HandHUD({ tool, socketExt, snapOnExt, onSnapOnExtChange 
     <div
       key={`${tool}-${socketExt}-${snapOnExt}`}
       className="hand-hud-enter pointer-events-none absolute bottom-0 right-0 z-10 select-none"
-      style={{ width: "clamp(210px, 30vw, 400px)" }}
+      // Sized off width AND height: the SVG's ~360:520 aspect ratio means a
+      // pure `vw` width (the old formula) blows up to cover a short, wide
+      // "widescreen" mobile-landscape viewport where height, not width, is
+      // the scarce dimension. Capping via `min(30vw, 48vh)` keeps the
+      // rendered tool's height under ~0.48*1.44 ≈ 70% of viewport height.
+      style={{ width: "clamp(180px, min(30vw, 48vh), 400px)" }}
       aria-label={`In hand: ${handLabel(tool, socketExt, snapOnExt)}`}
     >
       <div className="hand-hud-bob">
