@@ -621,6 +621,26 @@ export default function EngineViewer() {
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
+  // Keyboard nav: arrow keys walk the rig (position), WASD turns the view
+  // (look direction) — read once per frame in animate() rather than acted on
+  // in the key handlers themselves, so holding a key moves smoothly at frame
+  // rate instead of jumping once per OS key-repeat event.
+  const keysHeldRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const isTypingTarget = (el: EventTarget | null) =>
+      el instanceof HTMLElement && (el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.isContentEditable);
+    const down = (e: KeyboardEvent) => { if (!isTypingTarget(e.target)) keysHeldRef.current.add(e.key.toLowerCase()); };
+    const up = (e: KeyboardEvent) => keysHeldRef.current.delete(e.key.toLowerCase());
+    const blur = () => keysHeldRef.current.clear(); // don't leave a key "stuck held" if focus/visibility changes mid-press
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    window.addEventListener('blur', blur);
+    return () => {
+      window.removeEventListener('keydown', down);
+      window.removeEventListener('keyup', up);
+      window.removeEventListener('blur', blur);
+    };
+  }, []);
   const engineGroupRef = useRef<THREE.Group | null>(null);
   const animFrameRef = useRef<number>(0);
   const clockRef = useRef(new THREE.Clock());
@@ -1727,6 +1747,48 @@ export default function EngineViewer() {
         if (camera.position.distanceTo(camMove.pos) < 0.01 && controls.target.distanceTo(camMove.look) < 0.01) {
           engineGroup.userData.cameraMove = undefined;
         }
+      }
+
+      // Keyboard nav: arrows walk the rig (camera + target move together,
+      // same offset preserved — equivalent to OrbitControls' own panning),
+      // WASD turns the view (only the target orbits the fixed camera
+      // position, like turning your head) — kept as two separate schemes
+      // per how the player asked for them, not the more common "WASD moves"
+      // convention.
+      const keys = keysHeldRef.current;
+      if (keys.size) {
+        controls.autoRotate = false;
+        setAutoRotate(false);
+        const forward = new THREE.Vector3();
+        camera.getWorldDirection(forward);
+        forward.y = 0;
+        if (forward.lengthSq() > 0) forward.normalize();
+        const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
+        const move = new THREE.Vector3();
+        if (keys.has('arrowup')) move.add(forward);
+        if (keys.has('arrowdown')) move.sub(forward);
+        if (keys.has('arrowright')) move.add(right);
+        if (keys.has('arrowleft')) move.sub(right);
+        if (move.lengthSq() > 0) {
+          move.normalize().multiplyScalar(0.06);
+          camera.position.add(move);
+          controls.target.add(move);
+        }
+        if (keys.has('a') || keys.has('d') || keys.has('w') || keys.has('s')) {
+          const lookSpeed = 0.022;
+          const offset = new THREE.Vector3().subVectors(controls.target, camera.position);
+          if (keys.has('a')) offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), lookSpeed);
+          if (keys.has('d')) offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), -lookSpeed);
+          if (keys.has('w') || keys.has('s')) {
+            const pitchAxis = new THREE.Vector3().crossVectors(offset, camera.up).normalize();
+            const pitched = offset.clone().applyAxisAngle(pitchAxis, keys.has('w') ? lookSpeed : -lookSpeed);
+            // Clamp so looking up/down can't flip past straight overhead/underfoot.
+            const horiz = Math.sqrt(pitched.x * pitched.x + pitched.z * pitched.z);
+            if (Math.abs(Math.atan2(pitched.y, horiz)) < Math.PI * 0.47) offset.copy(pitched);
+          }
+          controls.target.copy(camera.position).add(offset);
+        }
+        controls.update();
       }
 
       // Turbo failure: oil + coolant puddles spreading under the engine
