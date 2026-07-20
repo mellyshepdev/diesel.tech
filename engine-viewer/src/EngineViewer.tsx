@@ -1085,7 +1085,7 @@ export default function EngineViewer() {
     // Scene
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x050810);
-    scene.fog = new THREE.FogExp2(0x050810, 0.06);
+    scene.fog = new THREE.FogExp2(0x050810, 0.03); // light enough that the 20-unit max zoom stays readable
 
     // Camera
     const camera = new THREE.PerspectiveCamera(42, container.clientWidth / container.clientHeight, 0.1, 100);
@@ -1115,7 +1115,7 @@ export default function EngineViewer() {
     controls.enableDamping = true;
     controls.dampingFactor = 0.04;
     controls.minDistance = 1.8;
-    controls.maxDistance = 9;
+    controls.maxDistance = 20; // far enough to take in the whole shop incl. the back-wall toolbox
     controls.maxPolarAngle = Math.PI * 0.88;
     controls.autoRotate = true;
     controls.autoRotateSpeed = 1.0;
@@ -1129,6 +1129,11 @@ export default function EngineViewer() {
     keyLight.position.set(4, 6, 4);
     keyLight.castShadow = true;
     keyLight.shadow.mapSize.set(2048, 2048);
+    // Widen the default ±5 ortho frustum so the toolbox at z=-7.5 still gets shadows
+    keyLight.shadow.camera.left = -10;
+    keyLight.shadow.camera.right = 10;
+    keyLight.shadow.camera.top = 10;
+    keyLight.shadow.camera.bottom = -10;
     keyLight.shadow.bias = -0.001;
     scene.add(keyLight);
 
@@ -1158,7 +1163,7 @@ export default function EngineViewer() {
     else buildVolvoD13(engineGroup, setLoadProgress, setIsLoading);
 
     // Ground
-    const groundGeo = new THREE.CircleGeometry(4.5, 64);
+    const groundGeo = new THREE.CircleGeometry(9, 64); // reaches the toolbox at z=-7.5
     const groundMat = new THREE.MeshStandardMaterial({
       color: 0x0a1428,
       metalness: 0.9,
@@ -3326,7 +3331,7 @@ export function buildVolvoD13(
   const IN = 1 / 43;
   const toolbox = new THREE.Group();
   toolbox.name = 'toolbox-chest';
-  toolbox.position.set(-0.35, -1.1, -2.5); // along the back of the shop, facing the truck
+  toolbox.position.set(-0.35, -1.1, -7.5); // pushed 3x deeper along the back of the shop, facing the truck
   group.add(toolbox);
 
   // Gloss-black powder-coat: clearcoat catches the shop lights like the photo.
