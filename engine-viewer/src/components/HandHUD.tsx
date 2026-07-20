@@ -8,6 +8,10 @@ import { TOOLS, type Tool } from "./ToolPanel";
 interface HandHUDProps {
   tool: Tool | null;
   socketExt: "none" | "stubby" | "long";
+  snapOnExt: "none" | "three" | "six";
+  /** Snap-on ratchet's extension picker lives right by the hand, not the
+   *  repair checklist — it's a general-purpose tool, not tied to one job. */
+  onSnapOnExtChange?: (ext: "none" | "three" | "six") => void;
 }
 
 /** "15mm Socket" → "15mm", '5/16" Socket' → '5/16"' */
@@ -134,6 +138,62 @@ const RatchetStack = ({ ext, socketSize }: { ext: "none" | "stubby" | "long"; so
         <g>
           <rect x="172" y={stackTop} width="16" height={extLen + 4} rx="3" fill="url(#hudChrome)" stroke="#565d66" strokeWidth="1" />
           <rect x="170" y={stackTop - 4} width="20" height="12" rx="2" fill="url(#hudSteel)" />
+        </g>
+      )}
+      {socketSize && <Socket bottomY={stackTop + 6} size={socketSize} />}
+    </g>
+  );
+};
+
+/** Snap-on branded ratcheting wrench: same head/handle language as the shop
+ *  ratchet but with a maker's engraving, plus its own 3"/6" extension —
+ *  distinct from the generic ratchet's 3"/10" socket-extension pairing. */
+const SnapOnRatchetBody = () => (
+  <g>
+    {/* handle with knurled grip */}
+    <rect x="168" y="268" width="24" height="240" rx="10" fill="url(#hudChrome)" stroke="#565d66" strokeWidth="1" />
+    <rect x="168" y="360" width="24" height="120" rx="10" fill="url(#hudBlack)" />
+    {[0, 1, 2, 3, 4, 5].map(i => (
+      <line key={i} x1="170" y1={372 + i * 18} x2="190" y2={372 + i * 18} stroke="#000" strokeWidth="2" opacity="0.5" />
+    ))}
+    {/* maker's engraving on the polished shank */}
+    <text
+      x="0"
+      y="0"
+      transform="translate(184 320) rotate(-90)"
+      textAnchor="middle"
+      fontSize="10"
+      fontWeight="800"
+      fill="#3a4048"
+      fontFamily="ui-monospace, monospace"
+      letterSpacing="0.5"
+    >
+      SNAP·ON
+    </text>
+    {/* neck */}
+    <rect x="173" y="205" width="14" height="70" fill="url(#hudChrome)" stroke="#565d66" strokeWidth="1" />
+    {/* head — flat-topped, wider than the shop ratchet's oval head */}
+    <rect x="150" y="140" width="60" height="70" rx="14" fill="url(#hudChrome)" stroke="#565d66" strokeWidth="1.5" />
+    <circle cx="180" cy="172" r="16" fill="#3a4048" />
+    <circle cx="180" cy="172" r="6" fill="#22262c" />
+    {/* fine-tooth reverse lever */}
+    <rect x="196" y="150" width="22" height="8" rx="4" transform="rotate(28 196 150)" fill="#31363d" />
+    {/* 1/4" drive square sticking out the top */}
+    <rect x="172" y="122" width="16" height="18" rx="2" fill="url(#hudSteel)" stroke="#2c3138" strokeWidth="1" />
+  </g>
+);
+
+/** Snap-on ratchet + optional 3"/6" extension + optional socket. */
+const SnapOnRatchetStack = ({ ext, socketSize }: { ext: "none" | "three" | "six"; socketSize?: string }) => {
+  const extLen = ext === "six" ? 84 : ext === "three" ? 42 : 0;
+  const stackTop = 122 - extLen; // where the socket's drive end sits, above the 1/4" drive square
+  return (
+    <g>
+      <SnapOnRatchetBody />
+      {extLen > 0 && (
+        <g>
+          <rect x="174" y={stackTop} width="12" height={extLen + 4} rx="3" fill="url(#hudChrome)" stroke="#565d66" strokeWidth="1" />
+          <rect x="172" y={stackTop - 3} width="16" height="10" rx="2" fill="url(#hudSteel)" />
         </g>
       )}
       {socketSize && <Socket bottomY={stackTop + 6} size={socketSize} />}
@@ -351,11 +411,12 @@ const ExtensionBar = () => (
   </g>
 );
 
-function toolArt(tool: Tool, socketExt: "none" | "stubby" | "long") {
+function toolArt(tool: Tool, socketExt: "none" | "stubby" | "long", snapOnExt: "none" | "three" | "six") {
   if (tool.startsWith("socket")) return <RatchetStack ext={socketExt} socketSize={sizeOf(tool)} />;
   if (tool.startsWith("wrench")) return <CombinationWrench size={sizeOf(tool)} />;
   switch (tool) {
     case "ratchet": return <RatchetStack ext="none" />;
+    case "snapOnRatchet": return <SnapOnRatchetStack ext={snapOnExt} />;
     case "extension": return <ExtensionBar />;
     case "filterWrench": return <FilterWrench />;
     case "lineWrench": return <CombinationWrench size="line" flareNut />;
@@ -372,33 +433,54 @@ function toolArt(tool: Tool, socketExt: "none" | "stubby" | "long") {
   }
 }
 
-function handLabel(tool: Tool, socketExt: "none" | "stubby" | "long") {
+function handLabel(tool: Tool, socketExt: "none" | "stubby" | "long", snapOnExt: "none" | "three" | "six") {
   if (tool.startsWith("socket")) {
     const ext = socketExt === "long" ? ' + 10" ext' : socketExt === "stubby" ? ' + 3" ext' : "";
     return `${sizeOf(tool)} Socket on Ratchet${ext}`;
   }
+  if (tool === "snapOnRatchet") {
+    const ext = snapOnExt === "six" ? ' + 6" ext' : snapOnExt === "three" ? ' + 3" ext' : "";
+    return `${TOOLS[tool].name}${ext}`;
+  }
   return TOOLS[tool].name;
 }
 
-export default function HandHUD({ tool, socketExt }: HandHUDProps) {
+export default function HandHUD({ tool, socketExt, snapOnExt, onSnapOnExtChange }: HandHUDProps) {
   if (!tool) return null;
   return (
     <div
-      key={`${tool}-${socketExt}`}
+      key={`${tool}-${socketExt}-${snapOnExt}`}
       className="hand-hud-enter pointer-events-none absolute bottom-0 right-0 z-10 select-none"
       style={{ width: "clamp(210px, 30vw, 400px)" }}
-      aria-label={`In hand: ${handLabel(tool, socketExt)}`}
+      aria-label={`In hand: ${handLabel(tool, socketExt, snapOnExt)}`}
     >
       <div className="hand-hud-bob">
         <div className="mb-1 flex justify-center">
           <span className="rounded-full border border-cyan-400/30 bg-black/70 px-3 py-1 text-[11px] font-bold tracking-wide text-cyan-200 backdrop-blur-sm">
-            🖐 {handLabel(tool, socketExt)}
+            🖐 {handLabel(tool, socketExt, snapOnExt)}
           </span>
         </div>
+        {tool === "snapOnRatchet" && onSnapOnExtChange && (
+          <div className="pointer-events-auto mb-1 flex justify-center gap-1">
+            {([["none", "No ext"], ["three", '3" ext'], ["six", '6" ext']] as const).map(([val, label]) => (
+              <button
+                key={val}
+                onClick={() => onSnapOnExtChange(val)}
+                className={`rounded-full border px-2 py-0.5 text-[10px] font-bold backdrop-blur-sm transition ${
+                  snapOnExt === val
+                    ? "border-cyan-400/60 bg-cyan-400/15 text-cyan-200"
+                    : "border-white/15 bg-black/60 text-gray-400 hover:text-gray-200"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         <svg viewBox="0 0 360 520" className="block h-auto w-full drop-shadow-[0_8px_24px_rgba(0,0,0,0.65)]">
           <Defs />
           <g transform="rotate(-13 190 430)">
-            {toolArt(tool, socketExt)}
+            {toolArt(tool, socketExt, snapOnExt)}
             <Glove />
           </g>
         </svg>

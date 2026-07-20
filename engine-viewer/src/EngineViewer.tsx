@@ -571,6 +571,7 @@ export default function EngineViewer() {
   const [repairsOpen, setRepairsOpen] = useState(false);
   const [activeRepair, setActiveRepair] = useState<RepairId | null>(null);
   const [socketExt, setSocketExt] = useState<'none' | 'stubby' | 'long'>('none');
+  const [snapOnExt, setSnapOnExt] = useState<'none' | 'three' | 'six'>('none');
   const [driver, setDriver] = useState<'electric' | 'hand' | null>(null);
   const [filtersRemoved, setFiltersRemoved] = useState<boolean[]>(Array(FILTER_COUNT).fill(false));
   const [boltsRemoved, setBoltsRemoved] = useState<boolean[]>(Array(PAN_BOLT_COUNT).fill(false));
@@ -1706,7 +1707,9 @@ export default function EngineViewer() {
       <div ref={canvasRef} className="w-full h-full" />
 
       {/* First-person hand: whatever tool is selected, held in view like an FPS */}
-      {!isLoading && <HandHUD tool={selectedTool} socketExt={socketExt} />}
+      {!isLoading && (
+        <HandHUD tool={selectedTool} socketExt={socketExt} snapOnExt={snapOnExt} onSnapOnExtChange={setSnapOnExt} />
+      )}
 
       {/* Scan line overlay */}
       <div
