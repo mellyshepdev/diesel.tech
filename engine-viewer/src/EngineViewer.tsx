@@ -3523,12 +3523,79 @@ export function buildVolvoD13(
   [-2.2, 0, 2.2].forEach(rx => {
     add(new THREE.BoxGeometry(0.08, 0.1, 0.86), M.darkMetal, { pos: [rx, -0.62, 0], parent: truckBody });
   });
-  // Wheels (front steer + rear duals) with chrome hubs
+  // Wheels (front steer + rear duals) with chrome hubs. The "duals" half of
+  // that comment was aspirational until now — docs/reference/truck/
+  // 08-rear-tandem-axle-top.png and 09-rear-tandem-fifthwheel-2.png both
+  // show two tires per hub on the drive axles; the front steer axle stays
+  // single, as on the real truck.
   const wheelAt = (wx: number, wz: number) => {
     add(new THREE.CylinderGeometry(0.5, 0.5, 0.28, 24), M.rubber, { pos: [wx, -0.6, wz], rot: [Math.PI / 2, 0, 0], parent: truckBody });
     add(new THREE.CylinderGeometry(0.22, 0.22, 0.29, 16), M.chrome, { pos: [wx, -0.6, wz], rot: [Math.PI / 2, 0, 0], parent: truckBody });
   };
-  [[-1.5, 0.75], [-1.5, -0.75], [2.4, 0.78], [2.4, -0.78], [3.3, 0.78], [3.3, -0.78]].forEach(([wx, wz]) => wheelAt(wx, wz));
+  // Outer tire sits 0.30 further out than the inner (tire width 0.28 + a
+  // ~0.02 gap, same tire-width anchor as the single-wheel geometry above).
+  const dualWheelAt = (wx: number, wz: number) => {
+    const outward = wz > 0 ? 1 : -1;
+    wheelAt(wx, wz);
+    wheelAt(wx, wz + outward * 0.30);
+  };
+  [[-1.5, 0.75], [-1.5, -0.75]].forEach(([wx, wz]) => wheelAt(wx, wz));
+  [[2.4, 0.78], [2.4, -0.78], [3.3, 0.78], [3.3, -0.78]].forEach(([wx, wz]) => dualWheelAt(wx, wz));
+
+  // Tandem rear suspension + interaxle driveline, per docs/reference/truck/
+  // 08-rear-tandem-axle-top.png and 09-rear-tandem-fifthwheel-2.png: two
+  // driven axles linked by a short interaxle shaft off the forward axle's
+  // differential, walking-beam arms tying each axle to the frame, and air
+  // springs riding on the beams above each hub. (No shaft running further
+  // forward to the transmission — that would have to cross from truckBody's
+  // rotated local frame into the engine's own top-level `group` frame, which
+  // isn't worth the coordinate risk for a driveline part that's mostly
+  // hidden behind the wheels anyway.)
+  const AXLE1_X = 2.4, AXLE2_X = 3.3;
+  [AXLE1_X, AXLE2_X].forEach(ax => {
+    add(new THREE.CylinderGeometry(0.045, 0.045, 1.62, 12), M.darkMetal, { pos: [ax, -0.64, 0], rot: [Math.PI / 2, 0, 0], parent: truckBody });
+    add(new THREE.SphereGeometry(0.11, 14, 12), M.darkMetal, { pos: [ax, -0.64, 0], parent: truckBody });
+  });
+  add(new THREE.CylinderGeometry(0.035, 0.035, AXLE2_X - AXLE1_X - 0.22, 10), M.brushedMetal,
+    { pos: [(AXLE1_X + AXLE2_X) / 2, -0.64, 0], rot: [0, 0, Math.PI / 2], parent: truckBody });
+  [0.78, -0.78].forEach(z => {
+    add(new THREE.BoxGeometry(AXLE2_X - AXLE1_X + 0.3, 0.06, 0.05), M.black, { pos: [(AXLE1_X + AXLE2_X) / 2, -0.7, z], parent: truckBody });
+    [AXLE1_X, AXLE2_X].forEach(ax => {
+      add(new THREE.CylinderGeometry(0.09, 0.1, 0.22, 14), M.black, { pos: [ax, -0.52, z], parent: truckBody });
+    });
+  });
+
+  // Fifth wheel — bolted to a support frame above the rails, just ahead of
+  // the forward tandem axle (fixed-mount; real sliders can move but this rig
+  // doesn't need that). Photo 06/09 anchor: greasy worn-steel casting, plate
+  // diameter roughly matching the frame rail spacing (rails at z ±0.42
+  // above), kingpin throat opening toward the cab (−x, per this file's
+  // truck-is-rotated-180° convention).
+  const fifthWheel = new THREE.Group();
+  fifthWheel.name = 'truck-fifthwheel';
+  fifthWheel.position.set(2.1, -0.42, 0);
+  truckBody.add(fifthWheel);
+  add(new THREE.CylinderGeometry(0.46, 0.46, 0.06, 20), M.darkMetal, { pos: [0, 0, 0], rot: [Math.PI / 2, 0, 0], parent: fifthWheel });
+  add(new THREE.BoxGeometry(0.16, 0.05, 0.3), M.darkMetal, { pos: [-0.4, 0, 0], parent: fifthWheel });
+  add(new THREE.CylinderGeometry(0.04, 0.04, 0.1, 10), M.brushedMetal, { pos: [-0.05, 0.05, 0], parent: fifthWheel });
+  [0.42, -0.42].forEach(z => {
+    add(new THREE.BoxGeometry(0.06, 0.24, 0.06), M.darkMetal, { pos: [2.05, -0.5, z], rot: [0.5, 0, 0], parent: truckBody });
+  });
+
+  // Rear crossmember, mud flaps, and marker-light bar — the very back of the
+  // frame, per docs/reference/truck/05-exterior-rear.png (three-light bar
+  // centered above the flaps: red-white-red; black flaps with a chrome trim
+  // strip; a grab handle on the cab's back wall above the fifth wheel).
+  add(new THREE.BoxGeometry(0.1, 0.08, 1.8), M.darkMetal, { pos: [3.5, -0.62, 0], parent: truckBody });
+  [0.5, 0, -0.5].forEach((z, i) => {
+    add(new THREE.BoxGeometry(0.03, 0.05, 0.16), i === 1 ? M.white : M.red, { pos: [3.56, -0.62, z], shadow: false, parent: truckBody });
+  });
+  [0.78, -0.78].forEach(z => {
+    add(new THREE.BoxGeometry(0.02, 0.34, 0.26), M.black, { pos: [3.48, -0.86, z], parent: truckBody });
+    add(new THREE.BoxGeometry(0.03, 0.04, 0.26), M.chrome, { pos: [3.48, -0.7, z], shadow: false, parent: truckBody });
+  });
+  add(new THREE.TorusGeometry(0.02, 0.008, 6, 12, Math.PI), M.chrome, { pos: [3.66, -0.1, 0], rot: [0, 0, Math.PI / 2], shadow: false, parent: truckBody });
+  tick();
   // Cab shell + sleeper (VNL 860 tall roof). Cab floor stops at y 0.28 —
   // above the I-Shift (tops out ~0.22) so the transmission hangs visibly
   // under the cab like the real truck instead of being engulfed by it.
