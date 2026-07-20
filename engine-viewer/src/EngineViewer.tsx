@@ -729,11 +729,22 @@ export default function EngineViewer() {
       body: JSON.stringify({ coins, ownedTools: [...ownedTools] }),
     }).catch(() => { /* next change will retry the sync */ });
   }, [coins, ownedTools, loggedIn, progressLoaded]);
-  // Fluid Top-Off checkpoints (no 3D fasteners — this job is deliberately
+  // PM Service checkpoints (no 3D fasteners — this job is deliberately
   // teardown-free, so it's a button checklist like the turbo repair's
-  // button fallback, not raycast clicks on new geometry).
-  const [fluidsChecked, setFluidsChecked] = useState({ oil: false, coolant: false, washer: false, def: false });
+  // button fallback, not raycast clicks on new geometry). `grease` covers
+  // every zerk fitting on the chassis as one checkpoint, not one per
+  // fitting — there are dozens on a real chassis and clicking each
+  // individually wouldn't teach anything a single "grease the chassis"
+  // step doesn't already cover.
+  const [fluidsChecked, setFluidsChecked] = useState({ oil: false, coolant: false, washer: false, def: false, grease: false });
   const allFluidsChecked = Object.values(fluidsChecked).every(Boolean);
+  // Annual (DOT) Inspection: torque-check the rear tandem's two load-bearing
+  // bolt groups — reuses the AXLE1_X/AXLE2_X tandem geometry built into
+  // truck-cab earlier (see part-manifest.md's tandem-suspension row) as the
+  // real thing being inspected, even though this job is a button checklist
+  // like PM Service rather than raycast clicks on those (unnamed) meshes.
+  const [axleChecked, setAxleChecked] = useState({ rearAxle: false, diff: false });
+  const allAxleChecked = Object.values(axleChecked).every(Boolean);
   // Hood Release Cable Repair: linear step-through per the Volvo TSB (trim
   // off → old cable released → new cable routed & bracket swapped → trim
   // back on & torqued → release lever tested), distilled from the source
