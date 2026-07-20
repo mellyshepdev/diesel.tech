@@ -648,6 +648,11 @@ export default function EngineViewer() {
   const [parkingBrake, setParkingBrake] = useState(false);
   const [trailerAir, setTrailerAir] = useState(false);
   const [hoodOpen, setHoodOpen] = useState(false);
+  // Real VNLs release the primary hood latch from a lever inside the cab —
+  // clicking the hood shell itself doesn't open it. Pulled inside the cab,
+  // consumed by climbing back out and clicking the hood; re-latches (goes
+  // back to false) whenever the hood is closed again.
+  const [hoodLeverPulled, setHoodLeverPulled] = useState(false);
 
   /** Animate a hinged truck panel (door / hood) toward a target angle. */
   const setHinge = useCallback((name: string, prop: 'y' | 'z', target: number) => {
@@ -730,6 +735,18 @@ export default function EngineViewer() {
         setServiceMsg('⚠️ Set the parking brake before opening the hood — she could roll on you. (Climb in the cab.)');
         return;
       }
+      // VNL only: the hood shell itself won't budge until the in-cab release
+      // lever has been pulled, and you can't pull it and lift the hood in
+      // the same breath — you're sitting down. The Sonata has no such
+      // interior-latch step, so it skips straight to the parking-brake gate.
+      if (vehicle !== 'sonata2017' && !hoodLeverPulled) {
+        setServiceMsg("🔒 Hood's still latched — pull the hood-release lever in the cab first, then climb out.");
+        return;
+      }
+      if (vehicle !== 'sonata2017' && inCab) {
+        setServiceMsg("You can't reach the hood from the driver's seat — climb out first.");
+        return;
+      }
       setHoodOpen(true);
       // VNL hood tilts FORWARD over the bumper; the Sonata hood is
       // rear-hinged at the cowl and lifts the other way.
@@ -741,6 +758,8 @@ export default function EngineViewer() {
     }
     setHoodOpen(false);
     setHinge('truck-hood', 'z', 0);
+    // Latch re-engages on close — the lever has to be pulled again next time.
+    if (vehicle !== 'sonata2017') setHoodLeverPulled(false);
   };
 
   // Engine hotspot markers only make sense with the hood open
