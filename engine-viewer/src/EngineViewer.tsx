@@ -190,7 +190,7 @@ interface OilFlow {
   onDone?: () => void;
 }
 
-type RepairId = 'fluid-check' | 'oil-change' | 'hood-cable' | 'pan-gasket' | 'overhead-adjust' | 'turbo-replace';
+type RepairId = 'fluid-check' | 'annual-inspection' | 'oil-change' | 'hood-cable' | 'pan-gasket' | 'overhead-adjust' | 'turbo-replace';
 
 // Tools a repair actually can't be started without — the two specialty
 // tools its procSteps checks for (`requiredTool`). Every specialty tool is
@@ -204,21 +204,31 @@ const REPAIR_REQUIRED_TOOL: Partial<Record<RepairId, Tool>> = {
 
 // Mechanic career ladder: each repair sits at a tier, pays coins on
 // completion, and stays locked until the player's level (derived from total
-// coins earned, see `levelForCoins`) reaches `unlockLevel`. Fluid Top-Off is
-// the deliberate floor — no tools, no teardown, available from level 1 —
-// with each tier up adding more steps/systems (and, for oil-change/
-// turbo-replace, a specialty tool that has to be bought first) and a bigger
-// payout, so "better diesel tech" reads as "handles harder jobs," not just
-// a number going up.
+// coins earned, see `levelForCoins`) reaches `unlockLevel`. PM Service and
+// Annual Inspection are the deliberate floor — the only two jobs a level-1
+// Lube Tech can take, both tool-free, no specialty purchase required — with
+// each tier up adding more steps/systems (and, for oil-change/turbo-replace,
+// a specialty tool that has to be bought first) and a bigger payout, so
+// "better diesel tech" reads as "handles harder jobs," not just a number
+// going up.
 const REPAIRS: { id: RepairId; icon: string; label: string; desc: string; tier: number; unlockLevel: number; coinReward: number }[] = [
   {
     id: 'fluid-check',
     icon: '💧',
-    label: 'Fluid Top-Off',
-    desc: 'No teardown — check and top off engine oil (dipstick), coolant surge tank, windshield washer, and DEF from the shop\'s jugs. The job every tech starts on.',
+    label: 'PM Service',
+    desc: 'No teardown — check and top off engine oil (dipstick), coolant surge tank, windshield washer, and DEF from the shop\'s jugs, then grease every zerk fitting on the chassis. One of the two jobs every tech starts on.',
     tier: 1,
     unlockLevel: 1,
-    coinReward: 50,
+    coinReward: 60,
+  },
+  {
+    id: 'annual-inspection',
+    icon: '📋',
+    label: 'Annual Inspection',
+    desc: 'DOT annual: torque-check the rear axle housing bolts and the differential carrier bolts against spec, flag anything loose. The other job every tech starts on — no teardown, no specialty tool.',
+    tier: 1,
+    unlockLevel: 1,
+    coinReward: 75,
   },
   {
     id: 'oil-change',
