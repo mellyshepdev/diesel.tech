@@ -82,6 +82,18 @@ export const TOOLS: Record<Tool, { name: string; icon: string; desc: string }> =
 
 export const TOOL_ORDER = Object.keys(TOOLS) as Tool[];
 
+// Tools that cost coins before they'll come out of the drawer. Only the
+// specialty tools an actual repair's interaction logic checks for
+// (`requiredTool` in EngineViewer's procSteps) are gated — the rest of the
+// specialty drawer (torqueWrench, feelerGauge, feeler36, dialIndicator,
+// barringTool) isn't load-bearing for any repair yet, so charging for it
+// would lock money away from tools that don't unlock anything. Every socket/
+// combination wrench and the general-drawer tools stay free, same as always.
+export const TOOL_PRICES: Partial<Record<Tool, number>> = {
+  filterWrench: 120,
+  lineWrench: 180,
+};
+
 // Drawer contents — each key here corresponds 1:1 to a physical, openable
 // drawer on the 3D toolbox (see buildVolvoD13). Opening the drawer in 3D
 // shows its contents below; there's no separate flat menu to navigate.
@@ -124,6 +136,16 @@ interface ToolPanelProps {
   onSelect: (tool: Tool) => void;
   /** Tools the active repair calls for — highlighted with a "NEED" badge. */
   requiredTools?: Tool[];
+  /** Priced tools the mechanic hasn't bought yet — these render locked
+   *  regardless of `requiredTools`, and clicking one buys it instead of
+   *  grabbing it. Tools with no entry in TOOL_PRICES are always usable. */
+  ownedTools: Set<Tool>;
+  /** Coins on hand, shown on locked tools so it's clear whether they're
+   *  affordable without leaving the drawer to check. */
+  coins: number;
+  /** Buy a priced, not-yet-owned tool (no-op if already owned or unaffordable
+   *  — EngineViewer enforces the coin check and reports back via serviceMsg). */
+  onBuyTool: (tool: Tool) => void;
   /** Closes the panel AND slides the drawer shut in 3D. */
   onClose?: () => void;
 }
@@ -135,14 +157,39 @@ export default function ToolPanel({
   onGrab,
   onSelect,
   requiredTools = [],
+  ownedTools,
+  coins,
+  onBuyTool,
   onClose,
 }: ToolPanelProps) {
   const tools = CATEGORY_TOOLS[drawerKey];
 
   const toolButton = (tool: Tool) => {
     const info = TOOLS[tool];
+    const price = TOOL_PRICES[tool];
+    const locked = price !== undefined && !ownedTools.has(tool);
     const inTray = tray.includes(tool);
     const isRequired = requiredTools.includes(tool);
+    if (locked) {
+      const affordable = coins >= price;
+      return (
+        <button
+          key={tool}
+          onClick={() => onBuyTool(tool)}
+          title={affordable ? `Buy for ${price} coins` : `Need ${price - coins} more coins`}
+          className="flex w-full items-center gap-3 rounded-lg border border-white/10 bg-white/[0.02] p-2.5 text-left opacity-75 transition-all duration-200 hover:bg-white/5"
+        >
+          <span className="text-xl grayscale">🔒</span>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-xs font-semibold text-gray-300">{info.name}</div>
+            <div className="truncate text-[11px] text-gray-500">{info.desc}</div>
+          </div>
+          <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${affordable ? 'bg-yellow-500 text-black' : 'bg-white/10 text-gray-400'}`}>
+            🪙 {price}
+          </span>
+        </button>
+      );
+    }
     const cls = inTray
       ? "bg-green-600/20 border-green-500/60"
       : isRequired
