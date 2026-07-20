@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import ToolPanel, { TOOLS, TOOL_PRICES, type Tool, type DrawerKey } from './components/ToolPanel';
+import ToolPanel, { TOOLS, TOOL_PRICES, TOOL_MIN_LEVEL, type Tool, type DrawerKey } from './components/ToolPanel';
 import HandHUD from './components/HandHUD';
 import ProcedurePanel, { type ProcStep } from './components/ProcedurePanel';
 import ReferencePanel from './components/ReferencePanel';
@@ -668,6 +668,11 @@ export default function EngineViewer() {
   const buyTool = (tool: Tool) => {
     const price = TOOL_PRICES[tool];
     if (price === undefined || ownedTools.has(tool)) return;
+    const minLevel = TOOL_MIN_LEVEL[tool];
+    if (minLevel !== undefined && mechanicLevel.level < minLevel) {
+      setServiceMsg(`🔒 The ${TOOLS[tool].name} needs Level ${minLevel} (${LEVELS.find(l => l.level === minLevel)!.title}) — you're Level ${mechanicLevel.level}.`);
+      return;
+    }
     if (coins < price) {
       setServiceMsg(`Not enough coins for the ${TOOLS[tool].name} — need 🪙 ${price}, you have 🪙 ${coins}.`);
       return;
