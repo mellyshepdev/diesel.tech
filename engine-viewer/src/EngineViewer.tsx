@@ -2326,8 +2326,12 @@ export default function EngineViewer() {
         </div>
       </div>
 
-      {/* RPM / Engine status (bottom-left) */}
-      <div className="absolute bottom-20 left-5 pointer-events-auto hidden md:block">
+      {/* RPM / Engine status (bottom-left). Gated on height as well as width —
+          `md:` alone triggers on a short "widescreen" mobile-landscape phone
+          (width ≥768px but height only ~375-430px), where this panel and the
+          "Mobile specs strip" below used to render on top of each other
+          because both only checked width. Only one of the two now shows. */}
+      <div className="absolute bottom-20 left-5 pointer-events-auto hidden [@media(min-width:768px)_and_(min-height:520px)]:block">
         <div className="rounded-xl p-3" style={{ background: 'rgba(5,8,22,0.85)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)' }}>
           <div className="flex items-center gap-3">
             <div className={`w-2.5 h-2.5 rounded-full transition-colors duration-500 ${engineOn ? 'bg-green-400 shadow-[0_0_8px_#00ff88]' : 'bg-gray-700'}`} />
@@ -2390,8 +2394,11 @@ export default function EngineViewer() {
         </div>
       </div>
 
-      {/* Mobile specs strip */}
-      <div className="absolute bottom-20 left-4 right-4 xl:hidden pointer-events-none">
+      {/* Mobile specs strip — the fallback for when there isn't room for the
+          desktop RPM panel above. Was `xl:hidden` (width-only), which made it
+          render at the same time as that panel between 768-1280px width on a
+          short viewport; now the two conditions mirror each other exactly. */}
+      <div className="absolute bottom-20 left-4 right-4 pointer-events-none [@media(min-width:768px)_and_(min-height:520px)]:hidden">
         <div className="rounded-xl p-3 grid grid-cols-4 gap-2" style={{ background: 'rgba(5,8,22,0.88)', border: '1px solid rgba(255,255,255,0.08)' }}>
           {engine.specs.slice(0, 4).map(s => (
             <div key={s.label} className="text-center">
@@ -2456,11 +2463,15 @@ export default function EngineViewer() {
         >🔍-</button>
       </div>
 
-      {/* Interaction hint */}
-      <div className="absolute bottom-8 right-5 pointer-events-none text-right hidden md:block">
-        <p className="text-gray-700 text-xs">🖱 Drag · Scroll · Right-drag</p>
-        <p className="text-gray-600 text-xs mt-0.5">Click markers to explore</p>
-      </div>
+      {/* Interaction hint — hidden below 520px height for the same reason as
+          the RPM panel above, and also hidden while a tool is in hand since
+          it sits right where the HandHUD graphic renders bottom-right. */}
+      {!selectedTool && (
+        <div className="absolute bottom-8 right-5 pointer-events-none text-right hidden [@media(min-width:768px)_and_(min-height:520px)]:block">
+          <p className="text-gray-700 text-xs">🖱 Drag · Scroll · Right-drag</p>
+          <p className="text-gray-600 text-xs mt-0.5">Click markers to explore</p>
+        </div>
+      )}
     </div>
   );
 }
