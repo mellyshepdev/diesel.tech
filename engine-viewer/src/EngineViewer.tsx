@@ -1884,6 +1884,21 @@ export default function EngineViewer() {
               </select>
               <p className="text-[11px] text-gray-500 leading-snug">{VEHICLES[vehicleChoice].blurb}</p>
             </div>
+            {vehicleChoice !== 'sonata2017' && (
+              <div className="text-left space-y-2">
+                <label className="text-[11px] font-bold uppercase tracking-widest text-gray-400" htmlFor="engine-select">Engine</label>
+                <select
+                  id="engine-select"
+                  value={engineId}
+                  onChange={e => setEngineId(e.target.value as EngineId)}
+                  className="w-full rounded-lg border border-cyan-400/30 bg-[#0a1428] px-3 py-2.5 text-sm font-semibold text-white outline-none focus:border-cyan-400"
+                >
+                  {ENGINE_ORDER.map(id => (
+                    <option key={id} value={id}>{ENGINES[id].maker} {ENGINES[id].model}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <button
               onClick={() => startVehicle(vehicleChoice)}
               className="w-full rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 py-2.5 text-sm font-black uppercase tracking-widest text-white hover:brightness-110"
