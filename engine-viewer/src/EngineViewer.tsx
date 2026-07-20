@@ -1310,10 +1310,12 @@ export default function EngineViewer() {
         : activeRepair === 'overhead-adjust'
           ? 'Valve lash checked/adjusted at TDC per cylinder; all 16 cover bolts back in, snugged criss-cross ✓'
           : activeRepair === 'fluid-check'
-            ? 'Oil, coolant, washer fluid, and DEF all checked and topped off ✓'
-            : activeRepair === 'hood-cable'
-              ? 'New hood release cable routed & secured, trim reinstalled, latch tested — pops free clean, no binding ✓'
-              : 'New filters on (oiled gaskets, 3/4–1 turn), pan torqued 24 ± 4 Nm, filled with VDS-4 10W-30 ✓')
+            ? 'Oil, coolant, washer fluid, and DEF all checked and topped off, every zerk fitting greased ✓'
+            : activeRepair === 'annual-inspection'
+              ? 'Rear axle housing and differential carrier bolts torque-checked to spec, nothing loose ✓'
+              : activeRepair === 'hood-cable'
+                ? 'New hood release cable routed & secured, trim reinstalled, latch tested — pops free clean, no binding ✓'
+                : 'New filters on (oiled gaskets, 3/4–1 turn), pan torqued 24 ± 4 Nm, filled with VDS-4 10W-30 ✓')
       + (repair ? ` — 🪙 +${repair.coinReward} coins` : ''));
     // Award coins and check for a level-up against the level *before* this
     // job's payout, so a job that crosses a threshold announces the new
