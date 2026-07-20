@@ -1911,10 +1911,16 @@ export default function EngineViewer() {
                   { id: 2, label: 'Check/top off coolant surge tank', done: fluidsChecked.coolant, requiredTool: null },
                   { id: 3, label: 'Check/top off windshield washer fluid', done: fluidsChecked.washer, requiredTool: null },
                   { id: 4, label: 'Check/top off DEF', done: fluidsChecked.def, requiredTool: null },
+                  { id: 5, label: 'Grease every zerk fitting on the chassis', done: fluidsChecked.grease, requiredTool: null },
                 ]
-              : activeRepair === 'hood-cable'
-                ? HOOD_CABLE_STEPS.map((label, i) => ({ id: i + 1, label, done: hoodCableStep > i, requiredTool: null }))
-                : [];
+              : activeRepair === 'annual-inspection'
+                ? [
+                    { id: 1, label: 'Torque-check the rear axle housing bolts', done: axleChecked.rearAxle, requiredTool: null },
+                    { id: 2, label: 'Torque-check the differential carrier bolts', done: axleChecked.diff, requiredTool: null },
+                  ]
+                : activeRepair === 'hood-cable'
+                  ? HOOD_CABLE_STEPS.map((label, i) => ({ id: i + 1, label, done: hoodCableStep > i, requiredTool: null }))
+                  : [];
 
   /** Switch to a vehicle (or back to the dropdown with null): reset every
    *  walk-around / service state so the freshly built scene starts clean. */
@@ -2354,6 +2360,7 @@ export default function EngineViewer() {
                     { key: 'coolant' as const, icon: '🧊', label: 'Coolant surge tank' },
                     { key: 'washer' as const, icon: '🚿', label: 'Windshield washer' },
                     { key: 'def' as const, icon: '💧', label: 'DEF' },
+                    { key: 'grease' as const, icon: '🧴', label: 'Grease all zerk fittings' },
                   ]).map(f => (
                     <button
                       key={f.key}
@@ -2364,7 +2371,28 @@ export default function EngineViewer() {
                     >
                       <span>{fluidsChecked[f.key] ? '✅' : f.icon}</span>
                       <span className="text-xs text-white flex-1">{f.label}</span>
-                      <span className="text-[11px] text-gray-400">{fluidsChecked[f.key] ? 'Topped off' : 'Check it'}</span>
+                      <span className="text-[11px] text-gray-400">{fluidsChecked[f.key] ? (f.key === 'grease' ? 'Greased' : 'Topped off') : (f.key === 'grease' ? 'Grease it' : 'Check it')}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {activeRepair === 'annual-inspection' && (
+                <div className="space-y-1.5">
+                  {([
+                    { key: 'rearAxle' as const, icon: '⚙️', label: 'Rear axle housing bolts' },
+                    { key: 'diff' as const, icon: '🔩', label: 'Differential carrier bolts' },
+                  ]).map(f => (
+                    <button
+                      key={f.key}
+                      onClick={() => setAxleChecked(prev => ({ ...prev, [f.key]: !prev[f.key] }))}
+                      className={`w-full flex items-center gap-2 p-2 rounded-lg border text-left transition ${
+                        axleChecked[f.key] ? 'border-green-500/40 bg-green-500/10' : 'border-white/10 bg-white/5 hover:border-amber-400/40'
+                      }`}
+                    >
+                      <span>{axleChecked[f.key] ? '✅' : f.icon}</span>
+                      <span className="text-xs text-white flex-1">{f.label}</span>
+                      <span className="text-[11px] text-gray-400">{axleChecked[f.key] ? 'Torqued to spec' : 'Torque-check it'}</span>
                     </button>
                   ))}
                 </div>
