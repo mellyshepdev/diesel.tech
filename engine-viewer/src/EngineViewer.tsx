@@ -1793,7 +1793,16 @@ export default function EngineViewer() {
                 { id: 1, label: 'Remove the 16 valve cover perimeter bolts', done: allValveCoverBoltsOff, requiredTool: 'socket13', detail: `${valveCoverBoltsRemoved.filter(Boolean).length}/${VALVE_COVER_BOLT_COUNT}` },
                 { id: 2, label: 'Check/adjust valve lash at TDC, reinstall bolts criss-cross', done: allValveCoverBoltsOff, requiredTool: 'ratchet' },
               ]
-            : [];
+            : activeRepair === 'fluid-check'
+              ? [
+                  { id: 1, label: 'Check/top off engine oil (dipstick)', done: fluidsChecked.oil, requiredTool: null },
+                  { id: 2, label: 'Check/top off coolant surge tank', done: fluidsChecked.coolant, requiredTool: null },
+                  { id: 3, label: 'Check/top off windshield washer fluid', done: fluidsChecked.washer, requiredTool: null },
+                  { id: 4, label: 'Check/top off DEF', done: fluidsChecked.def, requiredTool: null },
+                ]
+              : activeRepair === 'hood-cable'
+                ? HOOD_CABLE_STEPS.map((label, i) => ({ id: i + 1, label, done: hoodCableStep > i, requiredTool: null }))
+                : [];
 
   /** Switch to a vehicle (or back to the dropdown with null): reset every
    *  walk-around / service state so the freshly built scene starts clean. */
@@ -2186,6 +2195,50 @@ export default function EngineViewer() {
                       </button>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {activeRepair === 'fluid-check' && (
+                <div className="space-y-1.5">
+                  {([
+                    { key: 'oil' as const, icon: '🛢️', label: 'Engine oil (dipstick)' },
+                    { key: 'coolant' as const, icon: '🧊', label: 'Coolant surge tank' },
+                    { key: 'washer' as const, icon: '🚿', label: 'Windshield washer' },
+                    { key: 'def' as const, icon: '💧', label: 'DEF' },
+                  ]).map(f => (
+                    <button
+                      key={f.key}
+                      onClick={() => setFluidsChecked(prev => ({ ...prev, [f.key]: !prev[f.key] }))}
+                      className={`w-full flex items-center gap-2 p-2 rounded-lg border text-left transition ${
+                        fluidsChecked[f.key] ? 'border-green-500/40 bg-green-500/10' : 'border-white/10 bg-white/5 hover:border-amber-400/40'
+                      }`}
+                    >
+                      <span>{fluidsChecked[f.key] ? '✅' : f.icon}</span>
+                      <span className="text-xs text-white flex-1">{f.label}</span>
+                      <span className="text-[11px] text-gray-400">{fluidsChecked[f.key] ? 'Topped off' : 'Check it'}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {activeRepair === 'hood-cable' && (
+                <div className="space-y-1.5">
+                  <p className="text-gray-400 text-[11px] leading-relaxed">
+                    Distilled from the Volvo TSB (hood cable binding/broken — VNL/VNR/VNM/VNX/VAH/VHD). Work through it top to bottom.
+                  </p>
+                  {hoodCableStep < HOOD_CABLE_STEPS.length ? (
+                    <button
+                      onClick={() => setHoodCableStep(s => s + 1)}
+                      className="w-full text-left p-3 rounded-lg border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 transition"
+                    >
+                      <div className="text-amber-200 text-[11px] font-bold uppercase tracking-widest mb-1">
+                        Step {hoodCableStep + 1}/{HOOD_CABLE_STEPS.length}
+                      </div>
+                      <div className="text-white text-xs leading-relaxed">{HOOD_CABLE_STEPS[hoodCableStep]}</div>
+                    </button>
+                  ) : (
+                    <p className="text-green-300 text-xs">All steps done — release cable tests clean.</p>
+                  )}
                 </div>
               )}
 
