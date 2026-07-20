@@ -83,16 +83,36 @@ export const TOOLS: Record<Tool, { name: string; icon: string; desc: string }> =
 
 export const TOOL_ORDER = Object.keys(TOOLS) as Tool[];
 
-// Tools that cost coins before they'll come out of the drawer. Only the
-// specialty tools an actual repair's interaction logic checks for
-// (`requiredTool` in EngineViewer's procSteps) are gated — the rest of the
-// specialty drawer (torqueWrench, feelerGauge, feeler36, dialIndicator,
-// barringTool) isn't load-bearing for any repair yet, so charging for it
-// would lock money away from tools that don't unlock anything. Every socket/
-// combination wrench and the general-drawer tools stay free, same as always.
+// Every specialty tool costs coins before it'll come out of the drawer —
+// every socket, combination wrench, and general-drawer tool stays free.
+// Prices scale with real-world rarity/specialization (a feeler gauge set is
+// a $15 parts-store item; the 3.6mm 85111377 feeler is a single-purpose
+// dealer-numbered gauge with no other use — priced accordingly), not just
+// with whether a repair currently checks for it in code (filterWrench/
+// lineWrench are the only two that do — see REPAIR_REQUIRED_TOOL in
+// EngineViewer.tsx — but the rest are still worth owning/collecting).
 export const TOOL_PRICES: Partial<Record<Tool, number>> = {
   filterWrench: 120,
-  lineWrench: 180,
+  lineWrench: 150,
+  feelerGauge: 80,
+  torqueWrench: 150,
+  dialIndicator: 220,
+  barringTool: 200,
+  feeler36: 250,
+};
+
+// Beyond affording it, rarer/pricier specialty tools also need the mechanic
+// to have reached a minimum career level — a brand-new Lube Tech doesn't
+// walk out with a dealer-only single-purpose gauge just because they saved
+// up for one. Mirrors REPAIRS' unlockLevel gating in EngineViewer.tsx.
+export const TOOL_MIN_LEVEL: Partial<Record<Tool, number>> = {
+  filterWrench: 2,
+  feelerGauge: 3,
+  torqueWrench: 3,
+  dialIndicator: 4,
+  barringTool: 4,
+  feeler36: 5,
+  lineWrench: 6,
 };
 
 // Drawer contents — each key here corresponds 1:1 to a physical, openable
@@ -144,8 +164,12 @@ interface ToolPanelProps {
   /** Coins on hand, shown on locked tools so it's clear whether they're
    *  affordable without leaving the drawer to check. */
   coins: number;
-  /** Buy a priced, not-yet-owned tool (no-op if already owned or unaffordable
-   *  — EngineViewer enforces the coin check and reports back via serviceMsg). */
+  /** Player's current career level (see mechanicLevel in EngineViewer.tsx) —
+   *  gates the rarer specialty tools (TOOL_MIN_LEVEL) even if affordable. */
+  mechanicLevel: number;
+  /** Buy a priced, not-yet-owned tool (no-op if already owned, unaffordable,
+   *  or under-leveled — EngineViewer enforces all three and reports back via
+   *  serviceMsg). */
   onBuyTool: (tool: Tool) => void;
   /** Closes the panel AND slides the drawer shut in 3D. */
   onClose?: () => void;
@@ -160,6 +184,7 @@ export default function ToolPanel({
   requiredTools = [],
   ownedTools,
   coins,
+  mechanicLevel,
   onBuyTool,
   onClose,
 }: ToolPanelProps) {
@@ -172,21 +197,25 @@ export default function ToolPanel({
     const inTray = tray.includes(tool);
     const isRequired = requiredTools.includes(tool);
     if (locked) {
-      const affordable = coins >= price;
+      const minLevel = TOOL_MIN_LEVEL[tool];
+      const underLeveled = minLevel !== undefined && mechanicLevel < minLevel;
+      const affordable = !underLeveled && coins >= price;
       return (
         <button
           key={tool}
           onClick={() => onBuyTool(tool)}
-          title={affordable ? `Buy for ${price} coins` : `Need ${price - coins} more coins`}
+          title={underLeveled ? `Reach Level ${minLevel} to buy this` : affordable ? `Buy for ${price} coins` : `Need ${price - coins} more coins`}
           className="flex w-full items-center gap-3 rounded-lg border border-white/10 bg-white/[0.02] p-2.5 text-left opacity-75 transition-all duration-200 hover:bg-white/5"
         >
           <span className="text-xl grayscale">🔒</span>
           <div className="min-w-0 flex-1">
             <div className="truncate text-xs font-semibold text-gray-300">{info.name}</div>
-            <div className="truncate text-[11px] text-gray-500">{info.desc}</div>
+            <div className="truncate text-[11px] text-gray-500">
+              {underLeveled ? `Reach Level ${minLevel} to unlock` : info.desc}
+            </div>
           </div>
-          <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${affordable ? 'bg-yellow-500 text-black' : 'bg-white/10 text-gray-400'}`}>
-            🪙 {price}
+          <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${underLeveled ? 'bg-white/10 text-gray-400' : affordable ? 'bg-yellow-500 text-black' : 'bg-white/10 text-gray-400'}`}>
+            {underLeveled ? `Lv.${minLevel}` : `🪙 ${price}`}
           </span>
         </button>
       );
