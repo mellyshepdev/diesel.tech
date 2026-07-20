@@ -189,64 +189,92 @@ interface OilFlow {
   onDone?: () => void;
 }
 
-type RepairId = 'oil-change' | 'pan-gasket' | 'turbo-replace' | 'overhead-adjust';
+type RepairId = 'fluid-check' | 'oil-change' | 'hood-cable' | 'pan-gasket' | 'overhead-adjust' | 'turbo-replace';
+
+// Tools that gate a repair beyond the level check — only the two specialty
+// tools that are actually load-bearing in that repair's procSteps (see
+// TOOL_PRICES in ToolPanel.tsx for why the rest of the specialty drawer
+// isn't priced). Checked in openRepair alongside the level gate.
+const REPAIR_REQUIRED_TOOL: Partial<Record<RepairId, Tool>> = {
+  'oil-change': 'filterWrench',
+  'turbo-replace': 'lineWrench',
+};
 
 // Mechanic career ladder: each repair sits at a tier, pays coins on
 // completion, and stays locked until the player's level (derived from total
-// coins earned, see `levelForCoins`) reaches `unlockLevel`. Oil change is the
-// deliberate floor — cheapest tool list, no special sequencing, available
-// from level 1 — with each tier up adding more steps/systems and a bigger
+// coins earned, see `levelForCoins`) reaches `unlockLevel`. Fluid Top-Off is
+// the deliberate floor — no tools, no teardown, available from level 1 —
+// with each tier up adding more steps/systems (and, for oil-change/
+// turbo-replace, a specialty tool that has to be bought first) and a bigger
 // payout, so "better diesel tech" reads as "handles harder jobs," not just
 // a number going up.
 const REPAIRS: { id: RepairId; icon: string; label: string; desc: string; tier: number; unlockLevel: number; coinReward: number }[] = [
+  {
+    id: 'fluid-check',
+    icon: '💧',
+    label: 'Fluid Top-Off',
+    desc: 'No teardown — check and top off engine oil (dipstick), coolant surge tank, windshield washer, and DEF from the shop\'s jugs. The job every tech starts on.',
+    tier: 1,
+    unlockLevel: 1,
+    coinReward: 50,
+  },
   {
     id: 'oil-change',
     icon: '🛢️',
     label: 'Oil & Filter Change',
     desc: 'Drain (plug: 60 ± 10 Nm on install), spin off the three filters with the 9998487 filter wrench, then drop the pan. The 22 pan screws need the 10" socket extension + electric runner or hand tools. Refill: VDS-4 10W-30, 25–30 L sump.',
-    tier: 1,
-    unlockLevel: 1,
+    tier: 2,
+    unlockLevel: 2,
     coinReward: 100,
+  },
+  {
+    id: 'hood-cable',
+    icon: '🪝',
+    label: 'Hood Release Cable Repair',
+    desc: 'Per Volvo TSB (hood cable binding/broken, VNL/VNR/VNM/VNX/VAH/VHD): strip the dash/kick/steering-column trim, free the old cable through the firewall, route + secure the new one, swap the latch/L-bracket if needed, reinstall trim, then test the release lever.',
+    tier: 3,
+    unlockLevel: 3,
+    coinReward: 150,
   },
   {
     id: 'pan-gasket',
     icon: '🔩',
     label: 'Oil Pan Gasket Repair',
     desc: 'Break all 22 spring-tension pan screws loose one at a time, drop the pan, fit the new gasket, re-torque 24 ± 4 Nm from the middle outwards.',
-    tier: 2,
-    unlockLevel: 2,
-    coinReward: 150,
+    tier: 4,
+    unlockLevel: 4,
+    coinReward: 175,
   },
   {
     id: 'overhead-adjust',
     icon: '🔧',
     label: 'Valve Lash Adjustment',
     desc: 'Pull the 16 valve cover perimeter bolts (13mm) one at a time, then lift the cover off to expose the rockers. Check/adjust lash at TDC compression per cylinder, then reinstall with a fresh gasket, bolts snugged in a criss-cross pattern.',
-    tier: 3,
-    unlockLevel: 3,
-    coinReward: 200,
+    tier: 5,
+    unlockLevel: 5,
+    coinReward: 225,
   },
   {
     id: 'turbo-replace',
     icon: '🌀',
     label: 'Turbocharger R&R',
     desc: 'Remove & replace the VGT turbo. Select the right tool, then click each fastener in 3D (or use the buttons): harness → V-bands → oil feed → coolant × 2 → oil drain → 4 flange nuts → lift. The turbo shares the engine\'s OIL and COOLANT — reconnect everything and PRIME the oil before starting, or it grenades.',
-    tier: 4,
-    unlockLevel: 4,
+    tier: 6,
+    unlockLevel: 6,
     coinReward: 300,
   },
 ];
 
 // Career levels — title reflects the *kind* of job that level's mechanic can
 // take on, not just a number. Coin thresholds are sized so hitting the next
-// level takes a small mix of jobs at the current tier, not one grind: e.g.
-// level 2 (250 coins) is ~2.5 oil changes, matching "the easiest repair
-// unlocks the next tier of harder ones" progression the player asked for.
+// level takes a small mix of jobs at the current tier, not one grind.
 const LEVELS: { level: number; title: string; coinsRequired: number }[] = [
   { level: 1, title: 'Lube Tech', coinsRequired: 0 },
-  { level: 2, title: 'Shop Mechanic', coinsRequired: 250 },
-  { level: 3, title: 'Journeyman Tech', coinsRequired: 600 },
-  { level: 4, title: 'Master Diesel Tech', coinsRequired: 1200 },
+  { level: 2, title: 'Shop Mechanic', coinsRequired: 150 },
+  { level: 3, title: 'Journeyman Tech', coinsRequired: 450 },
+  { level: 4, title: 'Senior Tech', coinsRequired: 900 },
+  { level: 5, title: 'Lead Tech', coinsRequired: 1500 },
+  { level: 6, title: 'Master Diesel Tech', coinsRequired: 2300 },
 ];
 const levelForCoins = (coins: number) => [...LEVELS].reverse().find(l => coins >= l.coinsRequired) ?? LEVELS[0];
 const nextLevel = (level: number) => LEVELS.find(l => l.level === level + 1);
@@ -622,6 +650,48 @@ export default function EngineViewer() {
     const t = setTimeout(() => setLevelUpMsg(null), 4000);
     return () => clearTimeout(t);
   }, [levelUpMsg]);
+  // Tool Shop: specialty tools bought with coins (see TOOL_PRICES in
+  // ToolPanel.tsx) unlock in the drawer they already live in — no separate
+  // shop screen, since the drawer IS the shop once a tool's priced. Persisted
+  // like coins so a bought tool stays bought across reloads.
+  const [ownedTools, setOwnedTools] = useState<Set<Tool>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const saved = JSON.parse(window.localStorage.getItem('diesel-tech-owned-tools') ?? '[]');
+      return new Set(Array.isArray(saved) ? saved : []);
+    } catch { return new Set(); }
+  });
+  useEffect(() => {
+    if (typeof window !== 'undefined') window.localStorage.setItem('diesel-tech-owned-tools', JSON.stringify([...ownedTools]));
+  }, [ownedTools]);
+  const buyTool = (tool: Tool) => {
+    const price = TOOL_PRICES[tool];
+    if (price === undefined || ownedTools.has(tool)) return;
+    if (coins < price) {
+      setServiceMsg(`Not enough coins for the ${TOOLS[tool].name} — need 🪙 ${price}, you have 🪙 ${coins}.`);
+      return;
+    }
+    setCoins(c => c - price);
+    setOwnedTools(prev => new Set(prev).add(tool));
+    setServiceMsg(`🧰 Bought the ${TOOLS[tool].name} for 🪙 ${price} — it's in the drawer now.`);
+  };
+  // Fluid Top-Off checkpoints (no 3D fasteners — this job is deliberately
+  // teardown-free, so it's a button checklist like the turbo repair's
+  // button fallback, not raycast clicks on new geometry).
+  const [fluidsChecked, setFluidsChecked] = useState({ oil: false, coolant: false, washer: false, def: false });
+  const allFluidsChecked = Object.values(fluidsChecked).every(Boolean);
+  // Hood Release Cable Repair: linear step-through per the Volvo TSB (trim
+  // off → old cable released → new cable routed & bracket swapped → trim
+  // back on & torqued → release lever tested), distilled from the source
+  // TSB's 58 steps into repair-panel-sized checkpoints.
+  const [hoodCableStep, setHoodCableStep] = useState(0);
+  const HOOD_CABLE_STEPS = [
+    'Strip the interior trim: A-pillar grab handle, passenger dash panel, driver kick panel, steering column covers.',
+    'Release the old cable at the latch, cut cable ties, draw it back out through the firewall.',
+    'Route the new cable through the firewall to the right of the steering shaft; if the old latch has a black lever, swap in the new latch (silver lever) and remove the now-unneeded L-bracket — otherwise add the L-bracket, torque M8 36 Nm.',
+    'Reinstall all trim panels, torque M4 panel screws 1.5 ± 0.5 Nm, and the release-cable adjustment nut 6 ± 2 Nm.',
+    'Lower the hood, confirm it latches, then pull the release lever and verify the hood pops free with no binding.',
+  ];
   const [socketExt, setSocketExt] = useState<'none' | 'stubby' | 'long'>('none');
   const [driver, setDriver] = useState<'electric' | 'hand' | null>(null);
   const [filtersRemoved, setFiltersRemoved] = useState<boolean[]>(Array(FILTER_COUNT).fill(false));
