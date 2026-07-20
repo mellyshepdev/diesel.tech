@@ -1294,7 +1294,8 @@ export default function EngineViewer() {
     setTurboInstalled({});
     setTurboFailure(null);
     setTurboHealthy(false);
-    setFluidsChecked({ oil: false, coolant: false, washer: false, def: false });
+    setFluidsChecked({ oil: false, coolant: false, washer: false, def: false, grease: false });
+    setAxleChecked({ rearAxle: false, diff: false });
     setHoodCableStep(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restoreParts, exitInspect]);
