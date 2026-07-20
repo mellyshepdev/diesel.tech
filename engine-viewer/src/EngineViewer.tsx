@@ -1643,7 +1643,7 @@ export default function EngineViewer() {
   const startVehicle = (id: VehicleId | null) => {
     if (inspecting) exitInspect();
     setDoorUnlocked(false); setDoorOpen(false); setInCab(false);
-    setParkingBrake(false); setTrailerAir(false); setHoodOpen(false);
+    setParkingBrake(false); setTrailerAir(false); setHoodOpen(false); setHoodLeverPulled(false);
     setOpenDrawer(null); setSelectedTool(null); setTray([]);
     setRepairsOpen(false); setActiveRepair(null); setServiceMsg('');
     setEngineOn(false); setActiveHotspot(null);
@@ -2158,7 +2158,10 @@ export default function EngineViewer() {
         <div className="absolute top-24 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded-xl bg-black/75 backdrop-blur-md border border-white/15 flex items-center gap-4 text-[11px] pointer-events-none">
           <span className={doorUnlocked ? 'text-green-300' : 'text-white font-bold'}>{doorUnlocked ? '✓' : '1.'} 🔑 Unlock the door (key in hand, click the door)</span>
           <span className={parkingBrake ? 'text-green-300' : doorUnlocked ? 'text-white font-bold' : 'text-gray-500'}>{parkingBrake ? '✓' : '2.'} 🅿 Set the parking brake (in the cab)</span>
-          <span className={hoodOpen ? 'text-green-300' : parkingBrake ? 'text-white font-bold' : 'text-gray-500'}>3. Open the hood (click it)</span>
+          {vehicle !== 'sonata2017' && (
+            <span className={hoodLeverPulled ? 'text-green-300' : parkingBrake ? 'text-white font-bold' : 'text-gray-500'}>{hoodLeverPulled ? '✓' : '3.'} 🔓 Pull the hood release (in the cab)</span>
+          )}
+          <span className={hoodOpen ? 'text-green-300' : (vehicle === 'sonata2017' ? parkingBrake : hoodLeverPulled) ? 'text-white font-bold' : 'text-gray-500'}>{vehicle === 'sonata2017' ? '3.' : '4.'} Open the hood (click it — outside the cab)</span>
         </div>
       )}
 
@@ -2222,10 +2225,26 @@ export default function EngineViewer() {
                 <span className="text-black text-[9px] font-bold block mt-1 leading-tight">PARKING<br />BRAKE</span>
                 <span className="text-yellow-900 text-[8px]">{parkingBrake ? 'PULLED — APPLIED ✓' : 'PULL TO APPLY'}</span>
               </button>
+              {vehicle !== 'sonata2017' && (
+                <button
+                  onClick={() => {
+                    if (hoodLeverPulled) return;
+                    setHoodLeverPulled(true);
+                    setServiceMsg('🔓 Hood latch released — climb out, then click the hood to lift it.');
+                  }}
+                  className={`w-32 rounded-lg border-2 p-2 text-center transition ${hoodLeverPulled ? 'border-neutral-500 bg-neutral-700/70' : 'border-neutral-400 bg-neutral-600 hover:brightness-110'}`}
+                >
+                  <span className={`block w-3 h-10 mx-auto rounded-full shadow-inner ${hoodLeverPulled ? 'bg-neutral-500' : 'bg-neutral-300'}`} />
+                  <span className="text-white text-[9px] font-bold block mt-1 leading-tight">HOOD<br />RELEASE</span>
+                  <span className="text-neutral-300 text-[8px]">{hoodLeverPulled ? 'RELEASED ✓' : 'PULL TO UNLATCH'}</span>
+                </button>
+              )}
             </div>
 
             <p className="text-gray-500 text-[11px] text-center leading-relaxed">
-              Pull the yellow diamond to set the spring brakes before you leave the cab.
+              {vehicle !== 'sonata2017'
+                ? 'Pull the yellow diamond to set the spring brakes, and the hood release if you\'re popping the hood, before you leave the cab.'
+                : 'Pull the yellow diamond to set the spring brakes before you leave the cab.'}
             </p>
             <button
               onClick={() => setInCab(false)}
