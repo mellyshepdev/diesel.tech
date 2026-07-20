@@ -6,6 +6,7 @@ import ToolPanel, { TOOLS, TOOL_PRICES, type Tool, type DrawerKey } from './comp
 import HandHUD from './components/HandHUD';
 import ProcedurePanel, { type ProcStep } from './components/ProcedurePanel';
 import ReferencePanel from './components/ReferencePanel';
+import { kcLogin, kcLogout, kcHandleRedirect, kcIsLoggedIn, kcCurrentUser, kcApiFetch } from './keycloakAuth';
 
 // ─────────────────────────────────────────────────────────
 // Data
@@ -675,6 +676,43 @@ export default function EngineViewer() {
     setOwnedTools(prev => new Set(prev).add(tool));
     setServiceMsg(`🧰 Bought the ${TOOLS[tool].name} for 🪙 ${price} — it's in the drawer now.`);
   };
+  // Account login (Keycloak, blacksheep realm): makes coins/ownedTools follow
+  // the player instead of just this browser's localStorage. `progressLoaded`
+  // gates the save effect below so it can't fire (and overwrite the server
+  // with stale/lower local numbers) before the post-login merge completes.
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [playerName, setPlayerName] = useState<string | null>(null);
+  const [progressLoaded, setProgressLoaded] = useState(false);
+  useEffect(() => {
+    (async () => {
+      const justLoggedIn = await kcHandleRedirect();
+      if (!justLoggedIn && !kcIsLoggedIn()) return;
+      setLoggedIn(true);
+      setPlayerName(kcCurrentUser()?.name ?? null);
+      try {
+        const res = await kcApiFetch('/progress');
+        if (res.ok) {
+          const server: { coins: number; ownedTools: Tool[] } = await res.json();
+          // Take the higher coin total and the union of owned tools rather
+          // than trusting the server blindly — a guest who played on this
+          // browser before signing in shouldn't lose that progress, and a
+          // returning player on a fresh device shouldn't lose theirs either.
+          setCoins(local => Math.max(local, server.coins || 0));
+          setOwnedTools(local => new Set([...local, ...(server.ownedTools || [])]));
+        }
+      } catch { /* backend unreachable — carry on in localStorage-only mode */ }
+      setProgressLoaded(true);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (!loggedIn || !progressLoaded) return;
+    kcApiFetch('/progress', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ coins, ownedTools: [...ownedTools] }),
+    }).catch(() => { /* next change will retry the sync */ });
+  }, [coins, ownedTools, loggedIn, progressLoaded]);
   // Fluid Top-Off checkpoints (no 3D fasteners — this job is deliberately
   // teardown-free, so it's a button checklist like the turbo repair's
   // button fallback, not raycast clicks on new geometry).
