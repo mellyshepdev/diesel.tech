@@ -210,6 +210,12 @@ const REPAIRS: { id: RepairId; icon: string; label: string; desc: string }[] = [
     label: 'Turbocharger R&R',
     desc: 'Remove & replace the VGT turbo. Select the right tool, then click each fastener in 3D (or use the buttons): harness → V-bands → oil feed → coolant × 2 → oil drain → 4 flange nuts → lift. The turbo shares the engine\'s OIL and COOLANT — reconnect everything and PRIME the oil before starting, or it grenades.',
   },
+  {
+    id: 'overhead-adjust',
+    icon: '🔧',
+    label: 'Valve Lash Adjustment',
+    desc: 'Pull the 16 valve cover perimeter bolts (13mm) one at a time, then lift the cover off to expose the rockers. Check/adjust lash at TDC compression per cylinder, then reinstall with a fresh gasket, bolts snugged in a criss-cross pattern.',
+  },
 ];
 
 // The real D13 pan is clamped by 22 spring-tension screws (QRG p.14/35):
@@ -240,6 +246,26 @@ const PLUG_TRAY_POS: [number, number, number] = [0.54, -0.06, 0.73]; // small tr
 const filterBenchSlot = (i: number): [number, number, number] =>
   [1.6 - (0.02 + i * 0.19), -0.33, 0.23 + i * 0.2]; // standing in a row
 const PAN_FLOOR_POS: [number, number, number] = [-0.6, -0.13, 1.25]; // flat on the floor
+
+// Valve cover perimeter bolts: 8 per side, matching the geometry loop in
+// buildVolvoD13's cylinder-head section (x = -0.85 + i·0.24, z = ±0.3).
+const VALVE_COVER_BOLT_POSITIONS: [number, number][] = (() => {
+  const p: [number, number][] = [];
+  for (let i = 0; i < 8; i++) {
+    const bx = -0.85 + i * 0.24;
+    p.push([bx, 0.3], [bx, -0.3]);
+  }
+  return p;
+})();
+const VALVE_COVER_BOLT_COUNT = VALVE_COVER_BOLT_POSITIONS.length;
+const valveCoverBoltTraySlot = (i: number): [number, number, number] => {
+  const [bx, bz] = VALVE_COVER_BOLT_POSITIONS[i];
+  const sx = -1.15 + (i % 8) * 0.06; // 8-per-row grid in the valve-cover tray
+  const sz = 1.3 + Math.floor(i / 8) * 0.1;
+  // Bolts sit at y=0.78 on the head; -1.83 drops them onto the ~-1.05
+  // tray surface, same height the pan-bolt tray uses.
+  return [sx - bx, -1.83, sz - bz];
+};
 
 // ── Turbocharger (modeled from the 4 reman-turbo reference photos) ──
 // Scale basis: compressor scroll diameter D = 0.4 scene units. From the
@@ -514,10 +540,6 @@ const updateFlows = (systems: FlowSystem[], t: number) => {
     pos.needsUpdate = true;
   });
 };
-// Flow-viz system is kept for the upcoming flows feature; referenced here
-// so noUnusedLocals stays green until it's wired into the animate loop.
-void buildFlowSystems; void updateFlows;
-
 // ─────────────────────────────────────────────────────────
 // Main Component
 // ─────────────────────────────────────────────────────────
@@ -529,6 +551,11 @@ export default function EngineViewer() {
   const engineGroupRef = useRef<THREE.Group | null>(null);
   const animFrameRef = useRef<number>(0);
   const clockRef = useRef(new THREE.Clock());
+  // Mirrors of engineOn/rpm state for the animate() rAF loop, which doesn't
+  // re-run per render — see mechanism-kinematics skill (belt/pulley/fan
+  // speed must track real engine state, not free-run on its own timer).
+  const engineOnRef = useRef(false);
+  const rpmRef = useRef(0);
 
   const [engineId, setEngineId] = useState<EngineId>('volvo-d13');
   // Which vehicle the user picked from the dropdown — nothing builds (no
@@ -547,6 +574,7 @@ export default function EngineViewer() {
   const [driver, setDriver] = useState<'electric' | 'hand' | null>(null);
   const [filtersRemoved, setFiltersRemoved] = useState<boolean[]>(Array(FILTER_COUNT).fill(false));
   const [boltsRemoved, setBoltsRemoved] = useState<boolean[]>(Array(PAN_BOLT_COUNT).fill(false));
+  const [valveCoverBoltsRemoved, setValveCoverBoltsRemoved] = useState<boolean[]>(Array(VALVE_COVER_BOLT_COUNT).fill(false));
   const [panRemoved, setPanRemoved] = useState(false);
   const [plugRemoved, setPlugRemoved] = useState(false);
   const [oilDrained, setOilDrained] = useState(false);
@@ -558,6 +586,7 @@ export default function EngineViewer() {
     'service-drain-plug',
     ...Array.from({ length: FILTER_COUNT }, (_, i) => `service-oil-filter-${i}`),
     ...Array.from({ length: PAN_BOLT_COUNT }, (_, i) => `service-pan-bolt-${i}`),
+    ...Array.from({ length: VALVE_COVER_BOLT_COUNT }, (_, i) => `service-valvecover-bolt-${i}`),
     'service-turbo',
     ...TURBO_PART_KEYS.map(k => `service-turbo-${k}`),
     ...Array.from({ length: 4 }, (_, i) => `service-turbo-nut-${i}`),
@@ -646,6 +675,20 @@ export default function EngineViewer() {
     else slides.push({ obj, axis, target });
   }, []);
 
+  /** Fly the camera to the shop's back-wall toolbox chest (position (-0.35, -1.1, -7.5)
+   *  in buildVolvoD13) and hold it there — matches the hard-cut pattern used by
+   *  resetCamera/inspectPart rather than an animated tween. */
+  const focusToolbox = useCallback(() => {
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+    if (!camera || !controls) return;
+    controls.target.set(-0.35, -0.1, -7.5);
+    camera.position.set(1.5, 0.9, -2.7);
+    controls.autoRotate = false;
+    setAutoRotate(false);
+    controls.update();
+  }, []);
+
   /** Open/close one toolbox drawer, closing whichever was previously open. */
   const toggleDrawer = useCallback((key: DrawerKey) => {
     const eg = engineGroupRef.current;
@@ -658,9 +701,10 @@ export default function EngineViewer() {
       if (prev === key) { slideDrawer(key, false); return null; }
       if (prev) slideDrawer(prev, false);
       slideDrawer(key, true);
+      focusToolbox();
       return key;
     });
-  }, [setSlide]);
+  }, [setSlide, focusToolbox]);
 
   const clickDoor = () => {
     if (!doorUnlocked) {
@@ -940,8 +984,21 @@ export default function EngineViewer() {
     }
   };
 
+  const removeValveCoverBolt = (i: number) => {
+    if (activeRepair !== 'overhead-adjust') { setServiceMsg('Open the Valve Lash Adjustment repair first.'); return; }
+    if (valveCoverBoltsRemoved[i]) return;
+    if (selectedTool !== 'socket13') { setServiceMsg('Valve cover bolts take the 13mm Socket — grab it and click the bolt.'); return; }
+    if (startRemoval(`service-valvecover-bolt-${i}`, { vy: 0.01, spin: 0.5, drop: 0.3, place: valveCoverBoltTraySlot(i) }, () => {
+      setValveCoverBoltsRemoved(prev => prev.map((v, j) => (j === i ? true : v)));
+      setServiceMsg(`Valve cover bolt ${i + 1}/${VALVE_COVER_BOLT_COUNT} out — into the tray ✓`);
+    })) {
+      setServiceMsg(`Backing off valve cover bolt ${i + 1}…`);
+    }
+  };
+
   const allFiltersOff = filtersRemoved.every(Boolean);
   const allBoltsOff = boltsRemoved.every(Boolean);
+  const allValveCoverBoltsOff = valveCoverBoltsRemoved.every(Boolean);
 
   const removePan = () => {
     if (panRemoved) return;
@@ -995,6 +1052,7 @@ export default function EngineViewer() {
     restoreParts(SERVICE_PARTS);
     setFiltersRemoved(Array(FILTER_COUNT).fill(false));
     setBoltsRemoved(Array(PAN_BOLT_COUNT).fill(false));
+    setValveCoverBoltsRemoved(Array(VALVE_COVER_BOLT_COUNT).fill(false));
     setPanRemoved(false);
     setPlugRemoved(false);
     setOilDrained(false); // reinstalled + refilled — full of fresh oil again
@@ -1014,7 +1072,9 @@ export default function EngineViewer() {
       ? 'New gasket fitted; 22 screws torqued 24 ± 4 Nm middle-out, A & B re-checked, drain plug 60 ± 10 Nm ✓'
       : activeRepair === 'turbo-replace'
         ? 'Turbo R&R complete: smooth spool, oil pressure good, coolant stable, boost tracking rpm ✓'
-        : 'New filters on (oiled gaskets, 3/4–1 turn), pan torqued 24 ± 4 Nm, filled with VDS-4 10W-30 ✓');
+        : activeRepair === 'overhead-adjust'
+          ? 'Valve lash checked/adjusted at TDC per cylinder; all 16 cover bolts back in, snugged criss-cross ✓'
+          : 'New filters on (oiled gaskets, 3/4–1 turn), pan torqued 24 ± 4 Nm, filled with VDS-4 10W-30 ✓');
     setActiveRepair(null);
   };
 
@@ -1030,13 +1090,34 @@ export default function EngineViewer() {
 
   const repairComplete = activeRepair === 'turbo-replace'
     ? turboHealthy
-    : panRemoved && (activeRepair === 'pan-gasket' || allFiltersOff);
+    : activeRepair === 'overhead-adjust'
+      ? allValveCoverBoltsOff
+      : panRemoved && (activeRepair === 'pan-gasket' || allFiltersOff);
   const [autoRotate, setAutoRotate] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
   const [screenPositions, setScreenPositions] = useState<Record<string, { x: number; y: number; visible: boolean }>>({});
   const [rpm, setRpm] = useState(800);
   const [engineOn, setEngineOn] = useState(false);
+  const [xrayOn, setXrayOn] = useState(false);
+
+  /** Toggle X-ray flow mode: ghost the block/head/cover materials to ~12%
+   *  opacity and show the oil/coolant/air-exhaust particle streams. */
+  const toggleXray = useCallback(() => {
+    const eg = engineGroupRef.current;
+    if (!eg) return;
+    const next = !eg.userData.xrayOn;
+    eg.userData.xrayOn = next;
+    const mats = eg.userData.xrayMaterials as THREE.MeshStandardMaterial[] | undefined;
+    mats?.forEach(m => {
+      m.transparent = true;
+      m.opacity = next ? 0.12 : 1;
+      m.depthWrite = !next;
+    });
+    const flowGroup = eg.getObjectByName('flow-systems');
+    if (flowGroup) flowGroup.visible = next;
+    setXrayOn(next);
+  }, []);
   // Which physical drawer on the 3D toolbox is currently slid open.
   const [openDrawer, setOpenDrawer] = useState<DrawerKey | null>(null);
   const [referenceOpen, setReferenceOpen] = useState(false);
@@ -1056,6 +1137,25 @@ export default function EngineViewer() {
     }, 100);
     return () => clearInterval(interval);
   }, [engineOn]);
+  useEffect(() => { engineOnRef.current = engineOn; }, [engineOn]);
+  useEffect(() => { rpmRef.current = rpm; }, [rpm]);
+
+  // Starter pinion: one-shot engage-and-spin-then-disengage on every
+  // false→true engineOn transition (real DC starters crank briefly, then
+  // the overrunning clutch kicks the pinion out once the engine catches —
+  // see mechanism-kinematics skill, "gear-driven one-shot" category).
+  useEffect(() => {
+    if (!engineOn) return;
+    const eg = engineGroupRef.current;
+    if (!eg) return;
+    setSlide('engine-starter-pinion', 'x', -1.19); // extend to mesh the flywheel ring gear
+    eg.userData.starterCranking = true;
+    const retract = setTimeout(() => {
+      setSlide('engine-starter-pinion', 'x', -1.1); // back to rest, flush with the flange
+      eg.userData.starterCranking = false;
+    }, 450);
+    return () => clearTimeout(retract);
+  }, [engineOn, setSlide]);
 
   const toggleAutoRotate = useCallback(() => {
     const controls = controlsRef.current;
@@ -1249,9 +1349,40 @@ export default function EngineViewer() {
       // Particles
       particles.rotation.y = t * 0.025;
 
-      // Fan
+      // Fan + crank-driven accessories — only turn while the engine is
+      // actually running, at a rate that tracks rpm, per mechanism-kinematics
+      // (these must stay consistent with the real drive relationship, not
+      // spin on their own arbitrary timer).
+      const running = engineOnRef.current;
+      const revFactor = running ? 0.4 + rpmRef.current / 1400 : 0; // ≈0.97 at 800rpm idle, scales up
       if (engineGroup.userData.fanBladeGroup) {
-        engineGroup.userData.fanBladeGroup.rotation.x += 0.018;
+        engineGroup.userData.fanBladeGroup.rotation.x += 0.018 * revFactor;
+      }
+      // Front accessory drive: belt-driven pulleys (upper idler, A/C
+      // compressor, tensioner, lower idler) all turn together off the crank.
+      const accessoryPulleys = engineGroup.userData.accessoryPulleys as THREE.Object3D[] | undefined;
+      accessoryPulleys?.forEach(p => { p.rotation.x += 0.14 * revFactor; });
+      // Alternator: pad-mounted, its own belt path, spins faster than crank
+      // (typical pulley ratio ~2.5–3:1) — see mechanism-kinematics.
+      const alternatorPulley = engineGroup.userData.alternatorPulley as THREE.Object3D | undefined;
+      if (alternatorPulley) alternatorPulley.rotation.x += 0.36 * revFactor;
+      // WABCO air compressor: gear-driven off the timing train (not belted),
+      // so its drive flange/coupling turns 1:1 with the crank whenever the
+      // engine runs, independent of the accessory belt above.
+      const compressorCoupling = engineGroup.userData.compressorCoupling as THREE.Object3D | undefined;
+      if (compressorCoupling) compressorCoupling.rotation.x += 0.14 * revFactor;
+      // Starter pinion: one-shot spin only during the brief crank window
+      // triggered on engineOn (see the setSlide('engine-starter-pinion', …)
+      // effect above) — not tied to revFactor since it disengages before
+      // the engine is actually turning under its own power.
+      if (engineGroup.userData.starterCranking) {
+        const pinion = engineGroup.getObjectByName('engine-starter-pinion');
+        if (pinion) pinion.rotation.x += 0.9;
+      }
+
+      // X-ray flow streams (oil/coolant/air-exhaust), only while toggled on
+      if (engineGroup.userData.xrayOn && engineGroup.userData.flowSystems) {
+        updateFlows(engineGroup.userData.flowSystems as FlowSystem[], t);
       }
 
       // Service-mode removal animations (parts unscrew + drop, then land in a
@@ -1414,10 +1545,14 @@ export default function EngineViewer() {
       toggleDrawer(name.slice('toolbox-drawer-'.length) as DrawerKey);
       return;
     }
-    if (name.startsWith('toolbox-')) return;
+    if (name.startsWith('toolbox-')) { focusToolbox(); return; }
     if (!hoodOpen) { setServiceMsg('The hood is closed — unlock the cab, set the parking brake, then open the hood.'); return; }
     if (name.startsWith('service-pan-bolt-')) {
       if (activeRepair === 'oil-change' || activeRepair === 'pan-gasket') removeBolt(Number(name.slice('service-pan-bolt-'.length)));
+      return;
+    }
+    if (name.startsWith('service-valvecover-bolt-')) {
+      removeValveCoverBolt(Number(name.slice('service-valvecover-bolt-'.length)));
       return;
     }
     if (name === 'service-drain-plug') {
@@ -1447,7 +1582,9 @@ export default function EngineViewer() {
         ? ['socket15', 'ratchet', 'drainPan', 'towel']
         : activeRepair === 'turbo-replace'
           ? ['socket10', 'socket15', 'lineWrench', 'screwdriver']
-          : [];
+          : activeRepair === 'overhead-adjust'
+            ? ['socket13', 'ratchet']
+            : [];
 
   // Guided procedure steps, derived from the live physics state.
   const procSteps: ProcStep[] =
@@ -1475,7 +1612,12 @@ export default function EngineViewer() {
               { id: 7, label: 'Reconnect ALL lines & clamps, prime the oil', done: turboMissing().length === 0 && !!turboInstalled.mounted, requiredTool: 'lineWrench', detail: `${TURBO_CRITICAL.length - turboMissing().length}/${TURBO_CRITICAL.length}` },
               { id: 8, label: 'Start engine & verify readings', done: turboHealthy, requiredTool: null },
             ]
-          : [];
+          : activeRepair === 'overhead-adjust'
+            ? [
+                { id: 1, label: 'Remove the 16 valve cover perimeter bolts', done: allValveCoverBoltsOff, requiredTool: 'socket13', detail: `${valveCoverBoltsRemoved.filter(Boolean).length}/${VALVE_COVER_BOLT_COUNT}` },
+                { id: 2, label: 'Check/adjust valve lash at TDC, reinstall bolts criss-cross', done: allValveCoverBoltsOff, requiredTool: 'ratchet' },
+              ]
+            : [];
 
   /** Switch to a vehicle (or back to the dropdown with null): reset every
    *  walk-around / service state so the freshly built scene starts clean. */
@@ -1486,6 +1628,7 @@ export default function EngineViewer() {
     setOpenDrawer(null); setSelectedTool(null); setTray([]);
     setRepairsOpen(false); setActiveRepair(null); setServiceMsg('');
     setEngineOn(false); setActiveHotspot(null);
+    setXrayOn(false);
     setVehicle(id);
     if (id) { setIsLoading(true); setLoadProgress(0); }
   };
@@ -1806,7 +1949,29 @@ export default function EngineViewer() {
                 </>
               )}
 
-              {activeRepair !== 'turbo-replace' && (<>
+              {activeRepair === 'overhead-adjust' && (
+                <div className="space-y-1.5">
+                  <p className="text-gray-400 text-[11px] uppercase tracking-widest">
+                    Valve cover bolts (13mm socket) ({valveCoverBoltsRemoved.filter(Boolean).length}/{VALVE_COVER_BOLT_COUNT})
+                  </p>
+                  <div className="grid grid-cols-8 gap-1.5">
+                    {valveCoverBoltsRemoved.map((done, i) => (
+                      <button
+                        key={i}
+                        onClick={() => removeValveCoverBolt(i)}
+                        disabled={done}
+                        className={`px-1.5 py-1 text-[11px] rounded border font-bold font-mono ${
+                          done ? 'text-green-300 border-green-500/40 bg-green-500/10' : 'text-white border-white/20 bg-white/5 hover:border-amber-400/50'
+                        }`}
+                      >
+                        {done ? '✓' : `B${i + 1}`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(activeRepair === 'oil-change' || activeRepair === 'pan-gasket') && (<>
               {/* Tools */}
               <div className="space-y-1.5">
                 <p className="text-gray-400 text-[11px] uppercase tracking-widest">Socket extension</p>
@@ -1952,7 +2117,11 @@ export default function EngineViewer() {
                   onClick={finishRepair}
                   className="w-full py-1.5 text-xs font-bold rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-lg"
                 >
-                  {activeRepair === 'pan-gasket' ? '✨ Fit new gasket & reinstall' : '✨ New filters, oil & reinstall'}
+                  {activeRepair === 'pan-gasket'
+                    ? '✨ Fit new gasket & reinstall'
+                    : activeRepair === 'overhead-adjust'
+                      ? '✨ Lash checked, bolts torqued'
+                      : '✨ New filters, oil & reinstall'}
                 </button>
               )}
 
@@ -2252,6 +2421,18 @@ export default function EngineViewer() {
         >
           🎯 Reset
         </button>
+        {vehicle === 'vnl860' && (
+          <button
+            onClick={toggleXray}
+            className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200"
+            style={xrayOn
+              ? { background: 'rgba(0,212,255,0.15)', border: '1px solid rgba(0,212,255,0.5)', color: '#00d4ff' }
+              : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.5)' }
+            }
+          >
+            {xrayOn ? '🩻 X-Ray: On' : '🩻 X-Ray'}
+          </button>
+        )}
         <button
           onClick={() => {
             const controls = controlsRef.current;
@@ -2418,6 +2599,7 @@ export function buildVolvoD13(
   mkTray(0.93, 0.815, 0.56, 0.42); // pan screws, 6 per row
   mkTray(1.32, 0.85, 0.2, 0.18);   // drain plug
   mkTray(-1.15, 0.9, 0.32, 0.24);  // turbo flange nuts
+  mkTray(-0.94, 1.35, 0.5, 0.24);  // valve cover bolts, 8 per row × 2
   tick();
 
   // ══════════════════════════════════════
@@ -2439,11 +2621,15 @@ export function buildVolvoD13(
     add(new THREE.BoxGeometry(0.1, 0.055, 0.06), M.blue, { pos: [-0.25 + i * 0.12, 0.84, 0] });
   }
 
-  // Valve cover perimeter bolts (M8 flange bolts — no coils on a diesel)
-  for (let i = 0; i < 8; i++) {
-    add(new THREE.CylinderGeometry(0.016, 0.016, 0.03, 8), M.brushedMetal, { pos: [-0.85 + i * 0.24, 0.78, 0.3] });
-    add(new THREE.CylinderGeometry(0.016, 0.016, 0.03, 8), M.brushedMetal, { pos: [-0.85 + i * 0.24, 0.78, -0.3] });
-  }
+  // Valve cover perimeter bolts (M8 flange bolts — no coils on a diesel).
+  // Each is its own named, removable group (13mm socket, "Valve Lash
+  // Adjustment" repair) so it can come off individually like the pan bolts.
+  VALVE_COVER_BOLT_POSITIONS.forEach(([bx, bz], i) => {
+    const vcBolt = new THREE.Group();
+    vcBolt.name = `service-valvecover-bolt-${i}`;
+    group.add(vcBolt);
+    add(new THREE.CylinderGeometry(0.016, 0.016, 0.03, 8), M.brushedMetal, { pos: [bx, 0.78, bz], parent: vcBolt });
+  });
   // Injector harness pass-through connector on the valve cover
   add(new THREE.BoxGeometry(0.09, 0.05, 0.14), M.black, { pos: [-0.7, 0.79, 0.18] });
   tick();
@@ -3007,8 +3193,16 @@ export function buildVolvoD13(
   // it was sitting on the turbo side before)
   // ══════════════════════════════════════
   add(new THREE.CylinderGeometry(0.105, 0.105, 0.2, 20), M.darkMetal, { pos: [-0.48, -0.17, -0.37], rot: [0, 0, Math.PI / 2] });
-  add(new THREE.CylinderGeometry(0.106, 0.106, 0.02, 20), M.chrome, { pos: [-0.37, -0.17, -0.37], rot: [0, 0, Math.PI / 2] });
-  add(new THREE.CylinderGeometry(0.04, 0.04, 0.04, 12), M.chrome, { pos: [-0.36, -0.17, -0.37], rot: [0, 0, Math.PI / 2] });
+  // Pulley face + boss nut spin with their own belt path — kept as a group
+  // so rotation.x on the group turns just these two, not the stationary
+  // case behind them (mechanism-kinematics: alternator spins faster than
+  // the crank, typical pulley ratio ~2.5–3:1, applied in the animate loop).
+  const alternatorPulley = new THREE.Group();
+  alternatorPulley.position.set(-0.37, -0.17, -0.37);
+  group.add(alternatorPulley);
+  add(new THREE.CylinderGeometry(0.106, 0.106, 0.02, 20), M.chrome, { pos: [0, 0, 0], rot: [0, 0, Math.PI / 2], parent: alternatorPulley });
+  add(new THREE.CylinderGeometry(0.04, 0.04, 0.04, 12), M.chrome, { pos: [0.01, 0, 0], rot: [0, 0, Math.PI / 2], parent: alternatorPulley });
+  group.userData.alternatorPulley = alternatorPulley;
   tick();
 
   // ══════════════════════════════════════
@@ -3023,10 +3217,20 @@ export function buildVolvoD13(
     { pos: [FED_X, -0.02, -0.34] as [number,number,number], r: 0.055 }, // belt tensioner
     { pos: [FED_X, -0.40, -0.10] as [number,number,number], r: 0.065 }, // lower idler
   ];
+  // Each pulley is its own group (chrome face + darkMetal hub as children at
+  // local origin) so rotation.x on the group spins the pulley about its own
+  // axle — collected on the engine group's userData for the animate loop
+  // (mechanism-kinematics: these all turn together, driven off the crank).
+  const accessoryPulleys: THREE.Group[] = [];
   pulleyData.forEach(p => {
-    add(new THREE.CylinderGeometry(p.r, p.r, 0.055, 20), M.chrome, { pos: p.pos, rot: [0, 0, Math.PI / 2] });
-    add(new THREE.CylinderGeometry(p.r * 0.45, p.r * 0.45, 0.06, 14), M.darkMetal, { pos: p.pos, rot: [0, 0, Math.PI / 2] });
+    const pg = new THREE.Group();
+    pg.position.set(...p.pos);
+    group.add(pg);
+    add(new THREE.CylinderGeometry(p.r, p.r, 0.055, 20), M.chrome, { pos: [0, 0, 0], rot: [0, 0, Math.PI / 2], parent: pg });
+    add(new THREE.CylinderGeometry(p.r * 0.45, p.r * 0.45, 0.06, 14), M.darkMetal, { pos: [0, 0, 0], rot: [0, 0, Math.PI / 2], parent: pg });
+    accessoryPulleys.push(pg);
   });
+  group.userData.accessoryPulleys = accessoryPulleys;
   tick();
 
   // Serpentine belt: a loop in the y–z plane around the pulleys and the
@@ -3108,9 +3312,39 @@ export function buildVolvoD13(
   // Dipstick handle loop
   add(new THREE.TorusGeometry(0.018, 0.005, 6, 14), M.yellow, { pos: [0.32, 0.33, 0.4] });
 
-  // Starter motor
-  add(new THREE.CylinderGeometry(0.072, 0.072, 0.3, 14), M.darkMetal, { pos: [-0.95, -0.52, -0.22], rot: [0, 0, Math.PI / 2] });
-  add(new THREE.CylinderGeometry(0.042, 0.042, 0.15, 10), M.darkMetal, { pos: [-0.88, -0.38, -0.22] });
+  // Starter motor — Delco-Remy/Bosch-style heavy-duty DC starter with a
+  // separate solenoid, low on the block near the alternator. Modeled from
+  // the standalone D13 crate-engine photos docs/reference/
+  // d13-engine-stock-crate-front.png, -crate-front-2.png and -busride.png,
+  // which all show the same recognizable silhouette: a cylindrical motor
+  // body, a smaller parallel solenoid can offset above/forward of it, and
+  // a wider mounting flange/nose where it bolts to the bell housing. No
+  // dedicated close-up of just the starter exists yet, so the body/solenoid
+  // length-diameter ratios below carry over from the prior block-out
+  // rather than a fresh anchor measurement — medium confidence; a close-up
+  // photo would let this go through a full render-reference-diff pass.
+  // Bell housing is at the engine's rear (−x, per the fan/damper-end (+x)
+  // note above), so the mounting flange sits at the body's −x tip.
+  const starter = new THREE.Group();
+  starter.name = 'engine-starter';
+  group.add(starter);
+  // Mounting flange (drive-end nose that bolts to the bell housing)
+  add(new THREE.CylinderGeometry(0.09, 0.09, 0.04, 16), M.brushedMetal, { pos: [-1.08, -0.52, -0.22], rot: [0, 0, Math.PI / 2], parent: starter });
+  // Main DC motor body (commutator end, cast housing)
+  add(new THREE.CylinderGeometry(0.072, 0.076, 0.3, 14), M.black, { pos: [-0.95, -0.52, -0.22], rot: [0, 0, Math.PI / 2], parent: starter });
+  // Solenoid can, mounted parallel above/forward of the motor body
+  add(new THREE.CylinderGeometry(0.042, 0.042, 0.15, 10), M.black, { pos: [-0.88, -0.38, -0.22], parent: starter });
+  // Shift-fork linkage bridging the solenoid plunger to the motor body
+  add(new THREE.BoxGeometry(0.03, 0.05, 0.03), M.darkMetal, { pos: [-0.915, -0.45, -0.22], parent: starter });
+  // Battery-cable terminal stud on the solenoid's outer end
+  add(new THREE.CylinderGeometry(0.012, 0.012, 0.04, 8), M.chrome, { pos: [-0.88, -0.32, -0.15], rot: [Math.PI / 2, 0, 0], parent: starter });
+  // Pinion gear — rest position flush just past the flange; slides further
+  // −x (toward the flywheel ring gear inside the bell housing) and spins
+  // briefly on every start, then retracts once the engine catches (see the
+  // setSlide('engine-starter-pinion', …) effect + starterCranking handling
+  // in the animate loop — mechanism-kinematics one-shot gear-driven category).
+  const pinion = add(new THREE.CylinderGeometry(0.035, 0.035, 0.05, 12), M.darkMetal, { pos: [-1.1, -0.52, -0.22], rot: [0, 0, Math.PI / 2], parent: starter });
+  pinion.name = 'engine-starter-pinion';
 
   // Engine mounts
   [-0.88, -0.5, 0.5, 0.88].forEach(x => {
@@ -3150,8 +3384,12 @@ export function buildVolvoD13(
    *  machined rear flange carrying the black helical drive gear + hex nut.
    *  Local frame: crank axis along X, drive gear at −X, cylinders up.
    *  ~0.33 units tall ≈ 215 mm real. Reused for the engine-mounted unit
-   *  and the replacement unit at the toolbox. */
-  const buildWabcoCompressor = (): THREE.Group => {
+   *  and the replacement unit at the toolbox.
+   *  Returns the drive-gear hub/teeth/nut as their own sub-group (`driveGear`)
+   *  separate from the rest of the casing, so the engine-mounted instance can
+   *  spin just that assembly (gear-driven off the timing train, 1:1 with the
+   *  crank — mechanism-kinematics) without rotating the stationary housing. */
+  const buildWabcoCompressor = (): { group: THREE.Group; driveGear: THREE.Group } => {
     const c = new THREE.Group();
     // Rounded crankcase: two merged lobes (photo shows the waisted casting)
     add(new THREE.CylinderGeometry(0.062, 0.062, 0.17, 18), M.teal, { pos: [0, 0, 0], rot: [0, 0, Math.PI / 2], parent: c });
@@ -3171,27 +3409,34 @@ export function buildVolvoD13(
     add(new THREE.CylinderGeometry(0.02, 0.02, 0.05, 10), M.chrome, { pos: [-0.07, 0.26, -0.02], shadow: false, parent: c });
     add(new THREE.TorusGeometry(0.022, 0.007, 8, 16), M.teal, { pos: [0, 0.275, 0], shadow: false, parent: c });
     add(new THREE.CylinderGeometry(0.014, 0.014, 0.05, 8), M.brushedMetal, { pos: [-0.04, 0.24, 0.055], rot: [Math.PI / 2, 0, 0], shadow: false, parent: c });
-    // Machined rear mounting flange + black helical drive gear + hex nut
+    // Machined rear mounting flange — bolted to the timing cover, stationary.
     add(new THREE.CylinderGeometry(0.08, 0.08, 0.025, 24), M.brushedMetal, { pos: [-0.095, 0, 0], rot: [0, 0, Math.PI / 2], parent: c });
-    add(new THREE.CylinderGeometry(0.068, 0.068, 0.03, 24), M.darkMetal, { pos: [-0.125, 0, 0], rot: [0, 0, Math.PI / 2], parent: c });
+    // Black helical drive gear + hex nut — this is the part that actually
+    // spins with the timing train; grouped so it can rotate independently
+    // of the flange/casing above.
+    const driveGear = new THREE.Group();
+    driveGear.position.set(-0.125, 0, 0);
+    c.add(driveGear);
+    add(new THREE.CylinderGeometry(0.068, 0.068, 0.03, 24), M.darkMetal, { pos: [0, 0, 0], rot: [0, 0, Math.PI / 2], parent: driveGear });
     for (let i = 0; i < 18; i++) {
       const a = (i / 18) * Math.PI * 2;
       add(new THREE.BoxGeometry(0.02, 0.014, 0.03), M.darkMetal,
-        { pos: [-0.125, 0.072 * Math.cos(a), 0.072 * Math.sin(a)], rot: [a, 0.2, 0], shadow: false, parent: c });
+        { pos: [0, 0.072 * Math.cos(a), 0.072 * Math.sin(a)], rot: [a, 0.2, 0], shadow: false, parent: driveGear });
     }
-    add(new THREE.CylinderGeometry(0.02, 0.02, 0.05, 6), M.black, { pos: [-0.148, 0, 0], rot: [0, 0, Math.PI / 2], parent: c });
+    add(new THREE.CylinderGeometry(0.02, 0.02, 0.05, 6), M.black, { pos: [-0.023, 0, 0], rot: [0, 0, Math.PI / 2], parent: driveGear });
     // Front end cover
     add(new THREE.CylinderGeometry(0.05, 0.05, 0.02, 18), M.teal, { pos: [0.095, 0, 0], rot: [0, 0, Math.PI / 2], parent: c });
-    return c;
+    return { group: c, driveGear };
   };
 
   // Brake air compressor — WABCO twin-cylinder on the LEFT side at the
   // flywheel end, drive gear facing the rear gear train (it used to be two
   // bare cylinders floating at the front).
-  const engineCompressor = buildWabcoCompressor();
+  const { group: engineCompressor, driveGear: compressorDriveGear } = buildWabcoCompressor();
   engineCompressor.name = 'air-compressor';
   engineCompressor.position.set(-0.90, -0.02, -0.46);
   group.add(engineCompressor);
+  group.userData.compressorCoupling = compressorDriveGear;
   tick();
 
   // Fuel filters — on the LEFT side of the engine per QRG left-side view
@@ -3239,6 +3484,12 @@ export function buildVolvoD13(
   const paint = new THREE.MeshStandardMaterial({ color: 0xf2f4f6, metalness: 0.5, roughness: 0.32 });
   const glass = new THREE.MeshStandardMaterial({ color: 0x1a2836, metalness: 0.4, roughness: 0.1, transparent: true, opacity: 0.55 });
   const grilleDark = new THREE.MeshStandardMaterial({ color: 0x14161a, metalness: 0.5, roughness: 0.5 });
+  // Gloss-black lower body/rocker plastic — the two-tone split clearly
+  // visible in docs/reference/truck/04-exterior-side-profile-driver.png
+  // (white cab above the beltline, glossy black rocker/skirt fairing below
+  // it, running the full length from the front wheel back past the fuel
+  // tank). Distinct from grilleDark (matte, used for vents/recesses).
+  const lowerBody = new THREE.MeshStandardMaterial({ color: 0x0d0d10, metalness: 0.35, roughness: 0.4 });
 
   const truckBody = new THREE.Group();
   truckBody.name = 'truck-cab';
@@ -3276,9 +3527,28 @@ export function buildVolvoD13(
   add(new THREE.BoxGeometry(0.06, 0.75, 1.5), glass, { pos: [1.48, 1.05, 0], rot: [0, 0, -0.12], parent: truckBody });
   add(new THREE.BoxGeometry(0.7, 0.45, 0.04), glass, { pos: [2.9, 1.05, 0.86], parent: truckBody });
   add(new THREE.BoxGeometry(0.7, 0.45, 0.04), glass, { pos: [2.9, 1.05, -0.86], parent: truckBody });
+  // Two-tone lower body: gloss-black rocker/skirt fairing under the cab,
+  // running back past the fuel tank (docs/reference/truck/
+  // 04-exterior-side-profile-driver.png — split sits right at the door
+  // sill). Thin skin panels flush with the cab's side faces (z ±0.85 —
+  // see the cab BoxGeometry(2.2,1.22,1.7) above), not a solid underbody.
+  [0.86, -0.86].forEach(z => {
+    add(new THREE.BoxGeometry(2.3, 0.42, 0.04), lowerBody, { pos: [2.5, -0.33, z], parent: truckBody });
+  });
   // Mirrors, steps, fuel tank, exhaust stack
-  add(new THREE.BoxGeometry(0.05, 0.4, 0.18), M.darkMetal, { pos: [1.55, 1.35, 1.0], parent: truckBody });
-  add(new THREE.BoxGeometry(0.05, 0.4, 0.18), M.darkMetal, { pos: [1.55, 1.35, -1.0], parent: truckBody });
+  // Aero mirror assemblies (photo 01/04: body-color housing on a dark arm,
+  // roughly 0.4x the door-glass height per photo 01) — arm off the A-pillar,
+  // body-color housing with a dark glass insert facing the door, plus the
+  // small round convex spotter mirror mounted underneath.
+  [1, -1].forEach(s => {
+    const arm = new THREE.Group();
+    arm.position.set(1.55, 1.28, s * 0.86);
+    truckBody.add(arm);
+    add(new THREE.BoxGeometry(0.05, 0.06, 0.22), M.darkMetal, { pos: [0, 0, s * 0.11], parent: arm });
+    add(new THREE.BoxGeometry(0.1, 0.32, 0.2), paint, { pos: [0, -0.16, s * 0.24], parent: arm });
+    add(new THREE.BoxGeometry(0.06, 0.24, 0.16), M.darkMetal, { pos: [-0.04, -0.16, s * 0.2], parent: arm });
+    add(new THREE.CylinderGeometry(0.035, 0.035, 0.02, 12), M.chrome, { pos: [-0.02, -0.34, s * 0.24], rot: [Math.PI / 2, 0, 0], parent: arm });
+  });
   add(new THREE.BoxGeometry(0.5, 0.05, 0.3), M.brushedMetal, { pos: [2.0, -0.55, 0.95], parent: truckBody });
   add(new THREE.BoxGeometry(0.5, 0.05, 0.3), M.brushedMetal, { pos: [2.0, -0.9, 0.95], parent: truckBody });
   add(new THREE.CylinderGeometry(0.26, 0.26, 1.1, 18), M.chrome, { pos: [2.75, -0.75, 0.85], rot: [0, 0, Math.PI / 2], parent: truckBody });
@@ -3301,19 +3571,72 @@ export function buildVolvoD13(
   truckBody.add(hood);
   // top panel (sloped down toward the nose) + side panels + fender arches
   add(new THREE.BoxGeometry(3.75, 0.07, 1.5), paint, { pos: [1.85, 1.42, 0], rot: [0, 0, 0.09], parent: hood });
+  // Hood power-dome / center character line (photo 01: subtle raised ridge
+  // running down the hood's centerline, most visible in the 3/4 shot).
+  add(new THREE.BoxGeometry(2.1, 0.03, 0.24), paint, { pos: [1.3, 1.465, 0], rot: [0, 0, 0.09], parent: hood });
   add(new THREE.BoxGeometry(3.75, 0.95, 0.06), paint, { pos: [1.85, 0.85, 0.74], rot: [0, 0.0, 0.02], parent: hood });
   add(new THREE.BoxGeometry(3.75, 0.95, 0.06), paint, { pos: [1.85, 0.85, -0.74], rot: [0, 0, 0.02], parent: hood });
   add(new THREE.BoxGeometry(1.3, 0.12, 0.34), paint, { pos: [0.85, 0.42, 0.78], parent: hood });
   add(new THREE.BoxGeometry(1.3, 0.12, 0.34), paint, { pos: [0.85, 0.42, -0.78], parent: hood });
-  // nose: grille frame, slats, Volvo diagonal slash, headlights, bumper
-  add(new THREE.BoxGeometry(0.12, 1.15, 1.46), paint, { pos: [0.1, 0.85, 0], parent: hood });
-  for (let i = 0; i < 5; i++) {
-    add(new THREE.BoxGeometry(0.03, 0.1, 1.2), grilleDark, { pos: [0.045, 0.5 + i * 0.16, 0], parent: hood });
+
+  // Nose — reworked from a single flat face to a 3-panel taper matching the
+  // pointed "bug nose" silhouette in docs/reference/truck/
+  // 01-exterior-front-3q.png and 02-exterior-front-straight-on.png: wide at
+  // the headlight line, narrowing and receding toward a pointed black chin
+  // at the bumper (ratios measured against the hood width anchor, 1.46
+  // units full-width at the fender arches per the box above).
+  add(new THREE.BoxGeometry(0.1, 0.5, 1.46), paint, { pos: [0.08, 1.18, 0], parent: hood });        // upper face, full width
+  add(new THREE.BoxGeometry(0.18, 0.42, 1.28), paint, { pos: [0.18, 0.78, 0], parent: hood });       // mid face, receded + narrower
+  add(new THREE.BoxGeometry(0.28, 0.32, 0.92), lowerBody, { pos: [0.32, 0.44, 0], parent: hood });    // lower chin, receded + narrower, gloss black like the real bumper's lower valance
+  add(new THREE.BoxGeometry(0.34, 0.24, 0.66), lowerBody, { pos: [0.42, 0.16, 0], parent: hood });    // bumper valance, further tucked under
+
+  // Grille insert — single dark panel across the mid face (not slats: the
+  // real grille reads as one large mesh insert), plus the chrome diagonal
+  // bar that's the VNL's signature front-end accent.
+  add(new THREE.BoxGeometry(0.03, 0.36, 1.1), grilleDark, { pos: [0.19, 0.8, 0], parent: hood });
+  add(new THREE.BoxGeometry(0.02, 1.05, 0.12), M.chrome, { pos: [0.185, 0.8, 0], rot: [0, 0, 0.55], shadow: false, parent: hood });
+
+  // Headlight pods — round units at the mid-face outer corners (photo 01:
+  // roughly mid-height, well above the bumper), with an amber DRL strip
+  // running below them near the top of the valance.
+  [1, -1].forEach(s => {
+    add(new THREE.CylinderGeometry(0.14, 0.14, 0.05, 20), M.white, { pos: [0.16, 0.9, s * 0.63], rot: [0, 0, Math.PI / 2], shadow: false, parent: hood });
+    add(new THREE.CylinderGeometry(0.1, 0.1, 0.02, 16), M.chrome, { pos: [0.14, 0.9, s * 0.63], rot: [0, 0, Math.PI / 2], shadow: false, parent: hood });
+    add(new THREE.BoxGeometry(0.04, 0.05, 0.3), M.orange, { pos: [0.29, 0.58, s * 0.6], shadow: false, parent: hood });
+    // Round fog light, inset in the lower bumper valance
+    add(new THREE.CylinderGeometry(0.06, 0.06, 0.03, 14), M.darkMetal, { pos: [0.44, 0.16, s * 0.42], rot: [0, 0, Math.PI / 2], shadow: false, parent: hood });
+  });
+
+  // Small hood-mounted convex spotter mirror (white, body-color shell) —
+  // visible low on the fender in photo 01, used for curbing the front wheel.
+  add(new THREE.SphereGeometry(0.045, 12, 10), M.white, { pos: [0.85, 0.55, 0.72], parent: hood });
+  tick();
+
+  // Radiator — sits behind the grille, ahead of the engine-mounted viscous
+  // fan. Position derived from this file's own coordinate note above
+  // ("truck is turned 180° ... fan/damper end (+x) under the nose"): with
+  // truckBody rotated 180° about Y, a point at hood-local x has world x =
+  // 2.3 − x (hood.position.x is −2.3). The engine's fan sits at world x ≈
+  // 1.3–1.5 (FED_X = 1.26 plus the fan stack), the grille frame is at
+  // hood-local x = 0.1 (world x ≈ 2.2). Local x = 0.45 (world x ≈ 1.85)
+  // puts the radiator core in the gap between them. Not yet confirmed by
+  // an actual render screenshot — no headless browser was available in
+  // this pass, so treat this placement as reasoned-but-unverified until a
+  // render-reference-diff pass (or the dev server) confirms it.
+  add(new THREE.BoxGeometry(0.08, 1.05, 1.3), M.darkMetal, { pos: [0.45, 0.85, 0], parent: hood });
+  // Core fin ribbing — thin horizontal brushed-metal bands across the face
+  // so the core reads as finned rather than a flat slab (visible texture in
+  // docs/reference/truck/11-engine-bay-steer-axle.png and
+  // 12-engine-bay-hood-open.png, though neither is a clean straight-on shot
+  // of the core itself — spacing here is reasoned, not photo-measured).
+  for (let i = 0; i < 9; i++) {
+    add(new THREE.BoxGeometry(0.005, 0.02, 1.28), M.brushedMetal, { pos: [0.495, 0.42 + i * 0.11, 0], shadow: false, parent: hood });
   }
-  add(new THREE.BoxGeometry(0.03, 1.05, 0.1), M.brushedMetal, { pos: [0.03, 0.85, 0], rot: [0.5, 0, 0], parent: hood });
-  add(new THREE.BoxGeometry(0.06, 0.14, 0.32), M.white, { pos: [0.05, 0.32, 0.55], parent: hood });
-  add(new THREE.BoxGeometry(0.06, 0.14, 0.32), M.white, { pos: [0.05, 0.32, -0.55], parent: hood });
-  add(new THREE.BoxGeometry(0.25, 0.22, 1.7), grilleDark, { pos: [0.1, 0.05, 0], parent: hood });
+  // Top and bottom plastic tanks
+  add(new THREE.BoxGeometry(0.1, 0.1, 1.34), M.black, { pos: [0.45, 1.38, 0], parent: hood });
+  add(new THREE.BoxGeometry(0.1, 0.1, 1.34), M.black, { pos: [0.45, 0.32, 0], parent: hood });
+  // Fan shroud ring, just behind the core, facing the engine's viscous fan
+  add(new THREE.TorusGeometry(0.42, 0.035, 10, 20), M.black, { pos: [0.62, 0.85, 0], rot: [0, Math.PI / 2, 0], parent: hood });
   tick();
 
   // ══════════════════════════════════════
@@ -3521,7 +3844,7 @@ export function buildVolvoD13(
   // ── Replacement WABCO air compressor staged at the toolbox — it sits on
   // the stainless counter of bay A (the part lives in the toolbox until it
   // goes on the engine), drive gear facing along the counter.
-  const spareCompressor = buildWabcoCompressor();
+  const { group: spareCompressor } = buildWabcoCompressor();
   spareCompressor.name = 'toolbox-air-compressor';
   spareCompressor.position.set(mid('bankA'), COUNTER_Y + 1.2 * IN + 0.066, 4 * IN);
   spareCompressor.rotation.y = Math.PI / 2;
@@ -3534,6 +3857,18 @@ export function buildVolvoD13(
   // ══════════════════════════════════════
   group.position.y = 0;
   group.rotation.y = Math.PI * 0.08; // slight initial angle
+
+  // X-ray flow mode — hidden by default (buildFlowSystems sets flowGroup
+  // .visible = false); toggleXray in the component flips flowGroup
+  // visibility and ghosts these casing materials to ~12% opacity so the
+  // oil/coolant/air-exhaust streams read through the block, head, valve
+  // cover, and covers. updateFlows() only runs (in animate()) while
+  // userData.xrayOn is true.
+  const { flowGroup, systems: flowSystems } = buildFlowSystems();
+  group.add(flowGroup);
+  group.userData.flowSystems = flowSystems;
+  group.userData.xrayMaterials = [M.teal, M.darkTeal, M.brushedMetal, M.darkMetal, M.black];
+  group.userData.xrayOn = false;
 
   // Complete loading
   tick(); tick(); tick(); tick(); tick();
