@@ -903,12 +903,18 @@ export default function EngineViewer() {
   }, []);
 
   /** Zoom the camera in on one specific drawer, full-frame, instead of the
-   *  wide whole-toolbox shot focusToolbox() gives — distance is scaled off
-   *  the drawer's own stored height (userData.h, set in buildDrawer) so a
-   *  small sockets drawer and the big "MR. BIG" general drawer both roughly
-   *  fill the 42°-FOV frame instead of one fixed distance under/overshooting.
-   *  Actually moves the camera by queuing engineGroup.userData.cameraMove,
-   *  eased once per frame in animate() — same lerp-toward-target pattern as
+   *  wide whole-toolbox shot focusToolbox() gives. Top-down, not straight-on:
+   *  a drawer's tools (see buildDrawer's socket rows / wrench fans) sit ON
+   *  its tray floor, so a face-on shot only ever showed the closed drawer
+   *  front, never the contents — this looks nearly straight down INTO the
+   *  open drawer instead, the way you'd actually look at a real one. Kept a
+   *  slight forward tilt (not perfectly vertical) so the view direction
+   *  never lines up with camera.up, which would hit OrbitControls' pole
+   *  singularity. Distance scales off the drawer's own stored w/h
+   *  (userData, set in buildDrawer) so a small sockets drawer and the big
+   *  "MR. BIG" general drawer both roughly fill the 42°-FOV frame. Actually
+   *  moves the camera by queuing engineGroup.userData.cameraMove, eased once
+   *  per frame in animate() — same lerp-toward-target pattern as
    *  userData.hinges/slides, just for the camera instead of a mesh. */
   const focusDrawer = useCallback((key: DrawerKey) => {
     const eg = engineGroupRef.current;
@@ -916,10 +922,11 @@ export default function EngineViewer() {
     if (!eg || !obj) return;
     const worldPos = new THREE.Vector3();
     obj.getWorldPosition(worldPos);
+    const w = (obj.userData.w as number | undefined) ?? 0.25;
     const h = (obj.userData.h as number | undefined) ?? 0.15;
-    const dist = Math.min(0.95, Math.max(0.32, h * 1.9));
+    const dist = Math.min(1.1, Math.max(0.4, Math.max(w, h) * 1.1));
     eg.userData.cameraMove = {
-      pos: new THREE.Vector3(worldPos.x, worldPos.y, worldPos.z + dist),
+      pos: new THREE.Vector3(worldPos.x, worldPos.y + dist * 0.94, worldPos.z + dist * 0.3),
       look: worldPos.clone(),
     };
     if (controlsRef.current) controlsRef.current.autoRotate = false;
