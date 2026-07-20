@@ -20,7 +20,7 @@ export type Tool =
   | "filterWrench" | "lineWrench" | "torqueWrench" | "feelerGauge" | "feeler36"
   | "dialIndicator" | "barringTool"
   // general
-  | "ratchet" | "extension" | "drainPan" | "funnel" | "screwdriver" | "key" | "towel";
+  | "ratchet" | "snapOnRatchet" | "extension" | "drainPan" | "funnel" | "screwdriver" | "key" | "towel";
 
 const mSock = (mm: number, desc: string) =>
   ({ name: `${mm}mm Socket`, icon: "⚙️", desc });
@@ -72,6 +72,7 @@ export const TOOLS: Record<Tool, { name: string; icon: string; desc: string }> =
   barringTool: { name: "Turning Tool 88800014", icon: "🔄", desc: "Bar the engine over at the flywheel" },
   // ── general ──
   ratchet: { name: "Ratchet Wrench", icon: "🔧", desc: "Reversible ratchet drive" },
+  snapOnRatchet: { name: "Snap-on Ratcheting Wrench", icon: "🔧", desc: "72-tooth reversible — takes 3\" or 6\" extensions" },
   extension: { name: "Extension Bar", icon: "📏", desc: "Reach deep bolts" },
   drainPan: { name: "Drain Pan", icon: "🛢️", desc: "Catch draining oil" },
   funnel: { name: "Funnel", icon: "🫗", desc: "Pour new oil" },
@@ -102,7 +103,7 @@ const SOCKETS_STANDARD: Tool[] = ["socketS516", "socketS38", "socketS716", "sock
 const WRENCHES_METRIC: Tool[] = ["wrenchM8", "wrenchM10", "wrenchM12", "wrenchM13", "wrenchM14", "wrenchM15", "wrenchM17", "wrenchM19", "wrenchM21", "wrenchM24"];
 const WRENCHES_STANDARD: Tool[] = ["wrenchS516", "wrenchS38", "wrenchS716", "wrenchS12", "wrenchS916", "wrenchS58", "wrenchS34", "wrenchS1316", "wrenchS78", "wrenchS1516"];
 const SPECIALTY: Tool[] = ["filterWrench", "lineWrench", "torqueWrench", "feelerGauge", "feeler36", "dialIndicator", "barringTool"];
-const GENERAL: Tool[] = ["ratchet", "extension", "drainPan", "funnel", "screwdriver", "key", "towel"];
+const GENERAL: Tool[] = ["ratchet", "snapOnRatchet", "extension", "drainPan", "funnel", "screwdriver", "key", "towel"];
 
 export const CATEGORY_TOOLS = {
   "sockets-metric": SOCKETS_METRIC,
