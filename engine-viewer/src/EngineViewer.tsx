@@ -1357,9 +1357,11 @@ export default function EngineViewer() {
       ? allValveCoverBoltsOff
       : activeRepair === 'fluid-check'
         ? allFluidsChecked
-        : activeRepair === 'hood-cable'
-          ? hoodCableStep >= HOOD_CABLE_STEPS.length
-          : panRemoved && (activeRepair === 'pan-gasket' || allFiltersOff);
+        : activeRepair === 'annual-inspection'
+          ? allAxleChecked
+          : activeRepair === 'hood-cable'
+            ? hoodCableStep >= HOOD_CABLE_STEPS.length
+            : panRemoved && (activeRepair === 'pan-gasket' || allFiltersOff);
   const [autoRotate, setAutoRotate] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
