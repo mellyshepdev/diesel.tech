@@ -1822,6 +1822,16 @@ export default function EngineViewer() {
               {engine.model} <span className="text-transparent bg-clip-text" style={{ backgroundImage: 'linear-gradient(90deg, #00d4ff, #00ffaa)' }}>Engine</span>
             </h1>
             <p className="text-gray-400 text-xs mt-1 tracking-widest uppercase">{engine.tagline}</p>
+            {vehicle !== 'sonata2017' && (
+              <div className="mt-1.5 flex items-center gap-2 pointer-events-none">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400/10 border border-amber-400/30 text-amber-300">
+                  ⭐ Lv.{mechanicLevel.level} {mechanicLevel.title}
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-400/10 border border-yellow-400/30 text-yellow-300 font-mono">
+                  🪙 {coins}
+                </span>
+              </div>
+            )}
             {/* Engine selector */}
             <div className="flex items-center gap-1.5 mt-3 pointer-events-auto">
               <button
@@ -2252,6 +2262,14 @@ export default function EngineViewer() {
               </button>
             </>
           )}
+        </div>
+      )}
+
+      {/* Level-up toast — fires from finishRepair when a job's coin payout
+          crosses the next LEVELS threshold; auto-dismisses after 4s. */}
+      {levelUpMsg && (
+        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl border border-amber-400/60 bg-gradient-to-r from-amber-500/20 to-yellow-400/20 backdrop-blur-md text-center pointer-events-none animate-pulse">
+          <p className="text-amber-200 text-sm font-black tracking-wide">{levelUpMsg}</p>
         </div>
       )}
 
