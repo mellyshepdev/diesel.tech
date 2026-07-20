@@ -36,3 +36,17 @@ ALTER TABLE engines ADD COLUMN IF NOT EXISTS horsepower INTEGER;
 ALTER TABLE engines ADD COLUMN IF NOT EXISTS torque_lb_ft INTEGER;
 ALTER TABLE engines ADD COLUMN IF NOT EXISTS displacement_liters NUMERIC(4,1);
 ALTER TABLE engines ADD COLUMN IF NOT EXISTS fuel_type TEXT NOT NULL DEFAULT 'diesel';
+
+-- Mechanic career progression (engine-viewer's coins/level/tool-shop system).
+-- Keyed on the Keycloak access token's `sub` claim, not a local users table —
+-- there's no reason to mirror Keycloak's user store here, `sub` is a stable
+-- opaque ID we can trust once the JWT is verified. Level itself is never
+-- stored: it's derived client-side from `coins` (see `levelForCoins` in
+-- EngineViewer.tsx) so it can never drift out of sync with the number that
+-- actually earned it.
+CREATE TABLE IF NOT EXISTS player_progress (
+  user_sub     TEXT PRIMARY KEY,
+  coins        INTEGER NOT NULL DEFAULT 0,
+  owned_tools  JSONB NOT NULL DEFAULT '[]'::jsonb,
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
