@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import ToolPanel, { TOOLS, type Tool, type DrawerKey } from './components/ToolPanel';
+import ToolPanel, { TOOLS, TOOL_PRICES, type Tool, type DrawerKey } from './components/ToolPanel';
 import HandHUD from './components/HandHUD';
 import ProcedurePanel, { type ProcStep } from './components/ProcedurePanel';
 import ReferencePanel from './components/ReferencePanel';
