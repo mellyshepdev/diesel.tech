@@ -2016,6 +2016,9 @@ export default function EngineViewer() {
           }}
           onSelect={(t) => setSelectedTool(prev => (prev === t ? null : t))}
           requiredTools={requiredTools}
+          ownedTools={ownedTools}
+          coins={coins}
+          onBuyTool={buyTool}
           onClose={() => toggleDrawer(openDrawer)}
         />
       )}
@@ -2052,23 +2055,29 @@ export default function EngineViewer() {
               )}
               {REPAIRS.map(r => {
                 const locked = mechanicLevel.level < r.unlockLevel;
+                const neededTool = REPAIR_REQUIRED_TOOL[r.id];
+                const toolLocked = !locked && !!neededTool && !ownedTools.has(neededTool);
                 return (
                   <button
                     key={r.id}
                     onClick={() => openRepair(r.id)}
                     className={`w-full text-left p-3 rounded-lg border transition ${
-                      locked
+                      locked || toolLocked
                         ? 'border-white/5 bg-white/[0.02] opacity-60 cursor-not-allowed hover:bg-white/[0.02]'
                         : 'border-white/10 bg-white/5 hover:bg-amber-400/10 hover:border-amber-400/40'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <div className="text-white text-sm font-bold">{locked ? '🔒' : r.icon} {r.label}</div>
+                      <div className="text-white text-sm font-bold">{locked || toolLocked ? '🔒' : r.icon} {r.label}</div>
                       <div className="text-yellow-300 text-xs font-bold font-mono shrink-0 ml-2">🪙 {r.coinReward}</div>
                     </div>
                     {locked ? (
                       <div className="text-gray-500 text-xs mt-1 leading-relaxed">
                         Unlocks at Level {r.unlockLevel} — {LEVELS.find(l => l.level === r.unlockLevel)!.title}
+                      </div>
+                    ) : toolLocked ? (
+                      <div className="text-gray-500 text-xs mt-1 leading-relaxed">
+                        Needs the {TOOLS[neededTool!].name} — buy it in the 🧰 Toolbox Specialty drawer (🪙 {TOOL_PRICES[neededTool!]})
                       </div>
                     ) : (
                       <div className="text-gray-400 text-xs mt-1 leading-relaxed">{r.desc}</div>
