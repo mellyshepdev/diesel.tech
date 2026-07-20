@@ -1204,6 +1204,8 @@ export default function EngineViewer() {
     setTurboInstalled({});
     setTurboFailure(null);
     setTurboHealthy(false);
+    setFluidsChecked({ oil: false, coolant: false, washer: false, def: false });
+    setHoodCableStep(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restoreParts, exitInspect]);
 
@@ -1216,7 +1218,11 @@ export default function EngineViewer() {
         ? 'Turbo R&R complete: smooth spool, oil pressure good, coolant stable, boost tracking rpm ✓'
         : activeRepair === 'overhead-adjust'
           ? 'Valve lash checked/adjusted at TDC per cylinder; all 16 cover bolts back in, snugged criss-cross ✓'
-          : 'New filters on (oiled gaskets, 3/4–1 turn), pan torqued 24 ± 4 Nm, filled with VDS-4 10W-30 ✓')
+          : activeRepair === 'fluid-check'
+            ? 'Oil, coolant, washer fluid, and DEF all checked and topped off ✓'
+            : activeRepair === 'hood-cable'
+              ? 'New hood release cable routed & secured, trim reinstalled, latch tested — pops free clean, no binding ✓'
+              : 'New filters on (oiled gaskets, 3/4–1 turn), pan torqued 24 ± 4 Nm, filled with VDS-4 10W-30 ✓')
       + (repair ? ` — 🪙 +${repair.coinReward} coins` : ''));
     // Award coins and check for a level-up against the level *before* this
     // job's payout, so a job that crosses a threshold announces the new
@@ -1238,7 +1244,14 @@ export default function EngineViewer() {
       setServiceMsg(`🔒 Locked — reach Level ${repair.unlockLevel} (${LEVELS.find(l => l.level === repair.unlockLevel)!.title}) to take this job.`);
       return;
     }
-    if (!hoodOpen) {
+    const neededTool = REPAIR_REQUIRED_TOOL[id];
+    if (neededTool && !ownedTools.has(neededTool)) {
+      setServiceMsg(`🔒 You need the ${TOOLS[neededTool].name} for this job — buy it in the 🧰 Toolbox's Specialty drawer (🪙 ${TOOL_PRICES[neededTool]}).`);
+      return;
+    }
+    // Fluid Top-Off needs no hood/cab walk-around — it's the one job a brand
+    // new tech can do without unlocking anything first.
+    if (id !== 'fluid-check' && !hoodOpen) {
       setServiceMsg('You can\'t wrench through a closed hood: 🔑 unlock the door, 🅿 set the parking brake in the cab, then open the hood.');
       return;
     }
@@ -1251,7 +1264,11 @@ export default function EngineViewer() {
     ? turboHealthy
     : activeRepair === 'overhead-adjust'
       ? allValveCoverBoltsOff
-      : panRemoved && (activeRepair === 'pan-gasket' || allFiltersOff);
+      : activeRepair === 'fluid-check'
+        ? allFluidsChecked
+        : activeRepair === 'hood-cable'
+          ? hoodCableStep >= HOOD_CABLE_STEPS.length
+          : panRemoved && (activeRepair === 'pan-gasket' || allFiltersOff);
   const [autoRotate, setAutoRotate] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
