@@ -2010,19 +2010,12 @@ export default function EngineViewer() {
               >
                 🚗 Vehicle
               </button>
-              {vehicle !== 'sonata2017' && ENGINE_ORDER.map(id => (
-                <button
-                  key={id}
-                  onClick={() => { setEngineId(id); setActiveHotspot(null); }}
-                  className={`px-2.5 py-1 text-[11px] font-bold rounded border transition-all uppercase tracking-wider ${
-                    id === engineId
-                      ? 'text-cyan-300 border-cyan-400/60 bg-cyan-400/10'
-                      : 'text-gray-500 border-gray-700 hover:text-gray-300 hover:border-gray-500 bg-black/30'
-                  }`}
-                >
-                  {ENGINES[id].maker.split(' ')[0]} {ENGINES[id].model}
-                </button>
-              ))}
+              {/* Engine choice moved to the vehicle-selection screen (see
+                  #engine-select above) — this used to also render live here,
+                  which meant every other engine option (and effectively every
+                  other vehicle's engine bay) stayed one click away without
+                  ever going "back". Now the only way to change it is to
+                  return to vehicle selection. */}
               {vehicle !== 'sonata2017' && (<>
               <button
                 onClick={() => { setRepairsOpen(o => !o); setActiveRepair(null); }}
