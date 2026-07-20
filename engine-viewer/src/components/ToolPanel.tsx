@@ -83,15 +83,41 @@ export const TOOLS: Record<Tool, { name: string; icon: string; desc: string }> =
 
 export const TOOL_ORDER = Object.keys(TOOLS) as Tool[];
 
-// Every specialty tool costs coins before it'll come out of the drawer —
-// every socket, combination wrench, and general-drawer tool stays free.
-// Prices scale with real-world rarity/specialization (a feeler gauge set is
-// a $15 parts-store item; the 3.6mm 85111377 feeler is a single-purpose
-// dealer-numbered gauge with no other use — priced accordingly), not just
-// with whether a repair currently checks for it in code (filterWrench/
-// lineWrench are the only two that do — see REPAIR_REQUIRED_TOOL in
-// EngineViewer.tsx — but the rest are still worth owning/collecting).
+// Drawer contents — each key here corresponds 1:1 to a physical, openable
+// drawer on the 3D toolbox (see buildVolvoD13). Opening the drawer in 3D
+// shows its contents below; there's no separate flat menu to navigate.
+const SOCKETS_METRIC: Tool[] = ["socket8", "socket10", "socket12", "socket13", "socket14", "socket15", "socket17", "socket19", "socket21", "socket24"];
+const SOCKETS_STANDARD: Tool[] = ["socketS516", "socketS38", "socketS716", "socketS12", "socketS916", "socketS58", "socketS34", "socketS1316", "socketS78", "socketS1516"];
+const WRENCHES_METRIC: Tool[] = ["wrenchM8", "wrenchM10", "wrenchM12", "wrenchM13", "wrenchM14", "wrenchM15", "wrenchM17", "wrenchM19", "wrenchM21", "wrenchM24"];
+const WRENCHES_STANDARD: Tool[] = ["wrenchS516", "wrenchS38", "wrenchS716", "wrenchS12", "wrenchS916", "wrenchS58", "wrenchS34", "wrenchS1316", "wrenchS78", "wrenchS1516"];
+const SPECIALTY: Tool[] = ["filterWrench", "lineWrench", "torqueWrench", "feelerGauge", "feeler36", "dialIndicator", "barringTool"];
+const GENERAL: Tool[] = ["ratchet", "snapOnRatchet", "extension", "drainPan", "funnel", "screwdriver", "key", "towel"];
+
+// Nothing is free — a brand-new tech's toolbox starts empty (`ownedTools`
+// defaults to an empty Set in EngineViewer.tsx); every single tool has to be
+// bought before it'll come out of the drawer, common sockets included. The
+// two level-1 jobs (PM Service, Annual Inspection) are deliberately
+// tool-free so there's always a way to earn the first coins.
+// Sockets/combination wrenches/general hand tools are flat-priced (common,
+// off-the-shelf items — price doesn't hinge on which exact size). Specialty
+// tools scale with real-world rarity/specialization instead (a feeler gauge
+// set is a ~$15 parts-store item; the 3.6mm 85111377 feeler is a
+// single-purpose dealer-numbered gauge with no other use — priced
+// accordingly), not with whether a repair currently checks for it in code
+// (filterWrench/lineWrench are the only two that do — see
+// REPAIR_REQUIRED_TOOL in EngineViewer.tsx — but the rest are still worth
+// owning/collecting).
 export const TOOL_PRICES: Partial<Record<Tool, number>> = {
+  ...Object.fromEntries([...SOCKETS_METRIC, ...SOCKETS_STANDARD].map(t => [t, 20])),
+  ...Object.fromEntries([...WRENCHES_METRIC, ...WRENCHES_STANDARD].map(t => [t, 20])),
+  ratchet: 50,
+  snapOnRatchet: 90, // the upgrade over the basic ratchet — 72-tooth reversible, takes extensions
+  extension: 25,
+  drainPan: 15,
+  funnel: 10,
+  screwdriver: 15,
+  key: 20,
+  towel: 5,
   filterWrench: 120,
   lineWrench: 150,
   feelerGauge: 80,
@@ -104,7 +130,9 @@ export const TOOL_PRICES: Partial<Record<Tool, number>> = {
 // Beyond affording it, rarer/pricier specialty tools also need the mechanic
 // to have reached a minimum career level — a brand-new Lube Tech doesn't
 // walk out with a dealer-only single-purpose gauge just because they saved
-// up for one. Mirrors REPAIRS' unlockLevel gating in EngineViewer.tsx.
+// up for one. Common sockets/wrenches/general tools have no level gate —
+// anyone can walk into a parts store and buy one, it just costs money.
+// Mirrors REPAIRS' unlockLevel gating in EngineViewer.tsx.
 export const TOOL_MIN_LEVEL: Partial<Record<Tool, number>> = {
   filterWrench: 2,
   feelerGauge: 3,
@@ -114,16 +142,6 @@ export const TOOL_MIN_LEVEL: Partial<Record<Tool, number>> = {
   feeler36: 5,
   lineWrench: 6,
 };
-
-// Drawer contents — each key here corresponds 1:1 to a physical, openable
-// drawer on the 3D toolbox (see buildVolvoD13). Opening the drawer in 3D
-// shows its contents below; there's no separate flat menu to navigate.
-const SOCKETS_METRIC: Tool[] = ["socket8", "socket10", "socket12", "socket13", "socket14", "socket15", "socket17", "socket19", "socket21", "socket24"];
-const SOCKETS_STANDARD: Tool[] = ["socketS516", "socketS38", "socketS716", "socketS12", "socketS916", "socketS58", "socketS34", "socketS1316", "socketS78", "socketS1516"];
-const WRENCHES_METRIC: Tool[] = ["wrenchM8", "wrenchM10", "wrenchM12", "wrenchM13", "wrenchM14", "wrenchM15", "wrenchM17", "wrenchM19", "wrenchM21", "wrenchM24"];
-const WRENCHES_STANDARD: Tool[] = ["wrenchS516", "wrenchS38", "wrenchS716", "wrenchS12", "wrenchS916", "wrenchS58", "wrenchS34", "wrenchS1316", "wrenchS78", "wrenchS1516"];
-const SPECIALTY: Tool[] = ["filterWrench", "lineWrench", "torqueWrench", "feelerGauge", "feeler36", "dialIndicator", "barringTool"];
-const GENERAL: Tool[] = ["ratchet", "snapOnRatchet", "extension", "drainPan", "funnel", "screwdriver", "key", "towel"];
 
 export const CATEGORY_TOOLS = {
   "sockets-metric": SOCKETS_METRIC,
