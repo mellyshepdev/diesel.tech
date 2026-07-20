@@ -3613,6 +3613,61 @@ export function buildVolvoD13(
   [0.86, -0.86].forEach(z => {
     add(new THREE.BoxGeometry(2.3, 0.42, 0.04), lowerBody, { pos: [2.5, -0.33, z], parent: truckBody });
   });
+
+  // ── Cab interior — dash, wheel, seats, and the full sleeper. Previously
+  // this was exterior-only ("interior controls modeled in the cab overlay
+  // from the dash photos; exterior is a recognizable VNL shape" — the 2D
+  // cab-overlay screen has no 3D counterpart behind the glass). Built from
+  // docs/reference/truck/15,20,21 (dash/wheel/seats — the overlay's air/
+  // parking-brake knob layout already matches these, so the same photos
+  // anchor the 3D dash) and 16-19 (sleeper: bunk, nightstand, overhead bins,
+  // folding ladder, fridge, climate panel).
+  const cabinTan = new THREE.MeshStandardMaterial({ color: 0xcabca6, metalness: 0, roughness: 0.85 }); // headliner/door-card beige, photos 16-20
+  const dashDark = new THREE.MeshStandardMaterial({ color: 0x232427, metalness: 0.1, roughness: 0.6 }); // dash/console charcoal plastic, photo 15/21
+  const seatFabric = new THREE.MeshStandardMaterial({ color: 0x5f584f, metalness: 0, roughness: 0.95 }); // gray-brown tweed, photo 15/20
+
+  // Dash — swept panel behind the windshield (x 1.48), full cab width
+  add(new THREE.BoxGeometry(0.22, 0.34, 1.66), dashDark, { pos: [1.58, 0.48, 0], parent: truckBody });
+  add(new THREE.BoxGeometry(0.3, 0.05, 1.66), dashDark, { pos: [1.52, 0.66, 0], rot: [0, 0, -0.08], parent: truckBody }); // sloped top shelf toward the glass
+  add(new THREE.BoxGeometry(0.16, 0.16, 0.5), dashDark, { pos: [1.66, 0.5, -0.1], parent: truckBody }); // center stack (radio/climate, photo 21)
+  // Steering column + wheel, driver side (+z, matches the door above)
+  add(new THREE.CylinderGeometry(0.025, 0.03, 0.35, 10), dashDark, { pos: [1.62, 0.58, 0.5], rot: [0, 0, Math.PI / 2.6], parent: truckBody });
+  add(new THREE.TorusGeometry(0.16, 0.02, 10, 20), M.black, { pos: [1.5, 0.72, 0.5], rot: [1.15, 0, 0], parent: truckBody });
+  add(new THREE.CylinderGeometry(0.03, 0.03, 0.03, 12), M.chrome, { pos: [1.5, 0.72, 0.5], rot: [1.15, 0, 0], shadow: false, parent: truckBody });
+  // Two pedestal seats (photo 15/20: driver +z, passenger −z)
+  [0.5, -0.5].forEach(z => {
+    add(new THREE.CylinderGeometry(0.09, 0.12, 0.22, 12), dashDark, { pos: [1.95, 0.4, z], parent: truckBody }); // pedestal
+    add(new THREE.BoxGeometry(0.44, 0.08, 0.42), seatFabric, { pos: [1.95, 0.52, z], parent: truckBody }); // cushion
+    add(new THREE.BoxGeometry(0.4, 0.5, 0.4), seatFabric, { pos: [1.78, 0.78, z], rot: [0, 0, 0.1], parent: truckBody }); // seatback
+    add(new THREE.BoxGeometry(0.32, 0.12, 0.3), seatFabric, { pos: [1.68, 1.06, z], rot: [0, 0, 0.1], parent: truckBody }); // headrest
+  });
+  add(new THREE.BoxGeometry(0.2, 0.28, 0.22), dashDark, { pos: [1.82, 0.5, 0], parent: truckBody }); // center console between seats
+
+  // Sleeper compartment (x 2.35–3.55, under the raised high-roof section)
+  add(new THREE.BoxGeometry(0.65, 0.28, 1.5), cabinTan, { pos: [3.2, 0.42, 0], parent: truckBody }); // bunk base/storage
+  add(new THREE.BoxGeometry(0.65, 0.06, 1.5), M.white, { pos: [3.2, 0.59, 0], parent: truckBody }); // mattress
+  // Rounded nightstand/side console at the head of the bunk, driver side (photo 16)
+  add(new THREE.CylinderGeometry(0.16, 0.18, 0.5, 16), cabinTan, { pos: [2.7, 0.53, 0.62], parent: truckBody });
+  add(new THREE.BoxGeometry(0.02, 0.1, 0.14), dashDark, { pos: [2.62, 0.6, 0.62], shadow: false, parent: truckBody }); // drawer face
+  // Overhead storage bins, both sides, under the high-roof section (photo 17/19)
+  [0.7, -0.7].forEach(z => {
+    add(new THREE.BoxGeometry(0.9, 0.28, 0.32), cabinTan, { pos: [2.95, 1.72, z], parent: truckBody });
+    add(new THREE.BoxGeometry(0.9, 0.03, 0.32), dashDark, { pos: [2.95, 1.58, z], shadow: false, parent: truckBody }); // fold-down door lip
+  });
+  // Folding ladder, stowed flat against the ceiling (photo 17/19)
+  add(new THREE.BoxGeometry(0.55, 0.03, 0.32), M.brushedMetal, { pos: [2.9, 1.9, -0.28], parent: truckBody });
+  for (let i = 0; i < 5; i++) {
+    add(new THREE.BoxGeometry(0.02, 0.032, 0.32), M.darkMetal, { pos: [2.68 + i * 0.11, 1.9, -0.28], shadow: false, parent: truckBody }); // rungs
+  }
+  // Mini-fridge at the foot of the bunk, passenger side (photo 18)
+  add(new THREE.BoxGeometry(0.34, 0.42, 0.34), M.white, { pos: [3.35, 0.48, -0.62], parent: truckBody });
+  add(new THREE.BoxGeometry(0.34, 0.04, 0.34), M.black, { pos: [3.35, 0.7, -0.62], shadow: false, parent: truckBody }); // lid trim
+  // Climate control panel on the driver-side wall (photo 18)
+  add(new THREE.BoxGeometry(0.03, 0.16, 0.22), dashDark, { pos: [3.63, 0.9, 0.6], shadow: false, parent: truckBody });
+  [0.05, -0.05].forEach(dz => {
+    add(new THREE.CylinderGeometry(0.025, 0.025, 0.015, 12), M.black, { pos: [3.645, 0.9, 0.6 + dz], rot: [0, 0, Math.PI / 2], shadow: false, parent: truckBody });
+  });
+
   // Mirrors, steps, fuel tank, exhaust stack
   // Aero mirror assemblies (photo 01/04: body-color housing on a dark arm,
   // roughly 0.4x the door-glass height per photo 01) — arm off the A-pillar,
