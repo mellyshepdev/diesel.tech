@@ -603,6 +603,25 @@ export default function EngineViewer() {
   // ── Repairs / service mode ──
   const [repairsOpen, setRepairsOpen] = useState(false);
   const [activeRepair, setActiveRepair] = useState<RepairId | null>(null);
+  // Career progression: coins earned per finished repair (see REPAIRS'
+  // coinReward), persisted across reloads so the career ladder isn't wiped
+  // out by a refresh. Level is *derived* from total coins (levelForCoins),
+  // not stored separately, so it can never drift out of sync with the total.
+  const [coins, setCoins] = useState<number>(() => {
+    if (typeof window === 'undefined') return 0;
+    const saved = Number(window.localStorage.getItem('diesel-tech-coins'));
+    return Number.isFinite(saved) && saved > 0 ? saved : 0;
+  });
+  useEffect(() => {
+    if (typeof window !== 'undefined') window.localStorage.setItem('diesel-tech-coins', String(coins));
+  }, [coins]);
+  const mechanicLevel = levelForCoins(coins);
+  const [levelUpMsg, setLevelUpMsg] = useState<string | null>(null);
+  useEffect(() => {
+    if (!levelUpMsg) return;
+    const t = setTimeout(() => setLevelUpMsg(null), 4000);
+    return () => clearTimeout(t);
+  }, [levelUpMsg]);
   const [socketExt, setSocketExt] = useState<'none' | 'stubby' | 'long'>('none');
   const [driver, setDriver] = useState<'electric' | 'hand' | null>(null);
   const [filtersRemoved, setFiltersRemoved] = useState<boolean[]>(Array(FILTER_COUNT).fill(false));
@@ -1119,18 +1138,36 @@ export default function EngineViewer() {
   }, [restoreParts, exitInspect]);
 
   const finishRepair = () => {
+    const repair = REPAIRS.find(r => r.id === activeRepair);
     resetService();
-    setServiceMsg(activeRepair === 'pan-gasket'
+    setServiceMsg((activeRepair === 'pan-gasket'
       ? 'New gasket fitted; 22 screws torqued 24 ± 4 Nm middle-out, A & B re-checked, drain plug 60 ± 10 Nm ✓'
       : activeRepair === 'turbo-replace'
         ? 'Turbo R&R complete: smooth spool, oil pressure good, coolant stable, boost tracking rpm ✓'
         : activeRepair === 'overhead-adjust'
           ? 'Valve lash checked/adjusted at TDC per cylinder; all 16 cover bolts back in, snugged criss-cross ✓'
-          : 'New filters on (oiled gaskets, 3/4–1 turn), pan torqued 24 ± 4 Nm, filled with VDS-4 10W-30 ✓');
+          : 'New filters on (oiled gaskets, 3/4–1 turn), pan torqued 24 ± 4 Nm, filled with VDS-4 10W-30 ✓')
+      + (repair ? ` — 🪙 +${repair.coinReward} coins` : ''));
+    // Award coins and check for a level-up against the level *before* this
+    // job's payout, so a job that crosses a threshold announces the new
+    // level exactly once instead of every render after.
+    if (repair) {
+      const before = mechanicLevel;
+      const after = levelForCoins(coins + repair.coinReward);
+      setCoins(c => c + repair.coinReward);
+      if (after.level > before.level) {
+        setLevelUpMsg(`🎉 LEVEL UP — you're now a ${after.title} (Level ${after.level})`);
+      }
+    }
     setActiveRepair(null);
   };
 
   const openRepair = (id: RepairId) => {
+    const repair = REPAIRS.find(r => r.id === id)!;
+    if (mechanicLevel.level < repair.unlockLevel) {
+      setServiceMsg(`🔒 Locked — reach Level ${repair.unlockLevel} (${LEVELS.find(l => l.level === repair.unlockLevel)!.title}) to take this job.`);
+      return;
+    }
     if (!hoodOpen) {
       setServiceMsg('You can\'t wrench through a closed hood: 🔑 unlock the door, 🅿 set the parking brake in the cab, then open the hood.');
       return;
@@ -1891,16 +1928,48 @@ export default function EngineViewer() {
                 <span className="text-amber-300 text-xs font-bold tracking-widest uppercase">Engine Repairs</span>
                 <button onClick={() => setRepairsOpen(false)} className="text-gray-500 hover:text-white text-sm">✕</button>
               </div>
-              {REPAIRS.map(r => (
-                <button
-                  key={r.id}
-                  onClick={() => openRepair(r.id)}
-                  className="w-full text-left p-3 rounded-lg border border-white/10 bg-white/5 hover:bg-amber-400/10 hover:border-amber-400/40 transition"
-                >
-                  <div className="text-white text-sm font-bold">{r.icon} {r.label}</div>
-                  <div className="text-gray-400 text-xs mt-1 leading-relaxed">{r.desc}</div>
-                </button>
-              ))}
+              <div className="flex items-center justify-between px-1 -mt-1 mb-1">
+                <span className="text-white text-xs font-bold">⭐ Lv.{mechanicLevel.level} — {mechanicLevel.title}</span>
+                <span className="text-yellow-300 text-xs font-bold font-mono">🪙 {coins}</span>
+              </div>
+              {nextLevel(mechanicLevel.level) && (
+                <div className="h-1 rounded-full bg-white/10 overflow-hidden -mt-1 mb-2">
+                  <div
+                    className="h-full bg-gradient-to-r from-amber-400 to-yellow-300"
+                    style={{
+                      width: `${Math.min(100, Math.round(
+                        ((coins - mechanicLevel.coinsRequired) / (nextLevel(mechanicLevel.level)!.coinsRequired - mechanicLevel.coinsRequired)) * 100
+                      ))}%`,
+                    }}
+                  />
+                </div>
+              )}
+              {REPAIRS.map(r => {
+                const locked = mechanicLevel.level < r.unlockLevel;
+                return (
+                  <button
+                    key={r.id}
+                    onClick={() => openRepair(r.id)}
+                    className={`w-full text-left p-3 rounded-lg border transition ${
+                      locked
+                        ? 'border-white/5 bg-white/[0.02] opacity-60 cursor-not-allowed hover:bg-white/[0.02]'
+                        : 'border-white/10 bg-white/5 hover:bg-amber-400/10 hover:border-amber-400/40'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="text-white text-sm font-bold">{locked ? '🔒' : r.icon} {r.label}</div>
+                      <div className="text-yellow-300 text-xs font-bold font-mono shrink-0 ml-2">🪙 {r.coinReward}</div>
+                    </div>
+                    {locked ? (
+                      <div className="text-gray-500 text-xs mt-1 leading-relaxed">
+                        Unlocks at Level {r.unlockLevel} — {LEVELS.find(l => l.level === r.unlockLevel)!.title}
+                      </div>
+                    ) : (
+                      <div className="text-gray-400 text-xs mt-1 leading-relaxed">{r.desc}</div>
+                    )}
+                  </button>
+                );
+              })}
               {serviceMsg && <p className="text-green-300 text-xs">{serviceMsg}</p>}
             </>
           ) : (
