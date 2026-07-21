@@ -824,12 +824,13 @@ export default function EngineViewer() {
   // step doesn't already cover.
   const [fluidsChecked, setFluidsChecked] = useState({ oil: false, coolant: false, washer: false, def: false, grease: false });
   const allFluidsChecked = Object.values(fluidsChecked).every(Boolean);
-  // Annual (DOT) Inspection: torque-check the rear tandem's two load-bearing
-  // bolt groups — reuses the AXLE1_X/AXLE2_X tandem geometry built into
-  // truck-cab earlier (see part-manifest.md's tandem-suspension row) as the
-  // real thing being inspected, even though this job is a button checklist
-  // like PM Service rather than raycast clicks on those (unnamed) meshes.
-  const [axleChecked, setAxleChecked] = useState({ rearAxle: false, diff: false });
+  // Annual (DOT) Inspection: the five checkpoints a real annual undercarriage/
+  // running-gear inspection covers — reuses the tandem/fifth-wheel geometry
+  // built into truck-cab earlier (AXLE1_X/AXLE2_X, truck-fifthwheel — see
+  // part-manifest.md's tandem-suspension row) as the real thing being
+  // inspected, even though this job is a button checklist like PM Service
+  // rather than raycast clicks on those (unnamed) meshes.
+  const [axleChecked, setAxleChecked] = useState({ rearAxle: false, diff: false, fifthWheel: false, tires: false, brakes: false });
   const allAxleChecked = Object.values(axleChecked).every(Boolean);
   // Hood Release Cable Repair: linear step-through per the Volvo TSB (trim
   // off → old cable released → new cable routed & bracket swapped → trim
@@ -1542,14 +1543,14 @@ export default function EngineViewer() {
   }, []);
 
   const resetCamera = useCallback(() => {
-    const camera = cameraRef.current;
-    const controls = controlsRef.current;
-    if (!camera || !controls) return;
-    camera.position.set(3.6, 1.6, -3.6);
-    controls.target.set(0, 0, 0);
-    controls.update();
-    setAutoRotate(true);
-    controls.autoRotate = true;
+    const eg = engineGroupRef.current;
+    if (!eg || !controlsRef.current) return;
+    controlsRef.current.autoRotate = false; // don't fight the ease — re-armed in onDone once it actually arrives
+    eg.userData.cameraMove = {
+      pos: new THREE.Vector3(3.6, 1.6, -3.6),
+      look: new THREE.Vector3(0, 0, 0),
+      onDone: () => { setAutoRotate(true); if (controlsRef.current) controlsRef.current.autoRotate = true; },
+    };
     setActiveHotspot(null);
   }, []);
 
@@ -1816,18 +1817,21 @@ export default function EngineViewer() {
         });
       }
 
-      // Camera easing toward a queued drawer close-up (focusDrawer) or the
-      // wide toolbox shot (focusToolbox uses an instant set, but this same
-      // queue could carry it too) — one-shot: cleared once close enough so
-      // OrbitControls hands full control back to the user instead of the
-      // lerp fighting their next drag.
-      const camMove = engineGroup.userData.cameraMove as { pos: THREE.Vector3; look: THREE.Vector3 } | undefined;
+      // Camera easing toward a queued shot — focusDrawer's close-up,
+      // focusToolbox's wide shot, or resetCamera's walk-up view all go
+      // through this same queue now instead of jump-cutting. One-shot:
+      // cleared (and onDone fired, e.g. resetCamera re-arming autoRotate
+      // only once the ease actually finishes, not immediately) once close
+      // enough that OrbitControls can hand full control back to the user
+      // instead of the lerp fighting their next drag.
+      const camMove = engineGroup.userData.cameraMove as { pos: THREE.Vector3; look: THREE.Vector3; onDone?: () => void } | undefined;
       if (camMove) {
         camera.position.lerp(camMove.pos, 0.12);
         controls.target.lerp(camMove.look, 0.12);
         controls.update();
         if (camera.position.distanceTo(camMove.pos) < 0.01 && controls.target.distanceTo(camMove.look) < 0.01) {
           engineGroup.userData.cameraMove = undefined;
+          camMove.onDone?.();
         }
       }
 
