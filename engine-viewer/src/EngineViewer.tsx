@@ -5516,6 +5516,26 @@ export function buildPrevostH345(
     // Window strip
     add(new THREE.BoxGeometry(6.2, 0.55, 0.03), glass, { pos: [0.3, GY + 1.55, s * BAY_Z], shadow: false, parent: coach });
   });
+  // "LOKI COACH H3" livery decal on the driver-side luggage bay (photo 01) —
+  // a canvas texture reads as actual legible lettering, unlike a plain
+  // chrome bar standin; same technique the concurrent buildPrevost() draft
+  // below uses for this exact decal, ported over rather than reinvented.
+  {
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = 80;
+    const g = c.getContext('2d')!;
+    g.fillStyle = '#e8e8ea';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = 'bold 44px sans-serif';
+    g.fillText('LOKI COACH H3', c.width / 2, c.height / 2);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const decalMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.14), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
+    decalMesh.name = 'prevost-decal';
+    decalMesh.position.set(-1.6, GY + 0.55, -BAY_Z - 0.01);
+    decalMesh.rotation.y = Math.PI / 2;
+    coach.add(decalMesh);
+  }
   tick();
 
   // Passenger/entry door — front-left per a real H3-45's layout, reuses the
