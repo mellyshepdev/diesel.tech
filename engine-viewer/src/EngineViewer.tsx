@@ -138,11 +138,34 @@ const ENGINE_ORDER: EngineId[] = ['volvo-d13', 'cummins-x15', 'paccar-mx13', 'pa
 // is the light-duty car, modeled from the photos in
 // docs/reference/sonata/ (front 3/4, rear, engine bay).
 // ─────────────────────────────────────────────────────────
-type VehicleId = 'vnl860' | 'sonata2017';
+type VehicleId = 'vnl860' | 'sonata2017' | 'prevost';
 
 const VEHICLES: Record<VehicleId, { label: string; blurb: string }> = {
   vnl860: { label: 'Volvo VNL 860 — Class 8 Truck', blurb: 'Heavy-duty diesel: D13 engine, I-Shift, full shop with toolbox & repairs' },
   sonata2017: { label: '2017 Hyundai Sonata — Sedan', blurb: 'Light-duty gas: 2.4L GDi inline-4, walk-around & engine bay' },
+  prevost: { label: 'Prevost H3-45 — Motorcoach (Loki Coach)', blurb: 'Rear-engine diesel pusher, tri-axle — exterior & cockpit walk-around; engine bay/cabin pending reference photos' },
+};
+
+/** Info-panel identity for the Prevost. Factory-spec figures for the H3-45's
+ *  stock Volvo D13 (well-documented public spec — not geometry, so this
+ *  doesn't need a reference photo per 3d-part-fidelity §1, unlike the 3D
+ *  model itself). No engine BAY is modeled yet (see buildPrevost), so this
+ *  is spec-sheet info only — clicking into an engine bay isn't possible. */
+const PREVOST_ENGINE: EngineInfo = {
+  maker: 'VOLVO',
+  makerLetter: 'V',
+  model: 'D13 (H3-45)',
+  tagline: '12.8L Inline-6 Diesel Pusher · Prevost H3-45 · Exterior & Cockpit Model',
+  hp: '505 HP',
+  torque: '1,750 lb·ft',
+  specs: [
+    { label: 'Displacement', value: '12.8 L (780 ci)' },
+    { label: 'Configuration', value: 'Inline-6, rear-mounted' },
+    { label: 'Peak Power', value: '505 HP @ 1,800' },
+    { label: 'Max Torque', value: '1,750 lb-ft @ 1,000–1,400' },
+    { label: 'Transmission', value: 'ZF EcoLife 6-speed automatic' },
+    { label: 'Axle Config', value: 'Tri-axle: steer + close-coupled drive/tag' },
+  ],
 };
 
 /** Info-panel identity for the Sonata (the diesel ENGINES entries stay
@@ -2848,8 +2871,12 @@ export default function EngineViewer() {
         </div>
       )}
 
-      {/* Pre-trip checklist — the real-life steps before any wrenching */}
-      {!isLoading && !hoodOpen && !inspecting && (
+      {/* Pre-trip checklist — the real-life steps before any wrenching.
+          Prevost has no modeled truck-door/truck-hood yet (pending engine-bay
+          reference photos), so this door→cab→hood-lever→hood flow — which
+          assumes both exist — is skipped entirely rather than dead-ending
+          the player on an unclickable door. */}
+      {vehicle !== 'prevost' && !isLoading && !hoodOpen && !inspecting && (
         <div className="absolute top-24 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded-xl bg-black/75 backdrop-blur-md border border-white/15 flex items-center gap-4 text-[11px] pointer-events-none">
           <span className={doorUnlocked ? 'text-green-300' : 'text-white font-bold'}>{doorUnlocked ? '✓' : '1.'} 🔑 Unlock the door (key in hand, click the door)</span>
           <span className={parkingBrake ? 'text-green-300' : doorUnlocked ? 'text-white font-bold' : 'text-gray-500'}>{parkingBrake ? '✓' : '2.'} 🅿 Set the parking brake (in the cab)</span>
@@ -2861,7 +2888,7 @@ export default function EngineViewer() {
       )}
 
       {/* Climb into the cab */}
-      {!isLoading && doorOpen && !inCab && !inspecting && (
+      {vehicle !== 'prevost' && !isLoading && doorOpen && !inCab && !inspecting && (
         <button
           onClick={() => setInCab(true)}
           className="absolute bottom-24 right-6 z-20 px-4 py-2 rounded-full text-sm font-bold bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:shadow-lg pointer-events-auto"
