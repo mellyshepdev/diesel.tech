@@ -1024,8 +1024,12 @@ export default function EngineViewer() {
     // still hit invisible geometry (Raycaster doesn't check .visible), so
     // without this guard a click landing on the plain unbroken cabinet panel
     // that's standing in for the not-yet-purchased facade would silently
-    // toggle hidden drawer state.
-    if (!ownedSections.has('facade-upgrade')) return;
+    // toggle hidden drawer state instead of prompting the purchase.
+    if (!ownedSections.has('facade-upgrade')) {
+      setServiceMsg(`🔒 That's part of the Full Wall Upgrade (🪙 ${TOOLBOX_SECTIONS.find(s => s.id === 'facade-upgrade')!.price}) — buy it below.`);
+      setSectionsPanelOpen(true);
+      return;
+    }
     const eg = engineGroupRef.current;
     const obj = eg?.getObjectByName(name);
     if (!obj) return;
@@ -1038,7 +1042,8 @@ export default function EngineViewer() {
   /** Open/close one toolbox drawer, closing whichever was previously open. */
   const toggleDrawer = useCallback((key: DrawerKey) => {
     if (key === 'specialty' && !ownedSections.has('specialty-drawer')) {
-      setServiceMsg(`🔒 That drawer isn't yours yet — buy the Specialty Drawer section (🪙 ${TOOLBOX_SECTIONS.find(s => s.id === 'specialty-drawer')!.price}) in 🔓 Toolbox Upgrades first.`);
+      setServiceMsg(`🔒 That drawer isn't yours yet — buy the Specialty Drawer section (🪙 ${TOOLBOX_SECTIONS.find(s => s.id === 'specialty-drawer')!.price}) below.`);
+      setSectionsPanelOpen(true);
       return;
     }
     setSectionsPanelOpen(false);
