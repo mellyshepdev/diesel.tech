@@ -291,6 +291,33 @@ const LEVELS: { level: number; title: string; coinsRequired: number }[] = [
 const levelForCoins = (coins: number) => [...LEVELS].reverse().find(l => coins >= l.coinsRequired) ?? LEVELS[0];
 const nextLevel = (level: number) => LEVELS.find(l => l.level === level + 1);
 
+// Toolbox sections: the physical Snap-on "MR. BIG" wall (see the toolbox
+// build section, ~line 4300+) is never deleted or rebuilt smaller — a new
+// tech just doesn't own most of it yet. Starting kit is 5 drawers (both
+// socket drawers, both wrench drawers, general); the specialty Volvo-tool
+// drawer and the wall's decorative facade/lockers are bought section by
+// section as the two purchasable upgrades. Unowned sections are hidden via
+// `.visible` on their existing group (`toolbox-drawer-specialty` /
+// `toolbox-facade`), not deleted — same "never delete, only reveal" spirit
+// as the rest of this project's geometry rules.
+type ToolboxSectionId = 'specialty-drawer' | 'facade-upgrade';
+const TOOLBOX_SECTIONS: { id: ToolboxSectionId; label: string; desc: string; price: number; minLevel: number }[] = [
+  {
+    id: 'specialty-drawer',
+    label: 'Specialty Drawer',
+    desc: 'Unlocks the Volvo service-tools drawer (filter wrench, line wrench, torque wrench, feeler gauges, dial indicator, barring tool) — still bought individually once the drawer itself is open.',
+    price: 150,
+    minLevel: 2,
+  },
+  {
+    id: 'facade-upgrade',
+    label: 'Full Wall Upgrade',
+    desc: 'The rest of the Snap-on "MR. BIG" wall: side lockers, chrome trim, every decorative drawer face. Cosmetic — no new functional drawers — but this is what turns the starter 5-drawer chest into the whole dealer setup.',
+    price: 500,
+    minLevel: 4,
+  },
+];
+
 // The real D13 pan is clamped by 22 spring-tension screws (QRG p.14/35):
 // 8 along each long side of the flange, 3 across each end.
 const PAN_BOLT_POSITIONS: [number, number][] = (() => {
@@ -712,6 +739,45 @@ export default function EngineViewer() {
     setOwnedTools(prev => new Set(prev).add(tool));
     setServiceMsg(`🧰 Bought the ${TOOLS[tool].name} for 🪙 ${price} — it's in the drawer now.`);
   };
+  // Toolbox sections owned (see TOOLBOX_SECTIONS) — persisted like ownedTools.
+  const [ownedSections, setOwnedSections] = useState<Set<ToolboxSectionId>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const saved = JSON.parse(window.localStorage.getItem('diesel-tech-owned-sections') ?? '[]');
+      return new Set(Array.isArray(saved) ? saved : []);
+    } catch { return new Set(); }
+  });
+  useEffect(() => {
+    if (typeof window !== 'undefined') window.localStorage.setItem('diesel-tech-owned-sections', JSON.stringify([...ownedSections]));
+  }, [ownedSections]);
+  // Reveal/hide the actual 3D geometry to match — the specialty drawer group
+  // and the whole decorative facade group already exist in the scene
+  // (buildVolvoD13), this just toggles .visible, same pattern as the
+  // hood-open/hotspot-markers effect above.
+  useEffect(() => {
+    const eg = engineGroupRef.current;
+    if (!eg) return;
+    const specialtyDrawer = eg.getObjectByName('toolbox-drawer-specialty');
+    if (specialtyDrawer) specialtyDrawer.visible = ownedSections.has('specialty-drawer');
+    const facade = eg.getObjectByName('toolbox-facade');
+    if (facade) facade.visible = ownedSections.has('facade-upgrade');
+  }, [ownedSections, isLoading]);
+  const [sectionsPanelOpen, setSectionsPanelOpen] = useState(false);
+  const buySection = (id: ToolboxSectionId) => {
+    if (ownedSections.has(id)) return;
+    const section = TOOLBOX_SECTIONS.find(s => s.id === id)!;
+    if (mechanicLevel.level < section.minLevel) {
+      setServiceMsg(`🔒 ${section.label} needs Level ${section.minLevel} (${LEVELS.find(l => l.level === section.minLevel)!.title}) — you're Level ${mechanicLevel.level}.`);
+      return;
+    }
+    if (coins < section.price) {
+      setServiceMsg(`Not enough coins for the ${section.label} — need 🪙 ${section.price}, you have 🪙 ${coins}.`);
+      return;
+    }
+    setCoins(c => c - section.price);
+    setOwnedSections(prev => new Set(prev).add(id));
+    setServiceMsg(`🧰 Bought the ${section.label} for 🪙 ${section.price}!`);
+  };
   // Account login (Keycloak, blacksheep realm): makes coins/ownedTools follow
   // the player instead of just this browser's localStorage. `progressLoaded`
   // gates the save effect below so it can't fire (and overwrite the server
@@ -935,6 +1001,10 @@ export default function EngineViewer() {
 
   /** Open/close one toolbox drawer, closing whichever was previously open. */
   const toggleDrawer = useCallback((key: DrawerKey) => {
+    if (key === 'specialty' && !ownedSections.has('specialty-drawer')) {
+      setServiceMsg(`🔒 That drawer isn't yours yet — buy the Specialty Drawer section (🪙 ${TOOLBOX_SECTIONS.find(s => s.id === 'specialty-drawer')!.price}) in 🔓 Toolbox Upgrades first.`);
+      return;
+    }
     const eg = engineGroupRef.current;
     const slideDrawer = (k: DrawerKey, open: boolean) => {
       const obj = eg?.getObjectByName(`toolbox-drawer-${k}`);
@@ -948,7 +1018,7 @@ export default function EngineViewer() {
       focusDrawer(key);
       return key;
     });
-  }, [setSlide, focusToolbox, focusDrawer]);
+  }, [setSlide, focusToolbox, focusDrawer, ownedSections]);
 
   const clickDoor = () => {
     if (!doorUnlocked) {
