@@ -782,13 +782,14 @@ export default function EngineViewer() {
       try {
         const res = await kcApiFetch('/progress');
         if (res.ok) {
-          const server: { coins: number; ownedTools: Tool[] } = await res.json();
-          // Take the higher coin total and the union of owned tools rather
-          // than trusting the server blindly — a guest who played on this
-          // browser before signing in shouldn't lose that progress, and a
-          // returning player on a fresh device shouldn't lose theirs either.
+          const server: { coins: number; ownedTools: Tool[]; ownedSections?: ToolboxSectionId[] } = await res.json();
+          // Take the higher coin total and the union of owned tools/sections
+          // rather than trusting the server blindly — a guest who played on
+          // this browser before signing in shouldn't lose that progress, and
+          // a returning player on a fresh device shouldn't lose theirs either.
           setCoins(local => Math.max(local, server.coins || 0));
           setOwnedTools(local => new Set([...local, ...(server.ownedTools || [])]));
+          setOwnedSections(local => new Set([...local, ...(server.ownedSections || [])]));
         }
       } catch { /* backend unreachable — carry on in localStorage-only mode */ }
       setProgressLoaded(true);
@@ -800,9 +801,9 @@ export default function EngineViewer() {
     kcApiFetch('/progress', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ coins, ownedTools: [...ownedTools] }),
+      body: JSON.stringify({ coins, ownedTools: [...ownedTools], ownedSections: [...ownedSections] }),
     }).catch(() => { /* next change will retry the sync */ });
-  }, [coins, ownedTools, loggedIn, progressLoaded]);
+  }, [coins, ownedTools, ownedSections, loggedIn, progressLoaded]);
   // PM Service checkpoints (no 3D fasteners — this job is deliberately
   // teardown-free, so it's a button checklist like the turbo repair's
   // button fallback, not raycast clicks on new geometry). `grease` covers
