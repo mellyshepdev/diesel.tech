@@ -2387,7 +2387,7 @@ export default function EngineViewer() {
 
       {/* Repairs panel */}
       {repairsOpen && !isLoading && (
-        <div className="absolute right-4 top-32 w-80 max-h-[65vh] overflow-y-auto bg-black/75 backdrop-blur-md border border-amber-400/25 rounded-xl p-4 z-30 space-y-3">
+        <div className="absolute right-4 top-32 w-80 max-w-[92vw] max-h-[65vh] overflow-y-auto bg-black/75 backdrop-blur-md border border-amber-400/25 rounded-xl p-4 z-30 space-y-3">
           {activeRepair === null ? (
             <>
               <div className="flex items-center justify-between">

@@ -265,7 +265,7 @@ export default function ToolPanel({
   };
 
   return (
-    <div className="absolute left-4 top-32 z-30 w-72 max-h-[70vh] overflow-y-auto rounded-xl border border-cyan-400/25 bg-black/75 p-3 backdrop-blur-md">
+    <div className="absolute left-4 top-32 z-30 w-72 max-w-[92vw] max-h-[70vh] overflow-y-auto rounded-xl border border-cyan-400/25 bg-black/75 p-3 backdrop-blur-md">
       <div className="mb-2 flex items-center justify-between px-1">
         <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-cyan-300">
           <span className="text-base">🧰</span> {CATEGORY_LABELS[drawerKey]}
