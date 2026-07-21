@@ -4265,7 +4265,14 @@ export function buildVolvoD13(
   fifthWheel.name = 'truck-fifthwheel';
   fifthWheel.position.set(2.1, -0.42, 0);
   truckBody.add(fifthWheel);
-  add(new THREE.CylinderGeometry(0.46, 0.46, 0.06, 20), M.darkMetal, { pos: [0, 0, 0], rot: [Math.PI / 2, 0, 0], parent: fifthWheel });
+  // Bug fix: this was rotated like the wheel geometry above (rot: [PI/2,0,0]),
+  // which stands a cylinder up on its edge with the flat faces pointing
+  // sideways — correct for a wheel, wrong for a plate that has to lie flat
+  // on the frame. CylinderGeometry's default orientation (axis along Y,
+  // caps facing up/down) is already the right one for a horizontal plate,
+  // no rotation needed. Standing on edge, the 0.06-thick disc was reduced to
+  // a near-invisible sliver from almost every camera angle.
+  add(new THREE.CylinderGeometry(0.46, 0.46, 0.06, 20), M.darkMetal, { pos: [0, 0, 0], parent: fifthWheel });
   add(new THREE.BoxGeometry(0.16, 0.05, 0.3), M.darkMetal, { pos: [-0.4, 0, 0], parent: fifthWheel });
   add(new THREE.CylinderGeometry(0.04, 0.04, 0.1, 10), M.brushedMetal, { pos: [-0.05, 0.05, 0], parent: fifthWheel });
   [0.42, -0.42].forEach(z => {
