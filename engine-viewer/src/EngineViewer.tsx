@@ -1604,6 +1604,7 @@ export default function EngineViewer() {
       look: new THREE.Vector3(0, 0, 0),
       onDone: () => { setAutoRotate(true); if (controlsRef.current) controlsRef.current.autoRotate = true; },
     };
+    setView('truck');
     setActiveHotspot(null);
   }, []);
 
@@ -3053,6 +3054,36 @@ export default function EngineViewer() {
             <div className="mt-3 h-0.5 rounded-full" style={{ background: `linear-gradient(90deg, ${activeHotspotData.color}, transparent)` }} />
           </div>
         </div>
+      )}
+
+      {/* View-switch arrows — large, mostly-transparent, brighten on hover.
+          Truck view: arrow on the right edge flies to the toolbox. Toolbox
+          view: arrow on the left edge flies back to the truck. Only one
+          shows at a time, driven by `view` (set by focusToolbox/focusDrawer
+          → 'toolbox' and resetCamera/focusTruckPart → 'truck'). */}
+      {view === 'truck' && (
+        <button
+          onClick={() => focusToolbox()}
+          title="Go to toolbox"
+          aria-label="Switch to toolbox view"
+          className="absolute top-1/2 right-2 -translate-y-1/2 z-20 pointer-events-auto w-14 h-28 flex items-center justify-center text-white/20 hover:text-white/70 transition-colors duration-200"
+        >
+          <svg viewBox="0 0 24 24" className="w-12 h-12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 6l6 6-6 6" />
+          </svg>
+        </button>
+      )}
+      {view === 'toolbox' && (
+        <button
+          onClick={() => resetCamera()}
+          title="Go to truck"
+          aria-label="Switch to truck view"
+          className="absolute top-1/2 left-2 -translate-y-1/2 z-20 pointer-events-auto w-14 h-28 flex items-center justify-center text-white/20 hover:text-white/70 transition-colors duration-200"
+        >
+          <svg viewBox="0 0 24 24" className="w-12 h-12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 6l-6 6 6 6" />
+          </svg>
+        </button>
       )}
 
       {/* Specs panel (left) */}
