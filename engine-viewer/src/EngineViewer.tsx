@@ -993,6 +993,22 @@ export default function EngineViewer() {
     setAutoRotate(false);
   }, []);
 
+  /** Open/close one purely-cosmetic facade drawer (no tools, no ToolPanel) —
+   *  independent of toggleDrawer/openDrawer so several can be open at once. */
+  const [openFacadeDrawers, setOpenFacadeDrawers] = useState<Set<string>>(new Set());
+  const toggleFacadeDrawer = useCallback((name: string) => {
+    const eg = engineGroupRef.current;
+    const obj = eg?.getObjectByName(name);
+    if (!obj) return;
+    setOpenFacadeDrawers(prev => {
+      const next = new Set(prev);
+      const open = !next.has(name);
+      if (open) next.add(name); else next.delete(name);
+      setSlide(name, 'z', open ? obj.userData.openZ : obj.userData.closedZ);
+      return next;
+    });
+  }, [setSlide]);
+
   /** Open/close one toolbox drawer, closing whichever was previously open. */
   const toggleDrawer = useCallback((key: DrawerKey) => {
     if (key === 'specialty' && !ownedSections.has('specialty-drawer')) {
@@ -1981,6 +1997,10 @@ export default function EngineViewer() {
     if (name === 'truck-door') { clickDoor(); return; }
     if (name === 'truck-hood') { clickHood(); return; }
     if (name.startsWith('truck-')) return;
+    if (name.startsWith('toolbox-drawer-facade-')) {
+      toggleFacadeDrawer(name);
+      return;
+    }
     if (name.startsWith('toolbox-drawer-')) {
       toggleDrawer(name.slice('toolbox-drawer-'.length) as DrawerKey);
       return;
