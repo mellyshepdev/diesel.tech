@@ -251,6 +251,7 @@ export default function ToolPanel({
       <button
         key={tool}
         onClick={() => onGrab(tool)}
+        title={inTray ? `${info.name} — click to remove from tray` : `${info.name} — click to add to tray`}
         className={`flex w-full items-center gap-3 rounded-lg border p-2.5 text-left transition-all duration-200 ${cls}`}
       >
         <span className="text-xl">{info.icon}</span>

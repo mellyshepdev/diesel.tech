@@ -313,21 +313,21 @@ const TOOLBOX_SECTIONS: { id: ToolboxSectionId; label: string; desc: string; pri
     id: 'bankB',
     label: 'Second Drawer Bank',
     desc: 'A matching bay of facade drawers bolts on next to the cart — more staging room, still counter height.',
-    price: 400,
+    price: 1000,
     minLevel: 2,
   },
   {
     id: 'bankC',
     label: 'Third Drawer Bank ("MR. BIG")',
     desc: 'The deep "MR. BIG" bottom drawer joins the line — the cart is now a full rolling bench.',
-    price: 600,
+    price: 1500,
     minLevel: 3,
   },
   {
     id: 'lockers',
     label: 'End Lockers & Hutch',
     desc: 'Tall lockers bolt onto both ends and a canopy hutch with Snap-on signage rises across the top — the complete "MR. BIG" wall chest.',
-    price: 500,
+    price: 2000,
     minLevel: 4,
   },
 ];
@@ -1000,6 +1000,7 @@ export default function EngineViewer() {
       pos: new THREE.Vector3(1.5, 0.9, -2.7),
       look: new THREE.Vector3(-0.35, -0.1, -7.5),
     };
+    setView('toolbox');
     controlsRef.current.autoRotate = false;
     setAutoRotate(false);
   }, []);
@@ -1031,9 +1032,47 @@ export default function EngineViewer() {
       pos: new THREE.Vector3(worldPos.x, worldPos.y + dist * 0.94, worldPos.z + dist * 0.3),
       look: worldPos.clone(),
     };
+    setView('toolbox');
     if (controlsRef.current) controlsRef.current.autoRotate = false;
     setAutoRotate(false);
   }, []);
+
+  /** Fly the camera to any named part still mounted on the truck (e.g. the
+   *  fifth wheel) without pulling it into inspectPart's isolated turntable —
+   *  it's structural, not something removed for repair. Frames it from
+   *  slightly above and behind, same eased cameraMove queue as focusDrawer. */
+  const focusTruckPart = useCallback((name: string, dist = 1.3) => {
+    const eg = engineGroupRef.current;
+    const obj = eg?.getObjectByName(name);
+    if (!eg || !obj) return;
+    const worldPos = new THREE.Vector3();
+    obj.getWorldPosition(worldPos);
+    eg.userData.cameraMove = {
+      pos: new THREE.Vector3(worldPos.x + dist * 0.5, worldPos.y + dist * 0.6, worldPos.z + dist * 0.85),
+      look: worldPos.clone(),
+    };
+    setView('truck');
+    if (controlsRef.current) controlsRef.current.autoRotate = false;
+    setAutoRotate(false);
+  }, []);
+
+  /** Open/close one purely-cosmetic facade drawer (bankB/bankC capacity —
+   *  no tools, no ToolPanel) — independent of toggleDrawer/openDrawer so
+   *  several can be open at once. No ownership guard needed: buildToolboxGroup
+   *  only builds a bank's facade drawers once its section is actually owned,
+   *  so if this name resolves to an object at all, it's already purchased.
+   *  Plain ref, not React state: nothing renders off which facade drawers
+   *  are open, it's only read back inside this same callback. */
+  const openFacadeDrawersRef = useRef<Set<string>>(new Set());
+  const toggleFacadeDrawer = useCallback((name: string) => {
+    const eg = engineGroupRef.current;
+    const obj = eg?.getObjectByName(name);
+    if (!obj) return;
+    const openSet = openFacadeDrawersRef.current;
+    const open = !openSet.has(name);
+    if (open) openSet.add(name); else openSet.delete(name);
+    setSlide(name, 'z', open ? obj.userData.openZ : obj.userData.closedZ);
+  }, [setSlide]);
 
   /** Open/close one toolbox drawer, closing whichever was previously open.
    *  All 5 drawers on the starter cart are usable from day one — nothing is
@@ -1502,6 +1541,12 @@ export default function EngineViewer() {
           : activeRepair === 'hood-cable'
             ? hoodCableStep >= HOOD_CABLE_STEPS.length
             : panRemoved && (activeRepair === 'pan-gasket' || allFiltersOff);
+  // Which camera "zone" is currently framed — drives the left/right arrow
+  // overlay that switches between the truck and the toolbox. Set wherever
+  // the camera is deliberately sent to one side or the other (resetCamera /
+  // focusTruckPart → truck, focusToolbox / focusDrawer → toolbox); left
+  // untouched by focused repair close-ups so the arrow doesn't flicker mid-job.
+  const [view, setView] = useState<'truck' | 'toolbox'>('truck');
   const [autoRotate, setAutoRotate] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
@@ -1584,6 +1629,7 @@ export default function EngineViewer() {
       look: new THREE.Vector3(0, 0, 0),
       onDone: () => { setAutoRotate(true); if (controlsRef.current) controlsRef.current.autoRotate = true; },
     };
+    setView('truck');
     setActiveHotspot(null);
   }, []);
 
@@ -2010,7 +2056,12 @@ export default function EngineViewer() {
     if (inspecting) return;
     if (name === 'truck-door') { clickDoor(); return; }
     if (name === 'truck-hood') { clickHood(); return; }
+    if (name === 'truck-fifthwheel') { focusTruckPart('truck-fifthwheel'); return; }
     if (name.startsWith('truck-')) return;
+    if (name.startsWith('toolbox-drawer-facade-')) {
+      toggleFacadeDrawer(name);
+      return;
+    }
     if (name.startsWith('toolbox-drawer-')) {
       toggleDrawer(name.slice('toolbox-drawer-'.length) as DrawerKey);
       return;
@@ -2208,32 +2259,6 @@ export default function EngineViewer() {
       {/* 3D Canvas */}
       <div ref={canvasRef} className="w-full h-full" />
 
-      {/* Toolbox / vehicle view toggle — large semi-transparent screen-edge
-          arrows, always available while a scene is loaded (toolbox only
-          exists in the VNL scene, same gate as the Repairs/Toolbox buttons
-          above). Right = walk to the toolbox (focusToolbox's wide shot);
-          left = back to the vehicle walk-up view (resetCamera). */}
-      {vehicle !== 'sonata2017' && !isLoading && (
-        <>
-          <button
-            onClick={focusToolbox}
-            title="View toolbox"
-            aria-label="View toolbox"
-            className="absolute right-1 top-1/2 -translate-y-1/2 z-10 text-7xl leading-none text-cyan-100/20 hover:text-cyan-100/60 active:text-cyan-100/80 transition-colors px-4 py-8 select-none"
-          >
-            ›
-          </button>
-          <button
-            onClick={resetCamera}
-            title="Back to vehicle"
-            aria-label="Back to vehicle"
-            className="absolute left-1 top-1/2 -translate-y-1/2 z-10 text-7xl leading-none text-cyan-100/20 hover:text-cyan-100/60 active:text-cyan-100/80 transition-colors px-4 py-8 select-none"
-          >
-            ‹
-          </button>
-        </>
-      )}
-
       {/* First-person hand: whatever tool is selected, held in view like an FPS */}
       {!isLoading && (
         <HandHUD tool={selectedTool} socketExt={socketExt} snapOnExt={snapOnExt} onSnapOnExtChange={setSnapOnExt} />
@@ -2293,13 +2318,6 @@ export default function EngineViewer() {
             )}
             {/* Engine selector */}
             <div className="flex flex-wrap items-center gap-1.5 mt-3 pointer-events-auto">
-              <button
-                onClick={() => startVehicle(null)}
-                className="px-2.5 py-1 text-[11px] font-bold rounded border transition-all uppercase tracking-wider text-gray-500 border-gray-700 hover:text-cyan-300 hover:border-cyan-500/50 bg-black/30"
-                title="Back to vehicle selection"
-              >
-                🚗 Vehicle
-              </button>
               {/* Engine choice moved to the vehicle-selection screen (see
                   #engine-select above) — this used to also render live here,
                   which meant every other engine option (and effectively every
@@ -2327,29 +2345,6 @@ export default function EngineViewer() {
               >
                 🧰 Toolbox
               </button>
-              <button
-                onClick={() => setReferenceOpen(o => !o)}
-                className={`px-2.5 py-1 text-[11px] font-bold rounded border transition-all uppercase tracking-wider ${
-                  referenceOpen
-                    ? 'text-cyan-300 border-cyan-400/60 bg-cyan-400/10'
-                    : 'text-gray-500 border-gray-700 hover:text-cyan-300 hover:border-cyan-500/50 bg-black/30'
-                }`}
-              >
-                📖 Reference
-              </button>
-              {TOOLBOX_SECTIONS.some(s => !ownedSections.has(s.id)) && (
-                <button
-                  onClick={() => { if (openDrawer) toggleDrawer(openDrawer); setSectionsPanelOpen(o => !o); }}
-                  className={`px-2.5 py-1 text-[11px] font-bold rounded border transition-all uppercase tracking-wider ${
-                    sectionsPanelOpen
-                      ? 'text-amber-300 border-amber-400/60 bg-amber-400/10'
-                      : 'text-gray-500 border-gray-700 hover:text-amber-300 hover:border-amber-500/50 bg-black/30'
-                  }`}
-                  title="Buy more of the toolbox — it starts as a 5-drawer chest and grows section by section"
-                >
-                  🔓 Toolbox Upgrades
-                </button>
-              )}
               </>)}
             </div>
           </div>
@@ -2656,7 +2651,10 @@ export default function EngineViewer() {
                   ]).map(f => (
                     <button
                       key={f.key}
-                      onClick={() => setAxleChecked(prev => ({ ...prev, [f.key]: !prev[f.key] }))}
+                      onClick={() => {
+                        setAxleChecked(prev => ({ ...prev, [f.key]: !prev[f.key] }));
+                        if (f.key === 'fifthWheel') focusTruckPart('truck-fifthwheel');
+                      }}
                       className={`w-full flex items-center gap-2 p-2 rounded-lg border text-left transition ${
                         axleChecked[f.key] ? 'border-green-500/40 bg-green-500/10' : 'border-white/10 bg-white/5 hover:border-amber-400/40'
                       }`}
@@ -3052,6 +3050,53 @@ export default function EngineViewer() {
             <div className="mt-3 h-0.5 rounded-full" style={{ background: `linear-gradient(90deg, ${activeHotspotData.color}, transparent)` }} />
           </div>
         </div>
+      )}
+
+      {/* View-switch arrows — large, mostly-transparent, brighten on hover.
+          Truck view: arrow on the right edge flies to the toolbox. Toolbox
+          view: arrow on the left edge flies back to the truck. Only one
+          shows at a time, driven by `view` (set by focusToolbox/focusDrawer
+          → 'toolbox' and resetCamera/focusTruckPart → 'truck'). */}
+      {view === 'truck' && (
+        <button
+          onClick={() => focusToolbox()}
+          title="Go to toolbox"
+          aria-label="Switch to toolbox view"
+          className="absolute top-1/2 right-2 -translate-y-1/2 z-20 pointer-events-auto w-14 h-28 flex items-center justify-center text-white/20 hover:text-white/70 transition-colors duration-200"
+        >
+          <svg viewBox="0 0 24 24" className="w-12 h-12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 6l6 6-6 6" />
+          </svg>
+        </button>
+      )}
+      {view === 'toolbox' && (
+        <button
+          onClick={() => resetCamera()}
+          title="Go to truck"
+          aria-label="Switch to truck view"
+          className="absolute top-1/2 left-2 -translate-y-1/2 z-20 pointer-events-auto w-14 h-28 flex items-center justify-center text-white/20 hover:text-white/70 transition-colors duration-200"
+        >
+          <svg viewBox="0 0 24 24" className="w-12 h-12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 6l-6 6 6 6" />
+          </svg>
+        </button>
+      )}
+      {/* Toolbox-grow entry point — the old "Toolbox Upgrades" nav button was
+          removed to declutter the top bar, so this is the only way left to
+          reach the section-purchase panel. Small and toolbox-view-only, not
+          another permanent top-bar button; hidden once every section is owned. */}
+      {view === 'toolbox' && !isLoading && TOOLBOX_SECTIONS.some(s => !ownedSections.has(s.id)) && (
+        <button
+          onClick={() => setSectionsPanelOpen(o => !o)}
+          title="Buy more of the toolbox — it starts as a 5-drawer cart and grows section by section"
+          className={`absolute bottom-24 left-1/2 -translate-x-1/2 z-20 pointer-events-auto px-3 py-1.5 text-[11px] font-bold rounded-full border transition-all uppercase tracking-wider ${
+            sectionsPanelOpen
+              ? 'text-amber-300 border-amber-400/60 bg-amber-400/10'
+              : 'text-gray-400 border-gray-700 hover:text-amber-300 hover:border-amber-500/50 bg-black/50'
+          }`}
+        >
+          🔓 Upgrade Toolbox
+        </button>
       )}
 
       {/* Specs panel (left) */}
@@ -5010,11 +5055,22 @@ export function buildToolboxGroup(ownedSections: Set<ToolboxSectionId>): THREE.G
     add(new THREE.BoxGeometry(0.8 * IN, TOP_Y - CASTER_H, 0.5 * IN), chrome, { pos: [bayX[k]![1], CASTER_H + (TOP_Y - CASTER_H) / 2, frontZ + 0.1 * IN] });
   });
 
-  // ── Drawers. Functional ones slide (userData contract shared with toggleDrawer);
-  // facade ones are solid faces with the same full-width Snap-on pull.
+  // ── Drawers. Functional ones slide (userData contract shared with toggleDrawer)
+  // and hold real, buyable tools; facade ones (bankB/bankC capacity) share
+  // the same full-width Snap-on pull and ALSO slide open on click (userData
+  // contract shared with toggleFacadeDrawer in EngineViewer) — every drawer
+  // face on the cart physically opens, even the ones with no tools inside.
+  let facadeDrawerIdx = 0;
   const drawerFace = (w: number, h: number, cx: number, cy: number, parent: THREE.Group) => {
-    add(new THREE.BoxGeometry(w, h - 0.3 * IN, 0.5 * IN), glossFace, { pos: [cx, cy, 0.25 * IN], parent });
-    add(new THREE.BoxGeometry(w * 0.95, 0.7 * IN, 0.7 * IN), chrome, { pos: [cx, cy + h / 2 - 0.75 * IN, 0.45 * IN], parent });
+    const d0 = new THREE.Group();
+    d0.name = `toolbox-drawer-facade-${facadeDrawerIdx++}`;
+    d0.position.set(cx, cy, 0);
+    d0.userData.closedZ = 0;
+    d0.userData.openZ = D * 0.55;
+    parent.add(d0);
+    add(new THREE.BoxGeometry(w - 0.8 * IN, h - 0.5 * IN, D * 0.7), darkMetal, { pos: [0, 0, -D * 0.35], parent: d0 });
+    add(new THREE.BoxGeometry(w, h - 0.3 * IN, 0.5 * IN), glossFace, { pos: [0, 0, 0.25 * IN], parent: d0 });
+    add(new THREE.BoxGeometry(w * 0.95, 0.7 * IN, 0.7 * IN), chrome, { pos: [0, h / 2 - 0.75 * IN, 0.45 * IN], parent: d0 });
   };
   const buildDrawer = (key: DrawerKey, w: number, h: number, cx: number, cy: number) => {
     const d0 = new THREE.Group();
