@@ -4563,9 +4563,11 @@ export function buildVolvoD13(
   // 24in deep; counter at 43in hits them mid-torso like the photo).
   // Layout left→right: tall locker · drawer bay A · drawer bay B ·
   // stacked bay C with the big "MR. BIG" bottom drawer · double-door locker.
-  // Six drawers stay functional (names `toolbox-drawer-<key>` map 1:1 to
-  // ToolPanel's CATEGORY_TOOLS and slide via userData.slides); the rest of
-  // the ~40 drawer faces are facade (`toolbox-facade`, click-inert).
+  // Six drawers are "real" (names `toolbox-drawer-<key>` map 1:1 to
+  // ToolPanel's CATEGORY_TOOLS, opening one pops the tool-buying panel);
+  // the rest of the ~40 drawer faces (`toolbox-drawer-facade-<n>`, parented
+  // under `toolbox-facade`) are cosmetic — empty, no ToolPanel — but still
+  // slide open/closed on click via toggleFacadeDrawer, same as the real ones.
   // Scale basis: wheel Ø = 1.0 scene unit ≈ 43in, dims are inches × IN.
   // ══════════════════════════════════════
   const IN = 1 / 43;
