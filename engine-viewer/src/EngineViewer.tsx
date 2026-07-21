@@ -1015,8 +1015,10 @@ export default function EngineViewer() {
   }, []);
 
   /** Open/close one purely-cosmetic facade drawer (no tools, no ToolPanel) —
-   *  independent of toggleDrawer/openDrawer so several can be open at once. */
-  const [openFacadeDrawers, setOpenFacadeDrawers] = useState<Set<string>>(new Set());
+   *  independent of toggleDrawer/openDrawer so several can be open at once.
+   *  Plain ref, not React state: nothing renders off which facade drawers
+   *  are open, it's only read back inside this same callback. */
+  const openFacadeDrawersRef = useRef<Set<string>>(new Set());
   const toggleFacadeDrawer = useCallback((name: string) => {
     // The facade wall itself is invisible until bought — Three.js raycasts
     // still hit invisible geometry (Raycaster doesn't check .visible), so
@@ -1027,13 +1029,10 @@ export default function EngineViewer() {
     const eg = engineGroupRef.current;
     const obj = eg?.getObjectByName(name);
     if (!obj) return;
-    setOpenFacadeDrawers(prev => {
-      const next = new Set(prev);
-      const open = !next.has(name);
-      if (open) next.add(name); else next.delete(name);
-      setSlide(name, 'z', open ? obj.userData.openZ : obj.userData.closedZ);
-      return next;
-    });
+    const openSet = openFacadeDrawersRef.current;
+    const open = !openSet.has(name);
+    if (open) openSet.add(name); else openSet.delete(name);
+    setSlide(name, 'z', open ? obj.userData.openZ : obj.userData.closedZ);
   }, [setSlide, ownedSections]);
 
   /** Open/close one toolbox drawer, closing whichever was previously open. */
