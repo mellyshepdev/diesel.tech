@@ -1036,7 +1036,6 @@ export default function EngineViewer() {
     setAutoRotate(false);
   }, []);
 
-<<<<<<< HEAD
   /** Fly the camera to any named part still mounted on the truck (e.g. the
    *  fifth wheel) without pulling it into inspectPart's isolated turntable —
    *  it's structural, not something removed for repair. Frames it from
@@ -1056,44 +1055,10 @@ export default function EngineViewer() {
     setAutoRotate(false);
   }, []);
 
-  /** Open/close one purely-cosmetic facade drawer (no tools, no ToolPanel) —
-   *  independent of toggleDrawer/openDrawer so several can be open at once.
-   *  Plain ref, not React state: nothing renders off which facade drawers
-   *  are open, it's only read back inside this same callback. */
-  const openFacadeDrawersRef = useRef<Set<string>>(new Set());
-  const toggleFacadeDrawer = useCallback((name: string) => {
-    // The facade wall itself is invisible until bought — Three.js raycasts
-    // still hit invisible geometry (Raycaster doesn't check .visible), so
-    // without this guard a click landing on the plain unbroken cabinet panel
-    // that's standing in for the not-yet-purchased facade would silently
-    // toggle hidden drawer state instead of prompting the purchase.
-    if (!ownedSections.has('facade-upgrade')) {
-      setServiceMsg(`🔒 That's part of the Full Wall Upgrade (🪙 ${TOOLBOX_SECTIONS.find(s => s.id === 'facade-upgrade')!.price}) — buy it below.`);
-      setSectionsPanelOpen(true);
-      return;
-    }
-    const eg = engineGroupRef.current;
-    const obj = eg?.getObjectByName(name);
-    if (!obj) return;
-    const openSet = openFacadeDrawersRef.current;
-    const open = !openSet.has(name);
-    if (open) openSet.add(name); else openSet.delete(name);
-    setSlide(name, 'z', open ? obj.userData.openZ : obj.userData.closedZ);
-  }, [setSlide, ownedSections]);
-
-  /** Open/close one toolbox drawer, closing whichever was previously open. */
-  const toggleDrawer = useCallback((key: DrawerKey) => {
-    if (key === 'specialty' && !ownedSections.has('specialty-drawer')) {
-      setServiceMsg(`🔒 That drawer isn't yours yet — buy the Specialty Drawer section (🪙 ${TOOLBOX_SECTIONS.find(s => s.id === 'specialty-drawer')!.price}) below.`);
-      setSectionsPanelOpen(true);
-      return;
-    }
-=======
   /** Open/close one toolbox drawer, closing whichever was previously open.
    *  All 5 drawers on the starter cart are usable from day one — nothing is
    *  gated behind a TOOLBOX_SECTIONS purchase, those only grow capacity. */
   const toggleDrawer = useCallback((key: DrawerKey) => {
->>>>>>> 811f05373b2c231b9dc3e3826b87c7722caae5d4
     setSectionsPanelOpen(false);
     const eg = engineGroupRef.current;
     const slideDrawer = (k: DrawerKey, open: boolean) => {
