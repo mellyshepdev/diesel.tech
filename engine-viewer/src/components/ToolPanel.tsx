@@ -143,13 +143,18 @@ export const TOOL_MIN_LEVEL: Partial<Record<Tool, number>> = {
   lineWrench: 6,
 };
 
+// Specialty + general merged into one "misc" drawer — a first-level tech's
+// starter cart is 5 drawers (both socket drawers, both wrench drawers, and
+// this one), not 6; there's no separate purchasable "specialty drawer"
+// section anymore. Rarer specialty tools still gate on TOOL_PRICES/
+// TOOL_MIN_LEVEL individually same as before, this only changes which
+// physical drawer they're found in.
 export const CATEGORY_TOOLS = {
   "sockets-metric": SOCKETS_METRIC,
   "sockets-standard": SOCKETS_STANDARD,
   "wrenches-metric": WRENCHES_METRIC,
   "wrenches-standard": WRENCHES_STANDARD,
-  specialty: SPECIALTY,
-  general: GENERAL,
+  misc: [...SPECIALTY, ...GENERAL],
 } as const;
 
 export const CATEGORY_LABELS: Record<DrawerKey, string> = {
@@ -157,8 +162,7 @@ export const CATEGORY_LABELS: Record<DrawerKey, string> = {
   "sockets-standard": "Standard (SAE) Sockets",
   "wrenches-metric": "Metric Wrenches",
   "wrenches-standard": "Standard (SAE) Wrenches",
-  specialty: "Specialty — Volvo Service Tools",
-  general: "General",
+  misc: "Misc — General & Specialty Tools",
 };
 
 export type DrawerKey = keyof typeof CATEGORY_TOOLS;
