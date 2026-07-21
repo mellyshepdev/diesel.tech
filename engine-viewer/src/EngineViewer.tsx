@@ -3061,6 +3061,23 @@ export default function EngineViewer() {
           </svg>
         </button>
       )}
+      {/* Toolbox-grow entry point — the old "Toolbox Upgrades" nav button was
+          removed to declutter the top bar, so this is the only way left to
+          reach the section-purchase panel. Small and toolbox-view-only, not
+          another permanent top-bar button; hidden once every section is owned. */}
+      {view === 'toolbox' && !isLoading && TOOLBOX_SECTIONS.some(s => !ownedSections.has(s.id)) && (
+        <button
+          onClick={() => setSectionsPanelOpen(o => !o)}
+          title="Buy more of the toolbox — it starts as a 5-drawer cart and grows section by section"
+          className={`absolute bottom-24 left-1/2 -translate-x-1/2 z-20 pointer-events-auto px-3 py-1.5 text-[11px] font-bold rounded-full border transition-all uppercase tracking-wider ${
+            sectionsPanelOpen
+              ? 'text-amber-300 border-amber-400/60 bg-amber-400/10'
+              : 'text-gray-400 border-gray-700 hover:text-amber-300 hover:border-amber-500/50 bg-black/50'
+          }`}
+        >
+          🔓 Upgrade Toolbox
+        </button>
+      )}
 
       {/* Specs panel (left) */}
       <div className="absolute top-1/2 left-5 -translate-y-1/2 hidden xl:block pointer-events-none">
