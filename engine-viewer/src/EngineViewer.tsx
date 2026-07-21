@@ -2247,32 +2247,6 @@ export default function EngineViewer() {
       {/* 3D Canvas */}
       <div ref={canvasRef} className="w-full h-full" />
 
-      {/* Toolbox / vehicle view toggle — large semi-transparent screen-edge
-          arrows, always available while a scene is loaded (toolbox only
-          exists in the VNL scene, same gate as the Repairs/Toolbox buttons
-          above). Right = walk to the toolbox (focusToolbox's wide shot);
-          left = back to the vehicle walk-up view (resetCamera). */}
-      {vehicle !== 'sonata2017' && !isLoading && (
-        <>
-          <button
-            onClick={focusToolbox}
-            title="View toolbox"
-            aria-label="View toolbox"
-            className="absolute right-1 top-1/2 -translate-y-1/2 z-10 text-7xl leading-none text-cyan-100/20 hover:text-cyan-100/60 active:text-cyan-100/80 transition-colors px-4 py-8 select-none"
-          >
-            ›
-          </button>
-          <button
-            onClick={resetCamera}
-            title="Back to vehicle"
-            aria-label="Back to vehicle"
-            className="absolute left-1 top-1/2 -translate-y-1/2 z-10 text-7xl leading-none text-cyan-100/20 hover:text-cyan-100/60 active:text-cyan-100/80 transition-colors px-4 py-8 select-none"
-          >
-            ‹
-          </button>
-        </>
-      )}
-
       {/* First-person hand: whatever tool is selected, held in view like an FPS */}
       {!isLoading && (
         <HandHUD tool={selectedTool} socketExt={socketExt} snapOnExt={snapOnExt} onSnapOnExtChange={setSnapOnExt} />
