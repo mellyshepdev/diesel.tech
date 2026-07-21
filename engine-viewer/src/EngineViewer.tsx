@@ -2265,6 +2265,19 @@ export default function EngineViewer() {
               >
                 📖 Reference
               </button>
+              {TOOLBOX_SECTIONS.some(s => !ownedSections.has(s.id)) && (
+                <button
+                  onClick={() => setSectionsPanelOpen(o => !o)}
+                  className={`px-2.5 py-1 text-[11px] font-bold rounded border transition-all uppercase tracking-wider ${
+                    sectionsPanelOpen
+                      ? 'text-amber-300 border-amber-400/60 bg-amber-400/10'
+                      : 'text-gray-500 border-gray-700 hover:text-amber-300 hover:border-amber-500/50 bg-black/30'
+                  }`}
+                  title="Buy more of the toolbox — it starts as a 5-drawer chest and grows section by section"
+                >
+                  🔓 Toolbox Upgrades
+                </button>
+              )}
               </>)}
             </div>
           </div>
@@ -2311,6 +2324,50 @@ export default function EngineViewer() {
       {/* Factory reference panel */}
       {referenceOpen && !isLoading && (
         <ReferencePanel onClose={() => setReferenceOpen(false)} />
+      )}
+
+      {/* Toolbox Upgrades — buying the toolbox itself, section by section, as
+          distinct from buying individual tools inside it (ToolPanel/TOOL_PRICES). */}
+      {sectionsPanelOpen && !isLoading && (
+        <div className="absolute left-4 top-32 w-72 max-h-[70vh] overflow-y-auto bg-black/75 backdrop-blur-md border border-amber-400/25 rounded-xl p-3 z-30 space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-amber-300 text-xs font-bold tracking-widest uppercase">🔓 Toolbox Upgrades</span>
+            <button onClick={() => setSectionsPanelOpen(false)} className="text-gray-500 hover:text-white text-sm">✕</button>
+          </div>
+          <p className="text-gray-500 text-[11px] px-1 leading-relaxed">
+            You start with a 5-drawer chest. The rest of the wall is real — you just haven't earned it yet.
+          </p>
+          {TOOLBOX_SECTIONS.map(s => {
+            const owned = ownedSections.has(s.id);
+            const levelLocked = !owned && mechanicLevel.level < s.minLevel;
+            return (
+              <div
+                key={s.id}
+                className={`p-2.5 rounded-lg border ${owned ? 'border-green-500/40 bg-green-500/10' : 'border-white/10 bg-white/5'}`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-white text-sm font-bold">{owned ? '✅' : '🔒'} {s.label}</span>
+                  {!owned && <span className="text-yellow-300 text-xs font-bold font-mono shrink-0 ml-2">🪙 {s.price}</span>}
+                </div>
+                <p className="text-gray-400 text-[11px] mt-1 leading-relaxed">{s.desc}</p>
+                {!owned && (
+                  <button
+                    onClick={() => buySection(s.id)}
+                    disabled={levelLocked}
+                    className={`mt-2 w-full py-1.5 text-xs font-bold rounded-lg ${
+                      levelLocked
+                        ? 'bg-white/5 text-gray-500 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-amber-500 to-yellow-400 text-black hover:shadow-lg'
+                    }`}
+                  >
+                    {levelLocked ? `Reach Level ${s.minLevel} to buy` : `Buy for 🪙 ${s.price}`}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+          {serviceMsg && <p className="text-green-300 text-xs px-1">{serviceMsg}</p>}
+        </div>
       )}
 
       {/* Repairs panel */}
