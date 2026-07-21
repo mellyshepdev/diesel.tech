@@ -710,7 +710,7 @@ export default function EngineViewer() {
   const [vehicle, setVehicle] = useState<VehicleId | null>(null);
   // The dropdown's pending choice before START is pressed.
   const [vehicleChoice, setVehicleChoice] = useState<VehicleId>('vnl860');
-  const engine = vehicle === 'sonata2017' ? SONATA_ENGINE : ENGINES[engineId];
+  const engine = vehicle === 'sonata2017' ? SONATA_ENGINE : vehicle === 'prevost' ? PREVOST_ENGINE : ENGINES[engineId];
   const hotspots = HOTSPOT_DATA.map(h => ({ ...h, desc: engine.hotspotDescs?.[h.id] ?? h.desc }));
   const [activeHotspot, setActiveHotspot] = useState<string | null>(null);
 
@@ -2187,7 +2187,7 @@ export default function EngineViewer() {
               </select>
               <p className="text-[11px] text-gray-500 leading-snug">{VEHICLES[vehicleChoice].blurb}</p>
             </div>
-            {vehicleChoice !== 'sonata2017' && (
+            {vehicleChoice === 'vnl860' && (
               <div className="text-left space-y-2">
                 <label className="text-[11px] font-bold uppercase tracking-widest text-gray-400" htmlFor="engine-select">Engine</label>
                 <select
