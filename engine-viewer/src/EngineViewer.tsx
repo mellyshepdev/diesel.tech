@@ -1704,6 +1704,7 @@ export default function EngineViewer() {
 
     // Build the selected vehicle
     if (vehicle === 'sonata2017') buildSonata2017(engineGroup, setLoadProgress, setIsLoading);
+    else if (vehicle === 'prevost') buildPrevost(engineGroup, setLoadProgress, setIsLoading);
     else buildVolvoD13(engineGroup, setLoadProgress, setIsLoading);
 
     // Ground
@@ -2277,7 +2278,7 @@ export default function EngineViewer() {
               {engine.model} <span className="text-transparent bg-clip-text" style={{ backgroundImage: 'linear-gradient(90deg, #00d4ff, #00ffaa)' }}>Engine</span>
             </h1>
             <p className="text-gray-400 text-xs mt-1 tracking-widest uppercase">{engine.tagline}</p>
-            {vehicle !== 'sonata2017' && (
+            {vehicle === 'vnl860' && (
               <div className="mt-1.5 flex flex-wrap items-center gap-2 pointer-events-none">
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400/10 border border-amber-400/30 text-amber-300">
                   ⭐ Lv.{mechanicLevel.level} {mechanicLevel.title}
@@ -2312,7 +2313,7 @@ export default function EngineViewer() {
                   other vehicle's engine bay) stayed one click away without
                   ever going "back". Now the only way to change it is to
                   return to vehicle selection. */}
-              {vehicle !== 'sonata2017' && (<>
+              {vehicle === 'vnl860' && (<>
               <button
                 onClick={() => { setRepairsOpen(o => !o); setActiveRepair(null); }}
                 className={`px-2.5 py-1 text-[11px] font-bold rounded border transition-all uppercase tracking-wider ${
