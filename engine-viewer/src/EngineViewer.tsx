@@ -958,14 +958,18 @@ export default function EngineViewer() {
    *  in buildVolvoD13) and hold it there — matches the hard-cut pattern used by
    *  resetCamera/inspectPart rather than an animated tween. */
   const focusToolbox = useCallback(() => {
-    const camera = cameraRef.current;
-    const controls = controlsRef.current;
-    if (!camera || !controls) return;
-    controls.target.set(-0.35, -0.1, -7.5);
-    camera.position.set(1.5, 0.9, -2.7);
-    controls.autoRotate = false;
+    const eg = engineGroupRef.current;
+    if (!eg || !controlsRef.current) return;
+    // Eased via the same userData.cameraMove queue as focusDrawer, instead
+    // of the old instant camera.position.set() — the toolbox↔vehicle view
+    // switch used to jump-cut, which read as jarring next to focusDrawer's
+    // smooth zoom.
+    eg.userData.cameraMove = {
+      pos: new THREE.Vector3(1.5, 0.9, -2.7),
+      look: new THREE.Vector3(-0.35, -0.1, -7.5),
+    };
+    controlsRef.current.autoRotate = false;
     setAutoRotate(false);
-    controls.update();
   }, []);
 
   /** Zoom the camera in on one specific drawer, full-frame, instead of the
@@ -1005,6 +1009,7 @@ export default function EngineViewer() {
       setServiceMsg(`🔒 That drawer isn't yours yet — buy the Specialty Drawer section (🪙 ${TOOLBOX_SECTIONS.find(s => s.id === 'specialty-drawer')!.price}) in 🔓 Toolbox Upgrades first.`);
       return;
     }
+    setSectionsPanelOpen(false);
     const eg = engineGroupRef.current;
     const slideDrawer = (k: DrawerKey, open: boolean) => {
       const obj = eg?.getObjectByName(`toolbox-drawer-${k}`);
@@ -2267,7 +2272,7 @@ export default function EngineViewer() {
               </button>
               {TOOLBOX_SECTIONS.some(s => !ownedSections.has(s.id)) && (
                 <button
-                  onClick={() => setSectionsPanelOpen(o => !o)}
+                  onClick={() => { if (openDrawer) toggleDrawer(openDrawer); setSectionsPanelOpen(o => !o); }}
                   className={`px-2.5 py-1 text-[11px] font-bold rounded border transition-all uppercase tracking-wider ${
                     sectionsPanelOpen
                       ? 'text-amber-300 border-amber-400/60 bg-amber-400/10'
