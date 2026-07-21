@@ -1041,6 +1041,24 @@ export default function EngineViewer() {
     setAutoRotate(false);
   }, []);
 
+  /** Open/close one purely-cosmetic facade drawer (bankB/bankC capacity —
+   *  no tools, no ToolPanel) — independent of toggleDrawer/openDrawer so
+   *  several can be open at once. No ownership guard needed: buildToolboxGroup
+   *  only builds a bank's facade drawers once its section is actually owned,
+   *  so if this name resolves to an object at all, it's already purchased.
+   *  Plain ref, not React state: nothing renders off which facade drawers
+   *  are open, it's only read back inside this same callback. */
+  const openFacadeDrawersRef = useRef<Set<string>>(new Set());
+  const toggleFacadeDrawer = useCallback((name: string) => {
+    const eg = engineGroupRef.current;
+    const obj = eg?.getObjectByName(name);
+    if (!obj) return;
+    const openSet = openFacadeDrawersRef.current;
+    const open = !openSet.has(name);
+    if (open) openSet.add(name); else openSet.delete(name);
+    setSlide(name, 'z', open ? obj.userData.openZ : obj.userData.closedZ);
+  }, [setSlide]);
+
   /** Open/close one toolbox drawer, closing whichever was previously open.
    *  All 5 drawers on the starter cart are usable from day one — nothing is
    *  gated behind a TOOLBOX_SECTIONS purchase, those only grow capacity. */
@@ -4910,11 +4928,22 @@ export function buildToolboxGroup(ownedSections: Set<ToolboxSectionId>): THREE.G
     add(new THREE.BoxGeometry(0.8 * IN, TOP_Y - CASTER_H, 0.5 * IN), chrome, { pos: [bayX[k]![1], CASTER_H + (TOP_Y - CASTER_H) / 2, frontZ + 0.1 * IN] });
   });
 
-  // ── Drawers. Functional ones slide (userData contract shared with toggleDrawer);
-  // facade ones are solid faces with the same full-width Snap-on pull.
+  // ── Drawers. Functional ones slide (userData contract shared with toggleDrawer)
+  // and hold real, buyable tools; facade ones (bankB/bankC capacity) share
+  // the same full-width Snap-on pull and ALSO slide open on click (userData
+  // contract shared with toggleFacadeDrawer in EngineViewer) — every drawer
+  // face on the cart physically opens, even the ones with no tools inside.
+  let facadeDrawerIdx = 0;
   const drawerFace = (w: number, h: number, cx: number, cy: number, parent: THREE.Group) => {
-    add(new THREE.BoxGeometry(w, h - 0.3 * IN, 0.5 * IN), glossFace, { pos: [cx, cy, 0.25 * IN], parent });
-    add(new THREE.BoxGeometry(w * 0.95, 0.7 * IN, 0.7 * IN), chrome, { pos: [cx, cy + h / 2 - 0.75 * IN, 0.45 * IN], parent });
+    const d0 = new THREE.Group();
+    d0.name = `toolbox-drawer-facade-${facadeDrawerIdx++}`;
+    d0.position.set(cx, cy, 0);
+    d0.userData.closedZ = 0;
+    d0.userData.openZ = D * 0.55;
+    parent.add(d0);
+    add(new THREE.BoxGeometry(w - 0.8 * IN, h - 0.5 * IN, D * 0.7), darkMetal, { pos: [0, 0, -D * 0.35], parent: d0 });
+    add(new THREE.BoxGeometry(w, h - 0.3 * IN, 0.5 * IN), glossFace, { pos: [0, 0, 0.25 * IN], parent: d0 });
+    add(new THREE.BoxGeometry(w * 0.95, 0.7 * IN, 0.7 * IN), chrome, { pos: [0, h / 2 - 0.75 * IN, 0.45 * IN], parent: d0 });
   };
   const buildDrawer = (key: DrawerKey, w: number, h: number, cx: number, cy: number) => {
     const d0 = new THREE.Group();
