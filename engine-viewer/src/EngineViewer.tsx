@@ -303,38 +303,24 @@ const nextLevel = (level: number) => LEVELS.find(l => l.level === level + 1);
 export type ToolboxSectionId = 'bankB' | 'bankC' | 'lockers';
 const TOOLBOX_SECTIONS: { id: ToolboxSectionId; label: string; desc: string; price: number; minLevel: number }[] = [
   {
-<<<<<<< HEAD
-    id: 'specialty-drawer',
-    label: 'Specialty Drawer',
-    desc: 'Unlocks the Volvo service-tools drawer (filter wrench, line wrench, torque wrench, feeler gauges, dial indicator, barring tool) — still bought individually once the drawer itself is open.',
-    price: 1000,
-    minLevel: 2,
-  },
-  {
-    id: 'facade-upgrade',
-    label: 'Full Wall Upgrade',
-    desc: 'The rest of the Snap-on "MR. BIG" wall: side lockers, chrome trim, every decorative drawer face. Cosmetic — no new functional drawers — but this is what turns the starter 5-drawer chest into the whole dealer setup.',
-    price: 2500,
-=======
     id: 'bankB',
     label: 'Second Drawer Bank',
     desc: 'A matching bay of facade drawers bolts on next to the cart — more staging room, still counter height.',
-    price: 400,
+    price: 1000,
     minLevel: 2,
   },
   {
     id: 'bankC',
     label: 'Third Drawer Bank ("MR. BIG")',
     desc: 'The deep "MR. BIG" bottom drawer joins the line — the cart is now a full rolling bench.',
-    price: 600,
+    price: 1500,
     minLevel: 3,
   },
   {
     id: 'lockers',
     label: 'End Lockers & Hutch',
     desc: 'Tall lockers bolt onto both ends and a canopy hutch with Snap-on signage rises across the top — the complete "MR. BIG" wall chest.',
-    price: 500,
->>>>>>> 811f05373b2c231b9dc3e3826b87c7722caae5d4
+    price: 2000,
     minLevel: 4,
   },
 ];
