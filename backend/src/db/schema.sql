@@ -45,8 +45,11 @@ ALTER TABLE engines ADD COLUMN IF NOT EXISTS fuel_type TEXT NOT NULL DEFAULT 'di
 -- EngineViewer.tsx) so it can never drift out of sync with the number that
 -- actually earned it.
 CREATE TABLE IF NOT EXISTS player_progress (
-  user_sub     TEXT PRIMARY KEY,
-  coins        INTEGER NOT NULL DEFAULT 0,
-  owned_tools  JSONB NOT NULL DEFAULT '[]'::jsonb,
-  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+  user_sub       TEXT PRIMARY KEY,
+  coins          INTEGER NOT NULL DEFAULT 0,
+  owned_tools    JSONB NOT NULL DEFAULT '[]'::jsonb,
+  owned_sections JSONB NOT NULL DEFAULT '[]'::jsonb, -- toolbox sections bought (TOOLBOX_SECTIONS ids)
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE player_progress ADD COLUMN IF NOT EXISTS owned_sections JSONB NOT NULL DEFAULT '[]'::jsonb;
