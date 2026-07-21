@@ -5421,7 +5421,6 @@ export function buildPrevost(
   const CIN = 1 / 56;
   const L = 540 * CIN;   // ≈9.64 — overall coach length
   const W = 102 * CIN;   // ≈1.82 — overall coach width
-  const noseZ = W / 2;
 
   // ── Materials — silver/gray metallic per both exterior photos, with the
   // darker diagonal stripe as a second paint tone (not a decal — the photos
