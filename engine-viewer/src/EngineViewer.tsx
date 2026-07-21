@@ -4327,16 +4327,64 @@ export function buildVolvoD13(
   add(new THREE.BoxGeometry(0.22, 0.34, 1.66), dashDark, { pos: [1.58, 0.48, 0], parent: truckBody });
   add(new THREE.BoxGeometry(0.3, 0.05, 1.66), dashDark, { pos: [1.52, 0.66, 0], rot: [0, 0, -0.08], parent: truckBody }); // sloped top shelf toward the glass
   add(new THREE.BoxGeometry(0.16, 0.16, 0.5), dashDark, { pos: [1.66, 0.5, -0.1], parent: truckBody }); // center stack (radio/climate, photo 21)
-  // Steering column + wheel, driver side (+z, matches the door above)
+  // Louvered air vents along the top-shelf edge (photo 21: three vents run
+  // driver-to-passenger just above the radio/climate stack)
+  [-0.55, -0.05, 0.45].forEach(z => {
+    add(new THREE.BoxGeometry(0.05, 0.03, 0.16), M.darkMetal, { pos: [1.62, 0.635, z], rot: [0, 0, -0.08], shadow: false, parent: truckBody });
+  });
+  // Radio/climate knob cluster on the center stack face (photo 21)
+  [[-0.06, 0.06], [0.06, 0.06], [-0.06, -0.06], [0.06, -0.06]].forEach(([dy, dz]) => {
+    add(new THREE.CylinderGeometry(0.018, 0.018, 0.01, 12), M.chrome, { pos: [1.74, 0.5 + dy, -0.1 + dz], rot: [0, 0, Math.PI / 2], shadow: false, parent: truckBody });
+  });
+  // Red trailer-air-supply + yellow parking-brake pull knobs (photo 21 —
+  // same red/yellow pairing the 2D in-cab overlay already uses)
+  add(new THREE.CylinderGeometry(0.022, 0.022, 0.03, 12), M.red, { pos: [1.74, 0.52, 0.18], rot: [0, 0, Math.PI / 2], parent: truckBody });
+  add(new THREE.CylinderGeometry(0.022, 0.022, 0.03, 12), M.yellow, { pos: [1.74, 0.52, 0.26], rot: [0, 0, Math.PI / 2], parent: truckBody });
+
+  // Steering column + wheel, driver side (+z, matches the door above).
+  // Wheel parts grouped so the rim/spokes/hub all share one raked tilt
+  // instead of repeating the same rot on every mesh (photo 22: thick
+  // button-pad spokes at 9/3 o'clock, thin lower spoke, chrome-ringed
+  // center badge, digital cluster visible through the rim).
   add(new THREE.CylinderGeometry(0.025, 0.03, 0.35, 10), dashDark, { pos: [1.62, 0.58, 0.5], rot: [0, 0, Math.PI / 2.6], parent: truckBody });
-  add(new THREE.TorusGeometry(0.16, 0.02, 10, 20), M.black, { pos: [1.5, 0.72, 0.5], rot: [1.15, 0, 0], parent: truckBody });
-  add(new THREE.CylinderGeometry(0.03, 0.03, 0.03, 12), M.chrome, { pos: [1.5, 0.72, 0.5], rot: [1.15, 0, 0], shadow: false, parent: truckBody });
-  // Two pedestal seats (photo 15/20: driver +z, passenger −z)
+  const wheel = new THREE.Group();
+  wheel.position.set(1.5, 0.72, 0.5);
+  wheel.rotation.set(1.15, 0, 0);
+  truckBody.add(wheel);
+  add(new THREE.TorusGeometry(0.16, 0.02, 10, 20), M.black, { pos: [0, 0, 0], parent: wheel });
+  [-1, 1].forEach(s => { // button-pad spokes at local 9/3 o'clock
+    add(new THREE.BoxGeometry(0.1, 0.05, 0.015), M.black, { pos: [s * 0.09, 0, 0], parent: wheel });
+    add(new THREE.BoxGeometry(0.06, 0.03, 0.008), M.darkMetal, { pos: [s * 0.09, 0.012, 0.009], shadow: false, parent: wheel });
+  });
+  add(new THREE.BoxGeometry(0.03, 0.11, 0.015), M.black, { pos: [0, -0.1, 0], parent: wheel }); // thin lower spoke
+  add(new THREE.CylinderGeometry(0.04, 0.04, 0.03, 16), M.black, { pos: [0, 0, 0], rot: [Math.PI / 2, 0, 0], parent: wheel }); // hub
+  add(new THREE.TorusGeometry(0.038, 0.006, 8, 16), M.chrome, { pos: [0, 0, 0.016], parent: wheel }); // hub chrome ring
+  add(new THREE.CylinderGeometry(0.03, 0.03, 0.01, 16), M.chrome, { pos: [0, 0, 0.016], rot: [Math.PI / 2, 0, 0], shadow: false, parent: wheel }); // badge disc
+  // Gauge-cluster hood behind the wheel (photo 22: thin digital bar display)
+  add(new THREE.BoxGeometry(0.06, 0.14, 0.2), dashDark, { pos: [1.585, 0.62, 0.5], rot: [0.15, 0, 0], parent: truckBody });
+  add(new THREE.BoxGeometry(0.01, 0.1, 0.16), new THREE.MeshStandardMaterial({ color: 0x1b2a22, roughness: 0.3 }), { pos: [1.614, 0.625, 0.5], rot: [0.15, 0, 0], shadow: false, parent: truckBody }); // display face
+
+  // Two pedestal seats (photo 15/20: driver +z, passenger −z) — bucket
+  // shape with side bolsters on both cushion and backrest, a swivel base,
+  // an inboard armrest toward the center console, and a headrest on posts.
   [0.5, -0.5].forEach(z => {
+    const inb = z > 0 ? -1 : 1; // inboard = toward the console at z 0
     add(new THREE.CylinderGeometry(0.09, 0.12, 0.22, 12), dashDark, { pos: [1.95, 0.4, z], parent: truckBody }); // pedestal
+    add(new THREE.CylinderGeometry(0.16, 0.16, 0.02, 16), M.darkMetal, { pos: [1.95, 0.29, z], shadow: false, parent: truckBody }); // swivel base
     add(new THREE.BoxGeometry(0.44, 0.08, 0.42), seatFabric, { pos: [1.95, 0.52, z], parent: truckBody }); // cushion
+    [-1, 1].forEach(f => {
+      add(new THREE.BoxGeometry(0.08, 0.1, 0.06), seatFabric, { pos: [1.95, 0.56, z + f * 0.19], parent: truckBody }); // cushion bolster
+    });
     add(new THREE.BoxGeometry(0.4, 0.5, 0.4), seatFabric, { pos: [1.78, 0.78, z], rot: [0, 0, 0.1], parent: truckBody }); // seatback
+    [-1, 1].forEach(f => {
+      add(new THREE.BoxGeometry(0.08, 0.46, 0.1), seatFabric, { pos: [1.79, 0.78, z + f * 0.18], rot: [0, f * 0.35, 0.1], parent: truckBody }); // seatback bolster, flared open
+    });
+    add(new THREE.BoxGeometry(0.04, 0.3, 0.06), dashDark, { pos: [1.6, 0.62, z + inb * 0.24], parent: truckBody }); // armrest post
+    add(new THREE.BoxGeometry(0.3, 0.04, 0.09), seatFabric, { pos: [1.72, 0.66, z + inb * 0.24], parent: truckBody }); // armrest pad
     add(new THREE.BoxGeometry(0.32, 0.12, 0.3), seatFabric, { pos: [1.68, 1.06, z], rot: [0, 0, 0.1], parent: truckBody }); // headrest
+    [-1, 1].forEach(f => {
+      add(new THREE.CylinderGeometry(0.012, 0.012, 0.1, 8), M.darkMetal, { pos: [1.74, 0.98, z + f * 0.1], shadow: false, parent: truckBody }); // headrest post
+    });
   });
   add(new THREE.BoxGeometry(0.2, 0.28, 0.22), dashDark, { pos: [1.82, 0.5, 0], parent: truckBody }); // center console between seats
 
