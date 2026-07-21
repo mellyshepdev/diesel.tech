@@ -587,19 +587,27 @@ const buildFlowSystems = (): { flowGroup: THREE.Group; systems: FlowSystem[] } =
     [1.7, -0.6, 0.95],
   ])));
 
-  // Coolant loop: pump → block gallery → head → thermostat → radiator → pump
+  // Coolant loop: pump → block gallery → head → thermostat → radiator → pump.
+  // Bug fix 2026-07-21: pump/thermostat/radiator waypoints were all at
+  // negative x (bell-housing end), same mismatch as the water pump mesh
+  // itself (see the comment at its geometry) — mirrored to +x so the stream
+  // actually starts/ends at the pump housing instead of empty space. Left
+  // the gallery/head waypoints (now the low/mid-x middle of the loop)
+  // unchanged — pump feeding the block at the front, flowing rearward
+  // through the water jacket into the head, then forward again to the
+  // thermostat, is the real physical routing anyway.
   systems.push(makeFlow(flowGroup, 0x35e0c8, 110, 0.045, 0.045, flowPath([
-    [-0.98, 0.02, 0.16],
+    [0.98, 0.02, 0.16],
     [-0.5, 0.05, 0.22],
     [0.4, 0.1, 0.22],
     [0.85, 0.2, 0.1],
     [0.8, 0.45, 0.0],
     [-0.5, 0.48, 0.05],
-    [-0.95, 0.36, 0.12],
-    [-1.35, 0.4, 0.1],
-    [-1.55, 0.05, 0.05],
-    [-1.35, -0.3, 0.1],
-    [-0.98, 0.02, 0.16],
+    [0.95, 0.36, 0.12],
+    [1.35, 0.4, 0.1],
+    [1.55, 0.05, 0.05],
+    [1.35, -0.3, 0.1],
+    [0.98, 0.02, 0.16],
   ])));
 
   // Oil circulation: pan pickup → spin-on filters → main gallery → rockers → drain-back
@@ -4079,11 +4087,18 @@ export function buildVolvoD13(
   add(new THREE.BoxGeometry(0.1, 0.08, 0.05), M.black, { pos: [-0.66, -0.31, -0.43] });
   tick();
 
-  // Water pump (front of block, gear-driven) + thermostat housing above it
-  add(new THREE.CylinderGeometry(0.09, 0.11, 0.1, 14), M.teal, { pos: [-0.98, 0.02, 0.16], rot: [0, 0, Math.PI / 2] });
-  add(new THREE.BoxGeometry(0.1, 0.12, 0.12), M.teal, { pos: [-0.95, 0.3, 0.12] });
+  // Water pump (front of block, gear-driven) + thermostat housing above it.
+  // Bug fix 2026-07-21: this was at x≈-0.98 (the bell-housing/flywheel end)
+  // despite the comment saying "front of block" — the fan/nose end is +x
+  // (see the truck-cab rotation note near truckBody.rotation.y = Math.PI),
+  // so a gear-driven water pump belongs up near the fan (x 1.55) and the
+  // FED_X (1.26) front-end-drive pulleys, not the bell-housing end where the
+  // starter and pinion (x -1.08 to -1.19) actually are. Mirrored x to the
+  // correct side; y/z unchanged.
+  add(new THREE.CylinderGeometry(0.09, 0.11, 0.1, 14), M.teal, { pos: [0.98, 0.02, 0.16], rot: [0, 0, Math.PI / 2] });
+  add(new THREE.BoxGeometry(0.1, 0.12, 0.12), M.teal, { pos: [0.95, 0.3, 0.12] });
   // Thermostat outlet to the upper radiator hose
-  add(new THREE.CylinderGeometry(0.04, 0.04, 0.1, 10), M.brushedMetal, { pos: [-1.02, 0.36, 0.12], rot: [0, 0, Math.PI / 2] });
+  add(new THREE.CylinderGeometry(0.04, 0.04, 0.1, 10), M.brushedMetal, { pos: [1.02, 0.36, 0.12], rot: [0, 0, Math.PI / 2] });
   tick();
 
   /** WABCO twin-cylinder brake air compressor — modeled from the part
