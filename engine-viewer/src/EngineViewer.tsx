@@ -4565,9 +4565,17 @@ export function buildVolvoD13(
   truckBody.add(hood);
   // top panel (sloped down toward the nose) + side panels + fender arches
   add(new THREE.BoxGeometry(3.75, 0.07, 1.5), paint, { pos: [1.85, 1.42, 0], rot: [0, 0, 0.09], parent: hood });
-  // Hood power-dome / center character line (photo 01: subtle raised ridge
-  // running down the hood's centerline, most visible in the 3/4 shot).
-  add(new THREE.BoxGeometry(2.1, 0.03, 0.24), paint, { pos: [1.3, 1.465, 0], rot: [0, 0, 0.09], parent: hood });
+  // Hood power-dome / heat-extractor vent — photo 01/02 (the 2027 VNL860's
+  // reworked nose) show a pronounced raised black scoop on the hood
+  // centerline with visible slat texture, not a subtle paint-colored ridge
+  // like the classic VNL. Scoop width ≈ 0.35× the nose width anchor (1.46
+  // units, see the nose comment below), reasoned off photo 01's 3/4 view —
+  // medium confidence, not pixel-measured.
+  add(new THREE.BoxGeometry(1.5, 0.05, 0.5), paint, { pos: [1.15, 1.47, 0], rot: [0, 0, 0.09], parent: hood });
+  add(new THREE.BoxGeometry(1.1, 0.03, 0.4), grilleDark, { pos: [1.1, 1.495, 0], rot: [0, 0, 0.09], parent: hood });
+  for (let i = 0; i < 4; i++) {
+    add(new THREE.BoxGeometry(0.9, 0.01, 0.02), M.darkMetal, { pos: [1.1, 1.5, -0.14 + i * 0.09], rot: [0, 0, 0.09], shadow: false, parent: hood });
+  }
   add(new THREE.BoxGeometry(3.75, 0.95, 0.06), paint, { pos: [1.85, 0.85, 0.74], rot: [0, 0.0, 0.02], parent: hood });
   add(new THREE.BoxGeometry(3.75, 0.95, 0.06), paint, { pos: [1.85, 0.85, -0.74], rot: [0, 0, 0.02], parent: hood });
   add(new THREE.BoxGeometry(1.3, 0.12, 0.34), paint, { pos: [0.85, 0.42, 0.78], parent: hood });
@@ -4584,27 +4592,53 @@ export function buildVolvoD13(
   add(new THREE.BoxGeometry(0.28, 0.32, 0.92), lowerBody, { pos: [0.32, 0.44, 0], parent: hood });    // lower chin, receded + narrower, gloss black like the real bumper's lower valance
   add(new THREE.BoxGeometry(0.34, 0.24, 0.66), lowerBody, { pos: [0.42, 0.16, 0], parent: hood });    // bumper valance, further tucked under
 
-  // Grille insert — single dark panel across the mid face (not slats: the
-  // real grille reads as one large mesh insert), plus the chrome diagonal
-  // bar that's the VNL's signature front-end accent.
-  add(new THREE.BoxGeometry(0.03, 0.36, 1.1), grilleDark, { pos: [0.19, 0.8, 0], parent: hood });
-  add(new THREE.BoxGeometry(0.02, 1.05, 0.12), M.chrome, { pos: [0.185, 0.8, 0], rot: [0, 0, 0.55], shadow: false, parent: hood });
+  // Grille — the 2027 VNL860's reworked nose carries one large kite/diamond
+  // -shaped dark mesh insert dominating the face, not the classic VNL's
+  // rectangular panel + diagonal chrome slash (that accent isn't present on
+  // this specific restyle — checked both docs/reference/truck/
+  // 02-exterior-front-straight-on.png and 01-exterior-front-3q.png, neither
+  // shows it). Built as 3 stacked z-widths (narrow-wide-narrow) to
+  // approximate the kite silhouette; widest band ≈0.7× the nose width
+  // anchor (1.46 units, established below) per photo 02 — reasoned
+  // proportion, not pixel-measured off a clean crop.
+  add(new THREE.BoxGeometry(0.03, 0.14, 0.62), grilleDark, { pos: [0.19, 0.98, 0], parent: hood });
+  add(new THREE.BoxGeometry(0.03, 0.3, 1.02), grilleDark, { pos: [0.19, 0.8, 0], parent: hood });
+  add(new THREE.BoxGeometry(0.03, 0.16, 0.68), grilleDark, { pos: [0.19, 0.6, 0], parent: hood });
+  // Mesh texture slats across the widest band
+  for (let i = 0; i < 8; i++) {
+    add(new THREE.BoxGeometry(0.005, 0.28, 0.02), M.darkMetal, { pos: [0.205, 0.8, -0.45 + i * 0.13], shadow: false, parent: hood });
+  }
+  // Chrome perimeter trim tracing the kite outline's widest point (top/bottom edges)
+  add(new THREE.BoxGeometry(0.02, 0.02, 1.1), M.chrome, { pos: [0.2, 0.955, 0], shadow: false, parent: hood });
+  add(new THREE.BoxGeometry(0.02, 0.02, 1.1), M.chrome, { pos: [0.2, 0.645, 0], shadow: false, parent: hood });
+  // Circular Volvo badge, centered on the grille (chrome ring + dark disc,
+  // matching photo 02's straight-on view)
+  add(new THREE.CylinderGeometry(0.09, 0.09, 0.015, 24), M.chrome, { pos: [0.22, 0.8, 0], rot: [0, 0, Math.PI / 2], shadow: false, parent: hood });
+  add(new THREE.CylinderGeometry(0.07, 0.07, 0.02, 24), new THREE.MeshStandardMaterial({ color: 0x0a1a2e, metalness: 0.3, roughness: 0.3 }), { pos: [0.225, 0.8, 0], rot: [0, 0, Math.PI / 2], shadow: false, parent: hood });
 
-  // Headlight pods — round units at the mid-face outer corners (photo 01:
-  // roughly mid-height, well above the bumper), with an amber DRL/turn-
-  // signal strip running below them near the top of the valance. Lenses
-  // are lit (emissive) rather than flat white/orange, so they actually
-  // read as "on" per the reference photos instead of matte plastic disks —
-  // dedicated materials, not the shared M.white/M.orange used elsewhere.
+  // Headlights — the 2027 VNL860's reworked nose uses a sharp angular V-blade
+  // light unit cutting diagonally from the fender's top outer corner down
+  // toward the grille, not a round sealed-beam pod (docs/reference/truck/
+  // 02-exterior-front-straight-on.png shows a clean diagonal light strip at
+  // each corner, no round lens visible at all). Modeled as a tilted flat
+  // blade + amber DRL strip along its lower edge, same tilt angle, replacing
+  // the old round-pod-plus-separate-strip approach. Lenses stay emissive
+  // (dedicated materials, not shared M.white/M.orange) so they read as "on".
   const headlightLens = new THREE.MeshStandardMaterial({ color: 0xf5f7ff, emissive: 0xdfe6ff, emissiveIntensity: 0.8, roughness: 0.25 });
   const drlAmber = new THREE.MeshStandardMaterial({ color: 0xff8800, emissive: 0xff7700, emissiveIntensity: 0.85, roughness: 0.4 });
   [1, -1].forEach(s => {
-    add(new THREE.CylinderGeometry(0.14, 0.14, 0.05, 20), headlightLens, { pos: [0.16, 0.9, s * 0.63], rot: [0, 0, Math.PI / 2], shadow: false, parent: hood });
-    add(new THREE.CylinderGeometry(0.1, 0.1, 0.02, 16), M.chrome, { pos: [0.14, 0.9, s * 0.63], rot: [0, 0, Math.PI / 2], shadow: false, parent: hood });
-    add(new THREE.BoxGeometry(0.04, 0.05, 0.3), drlAmber, { pos: [0.29, 0.58, s * 0.6], shadow: false, parent: hood });
-    // Round fog light, inset in the lower bumper valance
-    add(new THREE.CylinderGeometry(0.06, 0.06, 0.03, 14), M.darkMetal, { pos: [0.44, 0.16, s * 0.42], rot: [0, 0, Math.PI / 2], shadow: false, parent: hood });
+    add(new THREE.BoxGeometry(0.05, 0.28, 0.09), headlightLens, { pos: [0.2, 0.92, s * 0.66], rot: [0, 0, s * 0.45], shadow: false, parent: hood });
+    add(new THREE.BoxGeometry(0.03, 0.3, 0.1), M.chrome, { pos: [0.17, 0.92, s * 0.66], rot: [0, 0, s * 0.45], shadow: false, parent: hood });
+    // Amber DRL strip along the blade's lower edge, continuing the same angle
+    add(new THREE.BoxGeometry(0.04, 0.22, 0.05), drlAmber, { pos: [0.24, 0.72, s * 0.58], rot: [0, 0, s * 0.45], shadow: false, parent: hood });
+    // Trapezoidal brake-cooling vent in the lower valance (photo 02: dark
+    // angular cutout, not a round fog light — fog/turn function moved into
+    // the headlight blade above on this restyle).
+    add(new THREE.BoxGeometry(0.05, 0.14, 0.22), M.black, { pos: [0.43, 0.18, s * 0.44], rot: [0, 0, s * 0.12], shadow: false, parent: hood });
   });
+  // Chrome splitter bar spanning the lower fascia between the two vents
+  // (light-colored horizontal strip visible across the bumper in photo 02)
+  add(new THREE.BoxGeometry(0.03, 0.03, 0.7), M.chrome, { pos: [0.46, 0.06, 0], shadow: false, parent: hood });
 
   // Small hood-mounted convex spotter mirror (white, body-color shell) —
   // visible low on the fender in photo 01, used for curbing the front wheel.
