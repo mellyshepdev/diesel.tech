@@ -750,18 +750,6 @@ export default function EngineViewer() {
   useEffect(() => {
     if (typeof window !== 'undefined') window.localStorage.setItem('diesel-tech-owned-sections', JSON.stringify([...ownedSections]));
   }, [ownedSections]);
-  // Reveal/hide the actual 3D geometry to match — the specialty drawer group
-  // and the whole decorative facade group already exist in the scene
-  // (buildVolvoD13), this just toggles .visible, same pattern as the
-  // hood-open/hotspot-markers effect above.
-  useEffect(() => {
-    const eg = engineGroupRef.current;
-    if (!eg) return;
-    const specialtyDrawer = eg.getObjectByName('toolbox-drawer-specialty');
-    if (specialtyDrawer) specialtyDrawer.visible = ownedSections.has('specialty-drawer');
-    const facade = eg.getObjectByName('toolbox-facade');
-    if (facade) facade.visible = ownedSections.has('facade-upgrade');
-  }, [ownedSections, isLoading]);
   const [sectionsPanelOpen, setSectionsPanelOpen] = useState(false);
   const buySection = (id: ToolboxSectionId) => {
     if (ownedSections.has(id)) return;
@@ -1471,6 +1459,21 @@ export default function EngineViewer() {
             : panRemoved && (activeRepair === 'pan-gasket' || allFiltersOff);
   const [autoRotate, setAutoRotate] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+  // Reveal/hide the actual 3D geometry to match ownedSections — the
+  // specialty drawer group and the whole decorative facade group already
+  // exist in the scene (buildVolvoD13), this just toggles .visible, same
+  // pattern as the hood-open/hotspot-markers effect above. Keyed on
+  // isLoading too so it re-syncs once the scene actually finishes building
+  // (ownedSections is seeded from localStorage before that, so the first
+  // run of this effect can land before engineGroupRef exists).
+  useEffect(() => {
+    const eg = engineGroupRef.current;
+    if (!eg) return;
+    const specialtyDrawer = eg.getObjectByName('toolbox-drawer-specialty');
+    if (specialtyDrawer) specialtyDrawer.visible = ownedSections.has('specialty-drawer');
+    const facade = eg.getObjectByName('toolbox-facade');
+    if (facade) facade.visible = ownedSections.has('facade-upgrade');
+  }, [ownedSections, isLoading]);
   const [loadProgress, setLoadProgress] = useState(0);
   const [screenPositions, setScreenPositions] = useState<Record<string, { x: number; y: number; visible: boolean }>>({});
   const [rpm, setRpm] = useState(800);
@@ -2341,7 +2344,7 @@ export default function EngineViewer() {
       {/* Toolbox Upgrades — buying the toolbox itself, section by section, as
           distinct from buying individual tools inside it (ToolPanel/TOOL_PRICES). */}
       {sectionsPanelOpen && !isLoading && (
-        <div className="absolute left-4 top-32 w-72 max-h-[70vh] overflow-y-auto bg-black/75 backdrop-blur-md border border-amber-400/25 rounded-xl p-3 z-30 space-y-2">
+        <div className="absolute left-4 top-32 w-72 max-w-[92vw] max-h-[70vh] overflow-y-auto bg-black/75 backdrop-blur-md border border-amber-400/25 rounded-xl p-3 z-30 space-y-2">
           <div className="flex items-center justify-between px-1">
             <span className="text-amber-300 text-xs font-bold tracking-widest uppercase">🔓 Toolbox Upgrades</span>
             <button onClick={() => setSectionsPanelOpen(false)} className="text-gray-500 hover:text-white text-sm">✕</button>
