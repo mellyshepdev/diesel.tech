@@ -993,6 +993,24 @@ export default function EngineViewer() {
     setAutoRotate(false);
   }, []);
 
+  /** Fly the camera to any named part still mounted on the truck (e.g. the
+   *  fifth wheel) without pulling it into inspectPart's isolated turntable —
+   *  it's structural, not something removed for repair. Frames it from
+   *  slightly above and behind, same eased cameraMove queue as focusDrawer. */
+  const focusTruckPart = useCallback((name: string, dist = 1.3) => {
+    const eg = engineGroupRef.current;
+    const obj = eg?.getObjectByName(name);
+    if (!eg || !obj) return;
+    const worldPos = new THREE.Vector3();
+    obj.getWorldPosition(worldPos);
+    eg.userData.cameraMove = {
+      pos: new THREE.Vector3(worldPos.x + dist * 0.5, worldPos.y + dist * 0.6, worldPos.z + dist * 0.85),
+      look: worldPos.clone(),
+    };
+    if (controlsRef.current) controlsRef.current.autoRotate = false;
+    setAutoRotate(false);
+  }, []);
+
   /** Open/close one purely-cosmetic facade drawer (no tools, no ToolPanel) —
    *  independent of toggleDrawer/openDrawer so several can be open at once. */
   const [openFacadeDrawers, setOpenFacadeDrawers] = useState<Set<string>>(new Set());
@@ -2002,6 +2020,7 @@ export default function EngineViewer() {
     if (inspecting) return;
     if (name === 'truck-door') { clickDoor(); return; }
     if (name === 'truck-hood') { clickHood(); return; }
+    if (name === 'truck-fifthwheel') { focusTruckPart('truck-fifthwheel'); return; }
     if (name.startsWith('truck-')) return;
     if (name.startsWith('toolbox-drawer-facade-')) {
       toggleFacadeDrawer(name);
@@ -2626,7 +2645,10 @@ export default function EngineViewer() {
                   ]).map(f => (
                     <button
                       key={f.key}
-                      onClick={() => setAxleChecked(prev => ({ ...prev, [f.key]: !prev[f.key] }))}
+                      onClick={() => {
+                        setAxleChecked(prev => ({ ...prev, [f.key]: !prev[f.key] }));
+                        if (f.key === 'fifthWheel') focusTruckPart('truck-fifthwheel');
+                      }}
                       className={`w-full flex items-center gap-2 p-2 rounded-lg border text-left transition ${
                         axleChecked[f.key] ? 'border-green-500/40 bg-green-500/10' : 'border-white/10 bg-white/5 hover:border-amber-400/40'
                       }`}
