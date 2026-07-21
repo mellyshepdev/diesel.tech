@@ -2291,13 +2291,6 @@ export default function EngineViewer() {
             )}
             {/* Engine selector */}
             <div className="flex flex-wrap items-center gap-1.5 mt-3 pointer-events-auto">
-              <button
-                onClick={() => startVehicle(null)}
-                className="px-2.5 py-1 text-[11px] font-bold rounded border transition-all uppercase tracking-wider text-gray-500 border-gray-700 hover:text-cyan-300 hover:border-cyan-500/50 bg-black/30"
-                title="Back to vehicle selection"
-              >
-                🚗 Vehicle
-              </button>
               {/* Engine choice moved to the vehicle-selection screen (see
                   #engine-select above) — this used to also render live here,
                   which meant every other engine option (and effectively every
@@ -2325,29 +2318,6 @@ export default function EngineViewer() {
               >
                 🧰 Toolbox
               </button>
-              <button
-                onClick={() => setReferenceOpen(o => !o)}
-                className={`px-2.5 py-1 text-[11px] font-bold rounded border transition-all uppercase tracking-wider ${
-                  referenceOpen
-                    ? 'text-cyan-300 border-cyan-400/60 bg-cyan-400/10'
-                    : 'text-gray-500 border-gray-700 hover:text-cyan-300 hover:border-cyan-500/50 bg-black/30'
-                }`}
-              >
-                📖 Reference
-              </button>
-              {TOOLBOX_SECTIONS.some(s => !ownedSections.has(s.id)) && (
-                <button
-                  onClick={() => { if (openDrawer) toggleDrawer(openDrawer); setSectionsPanelOpen(o => !o); }}
-                  className={`px-2.5 py-1 text-[11px] font-bold rounded border transition-all uppercase tracking-wider ${
-                    sectionsPanelOpen
-                      ? 'text-amber-300 border-amber-400/60 bg-amber-400/10'
-                      : 'text-gray-500 border-gray-700 hover:text-amber-300 hover:border-amber-500/50 bg-black/30'
-                  }`}
-                  title="Buy more of the toolbox — it starts as a 5-drawer chest and grows section by section"
-                >
-                  🔓 Toolbox Upgrades
-                </button>
-              )}
               </>)}
             </div>
           </div>
