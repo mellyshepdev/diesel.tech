@@ -4524,40 +4524,82 @@ export function buildVolvoD13(
   // Dash — swept panel behind the windshield (x 1.48), full cab width
   add(new THREE.BoxGeometry(0.22, 0.34, 1.66), dashDark, { pos: [1.58, 0.48, 0], parent: truckBody });
   add(new THREE.BoxGeometry(0.3, 0.05, 1.66), dashDark, { pos: [1.52, 0.66, 0], rot: [0, 0, -0.08], parent: truckBody }); // sloped top shelf toward the glass
-  add(new THREE.BoxGeometry(0.16, 0.16, 0.5), dashDark, { pos: [1.66, 0.5, -0.1], parent: truckBody }); // center stack (radio/climate, photo 21)
+  // Center stack — rebuilt 2026-07-21 against a direct look at photo 21
+  // (previous pass was a bare box + 4 identical chrome discs, which read as
+  // "vague knobs" instead of a real control stack). Real stack, top to
+  // bottom: an open storage cubby + hazard button, red/yellow pull knobs
+  // level with the vents (not down at radio height), toggle row, a radio
+  // with a small green display, three large HVAC rotary dials, then two
+  // rows of labeled rocker switches with green tell-tale lights. Enlarged
+  // the stack volume (was 0.16 tall) to actually fit that stack of controls.
+  // Driver-facing surface is the stack's +x face (x 1.74, same convention
+  // the old knob cluster already used) — everything below sits at x≈1.745,
+  // proud of that face so it doesn't z-fight the stack body.
+  add(new THREE.BoxGeometry(0.16, 0.3, 0.5), dashDark, { pos: [1.66, 0.5, -0.1], parent: truckBody }); // center stack body
   // Louvered air vents along the top-shelf edge (photo 21: three vents run
-  // driver-to-passenger just above the radio/climate stack)
+  // driver-to-passenger just above the stack)
   [-0.55, -0.05, 0.45].forEach(z => {
     add(new THREE.BoxGeometry(0.05, 0.03, 0.16), M.darkMetal, { pos: [1.62, 0.635, z], rot: [0, 0, -0.08], shadow: false, parent: truckBody });
   });
-  // Radio/climate knob cluster on the center stack face (photo 21)
-  [[-0.06, 0.06], [0.06, 0.06], [-0.06, -0.06], [0.06, -0.06]].forEach(([dy, dz]) => {
-    add(new THREE.CylinderGeometry(0.018, 0.018, 0.01, 12), M.chrome, { pos: [1.74, 0.5 + dy, -0.1 + dz], rot: [0, 0, Math.PI / 2], shadow: false, parent: truckBody });
+  // Open storage cubby, recessed into the stack's top (photo 21's most
+  // eye-catching feature — an empty bin, not another control)
+  add(new THREE.BoxGeometry(0.08, 0.09, 0.24), M.black, { pos: [1.71, 0.605, -0.28], parent: truckBody });
+  add(new THREE.BoxGeometry(0.02, 0.1, 0.26), dashDark, { pos: [1.755, 0.605, -0.28], shadow: false, parent: truckBody }); // cubby lip/rim
+  // Hazard-warning button, upper corner next to the cubby
+  add(new THREE.BoxGeometry(0.015, 0.03, 0.035), M.red, { pos: [1.755, 0.64, -0.42], shadow: false, parent: truckBody });
+  // Red trailer-air-supply + yellow parking-brake pull knobs, level with the
+  // vents (photo 21 — these sit noticeably higher than the radio/HVAC, not
+  // beside them)
+  add(new THREE.CylinderGeometry(0.022, 0.022, 0.03, 12), M.red, { pos: [1.755, 0.6, -0.1], rot: [0, 0, Math.PI / 2], parent: truckBody });
+  add(new THREE.CylinderGeometry(0.022, 0.022, 0.03, 12), M.yellow, { pos: [1.755, 0.6, -0.02], rot: [0, 0, Math.PI / 2], parent: truckBody });
+  // Small toggle-switch row directly under the pull knobs
+  for (let i = 0; i < 3; i++) {
+    add(new THREE.BoxGeometry(0.012, 0.02, 0.03), M.black, { pos: [1.755, 0.555, -0.16 + i * 0.06], shadow: false, parent: truckBody });
+  }
+  // Radio: dark face with a small green display, between the knobs and the HVAC dials
+  add(new THREE.BoxGeometry(0.015, 0.07, 0.22), new THREE.MeshStandardMaterial({ color: 0x0d0f10, roughness: 0.4 }), { pos: [1.75, 0.5, -0.1], shadow: false, parent: truckBody });
+  add(new THREE.BoxGeometry(0.008, 0.025, 0.09), new THREE.MeshStandardMaterial({ color: 0x0d2a1c, emissive: 0x1aff66, emissiveIntensity: 0.5, roughness: 0.3 }), { pos: [1.756, 0.51, -0.1], shadow: false, parent: truckBody });
+  // Three HVAC rotary dials (fan/temp/mode) — larger and more prominent than
+  // the old 4-disc grid, matching the photo's three big climate knobs
+  [-0.18, -0.02, 0.14].forEach(z => {
+    add(new THREE.CylinderGeometry(0.032, 0.032, 0.014, 16), M.darkMetal, { pos: [1.75, 0.435, z], rot: [0, 0, Math.PI / 2], parent: truckBody });
+    add(new THREE.CylinderGeometry(0.034, 0.034, 0.004, 16), M.chrome, { pos: [1.757, 0.435, z], rot: [0, 0, Math.PI / 2], shadow: false, parent: truckBody }); // bezel ring
   });
-  // Red trailer-air-supply + yellow parking-brake pull knobs (photo 21 —
-  // same red/yellow pairing the 2D in-cab overlay already uses)
-  add(new THREE.CylinderGeometry(0.022, 0.022, 0.03, 12), M.red, { pos: [1.74, 0.52, 0.18], rot: [0, 0, Math.PI / 2], parent: truckBody });
-  add(new THREE.CylinderGeometry(0.022, 0.022, 0.03, 12), M.yellow, { pos: [1.74, 0.52, 0.26], rot: [0, 0, Math.PI / 2], parent: truckBody });
+  // Two rows of labeled rocker switches at the base of the stack, each with
+  // a small green tell-tale (photo 21: two full banks of switches below the climate dials)
+  [0.375, 0.345].forEach(y => {
+    for (let i = 0; i < 4; i++) {
+      const z = -0.24 + i * 0.1;
+      add(new THREE.BoxGeometry(0.012, 0.022, 0.05), M.black, { pos: [1.755, y, z], shadow: false, parent: truckBody });
+      add(new THREE.BoxGeometry(0.004, 0.006, 0.008), new THREE.MeshStandardMaterial({ color: 0x1aff66, emissive: 0x1aff66, emissiveIntensity: 0.6 }), { pos: [1.762, y + 0.007, z], shadow: false, parent: truckBody });
+    }
+  });
 
   // Steering column + wheel, driver side (+z, matches the door above).
   // Wheel parts grouped so the rim/spokes/hub all share one raked tilt
-  // instead of repeating the same rot on every mesh (photo 22: thick
-  // button-pad spokes at 9/3 o'clock, thin lower spoke, chrome-ringed
-  // center badge, digital cluster visible through the rim).
+  // instead of repeating the same rot on every mesh. Rebuilt 2026-07-21
+  // against a direct look at photo 22: the rim is thick/padded (not a thin
+  // ring), the button pads at 9/3 o'clock are wide flat control surfaces
+  // (cruise/gear-mode buttons), and — the biggest miss in the old build —
+  // the chrome-ringed VOLVO badge sits on a large boss LOW on the wheel
+  // (the driver's horn pad), not centered on the hub with a tiny disc.
   add(new THREE.CylinderGeometry(0.025, 0.03, 0.35, 10), dashDark, { pos: [1.62, 0.58, 0.5], rot: [0, 0, Math.PI / 2.6], parent: truckBody });
   const wheel = new THREE.Group();
   wheel.position.set(1.5, 0.72, 0.5);
   wheel.rotation.set(1.15, 0, 0);
   truckBody.add(wheel);
-  add(new THREE.TorusGeometry(0.16, 0.02, 10, 20), M.black, { pos: [0, 0, 0], parent: wheel });
-  [-1, 1].forEach(s => { // button-pad spokes at local 9/3 o'clock
-    add(new THREE.BoxGeometry(0.1, 0.05, 0.015), M.black, { pos: [s * 0.09, 0, 0], parent: wheel });
-    add(new THREE.BoxGeometry(0.06, 0.03, 0.008), M.darkMetal, { pos: [s * 0.09, 0.012, 0.009], shadow: false, parent: wheel });
+  add(new THREE.TorusGeometry(0.16, 0.032, 12, 24), M.black, { pos: [0, 0, 0], parent: wheel }); // thick padded rim
+  [-1, 1].forEach(s => { // wide button-pad spokes at local 9/3 o'clock
+    add(new THREE.BoxGeometry(0.13, 0.07, 0.02), M.black, { pos: [s * 0.1, 0, 0], parent: wheel });
+    [-1, 1].forEach(f => {
+      add(new THREE.BoxGeometry(0.035, 0.02, 0.01), M.darkMetal, { pos: [s * 0.1, f * 0.02, 0.011], shadow: false, parent: wheel }); // button pair
+    });
   });
-  add(new THREE.BoxGeometry(0.03, 0.11, 0.015), M.black, { pos: [0, -0.1, 0], parent: wheel }); // thin lower spoke
-  add(new THREE.CylinderGeometry(0.04, 0.04, 0.03, 16), M.black, { pos: [0, 0, 0], rot: [Math.PI / 2, 0, 0], parent: wheel }); // hub
-  add(new THREE.TorusGeometry(0.038, 0.006, 8, 16), M.chrome, { pos: [0, 0, 0.016], parent: wheel }); // hub chrome ring
-  add(new THREE.CylinderGeometry(0.03, 0.03, 0.01, 16), M.chrome, { pos: [0, 0, 0.016], rot: [Math.PI / 2, 0, 0], shadow: false, parent: wheel }); // badge disc
+  add(new THREE.CylinderGeometry(0.035, 0.035, 0.04, 16), M.black, { pos: [0, 0, 0], rot: [Math.PI / 2, 0, 0], parent: wheel }); // center hub, small — the badge sits lower, not here
+  // Lower boss/horn pad — the real focal point, well below the hub center
+  add(new THREE.CylinderGeometry(0.075, 0.075, 0.05, 20), M.black, { pos: [0, -0.11, 0.01], rot: [Math.PI / 2, 0, 0], parent: wheel });
+  add(new THREE.TorusGeometry(0.07, 0.008, 10, 24), M.chrome, { pos: [0, -0.11, 0.036], parent: wheel }); // chrome bezel ring
+  add(new THREE.CylinderGeometry(0.058, 0.058, 0.012, 20), new THREE.MeshStandardMaterial({ color: 0x1a1c1f, metalness: 0.4, roughness: 0.35 }), { pos: [0, -0.11, 0.038], rot: [Math.PI / 2, 0, 0], shadow: false, parent: wheel }); // dark roundel face (VOLVO badge)
   // Gauge-cluster hood behind the wheel (photo 22: thin digital bar display)
   add(new THREE.BoxGeometry(0.06, 0.14, 0.2), dashDark, { pos: [1.585, 0.62, 0.5], rot: [0.15, 0, 0], parent: truckBody });
   add(new THREE.BoxGeometry(0.01, 0.1, 0.16), new THREE.MeshStandardMaterial({ color: 0x1b2a22, roughness: 0.3 }), { pos: [1.614, 0.625, 0.5], rot: [0.15, 0, 0], shadow: false, parent: truckBody }); // display face
