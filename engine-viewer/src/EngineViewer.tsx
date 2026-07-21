@@ -4280,6 +4280,47 @@ export function buildVolvoD13(
     });
   });
 
+  // Brake drums, chambers, and slack adjusters — the Annual Inspection job's
+  // "brake pads/shoes and drums/rotors" checkpoint (~line 2084/2609) had no
+  // matching 3D geometry at all, just checklist text. No dedicated photo of
+  // this truck's actual brake hardware exists (a drum sits behind the wheel
+  // on an assembled truck and was never a distinct photo subject in
+  // docs/reference/truck/), so this is built from standardized S-cam
+  // air-brake construction — same class of call already made for the
+  // starter motor and the WABCO air compressor (no this-truck photo, but a
+  // real, standardized part, not a guess). Medium/low confidence; flag for
+  // a real close-up photo if one becomes available.
+  // Drum radius anchored off the tire radius (wheelAt's 0.5-unit cylinder
+  // above): a real 16.5in drum on a ~43in tire is ≈0.38× the tire radius
+  // (→0.19), rounded up slightly so the drum edge visibly peeks out past
+  // the existing 0.22-radius chrome hub cover, matching real trucks.
+  const brakeAssemblyAt = (ax: number, wz: number, hasParkingSpring: boolean) => {
+    const inward = wz > 0 ? -1 : 1; // toward the frame centerline, away from the wheel
+    const bz = wz + inward * 0.16; // drum sits inboard of the wheel/hub
+    // Cast-iron drum — reuses the turbo/exhaust castIron material, same raw-casting finish family
+    add(new THREE.CylinderGeometry(0.24, 0.24, 0.16, 20), castIron, { pos: [ax, -0.6, bz], rot: [Math.PI / 2, 0, 0], parent: truckBody });
+    // Backing plate / spider, flush against the drum's inboard face
+    add(new THREE.CylinderGeometry(0.2, 0.2, 0.02, 20), M.darkMetal, { pos: [ax, -0.6, bz + inward * 0.09], rot: [Math.PI / 2, 0, 0], shadow: false, parent: truckBody });
+    // Brake chamber, mounted to the axle housing above the drum
+    const chamberZ = bz + inward * 0.22;
+    if (hasParkingSpring) {
+      // Spring (parking) brake chamber on drive axles — the real two-diameter
+      // "step" can: larger spring section outboard, smaller service section inboard
+      add(new THREE.CylinderGeometry(0.13, 0.13, 0.14, 16), M.darkTeal, { pos: [ax, -0.42, chamberZ], rot: [Math.PI / 2, 0, 0], parent: truckBody });
+      add(new THREE.CylinderGeometry(0.1, 0.1, 0.1, 16), M.darkTeal, { pos: [ax, -0.42, chamberZ + inward * 0.12], rot: [Math.PI / 2, 0, 0], parent: truckBody });
+    } else {
+      // Steer axle: single-diaphragm service chamber only, no parking spring
+      add(new THREE.CylinderGeometry(0.1, 0.1, 0.1, 16), M.darkTeal, { pos: [ax, -0.42, chamberZ], rot: [Math.PI / 2, 0, 0], parent: truckBody });
+    }
+    // Pushrod + slack adjuster arm, linking the chamber down to the S-cam
+    add(new THREE.CylinderGeometry(0.012, 0.012, 0.14, 8), M.brushedMetal, { pos: [ax, -0.52, chamberZ], rot: [Math.PI / 2, 0, 0], shadow: false, parent: truckBody });
+    add(new THREE.BoxGeometry(0.03, 0.16, 0.03), M.darkMetal, { pos: [ax + 0.02, -0.58, bz + inward * 0.05], rot: [0, 0, 0.3 * inward], shadow: false, parent: truckBody });
+    // S-cam shaft stub through the backing plate
+    add(new THREE.CylinderGeometry(0.02, 0.02, 0.06, 8), M.brushedMetal, { pos: [ax, -0.6, bz + inward * 0.1], rot: [Math.PI / 2, 0, 0], shadow: false, parent: truckBody });
+  };
+  [[-1.5, 0.75], [-1.5, -0.75]].forEach(([wx, wz]) => brakeAssemblyAt(wx, wz, false));
+  [AXLE1_X, AXLE2_X].forEach(ax => [0.78, -0.78].forEach(wz => brakeAssemblyAt(ax, wz, true)));
+
   // Fifth wheel — bolted to a support frame above the rails, just ahead of
   // the forward tandem axle (fixed-mount; real sliders can move but this rig
   // doesn't need that). Photo 06/09 anchor: greasy worn-steel casting, plate

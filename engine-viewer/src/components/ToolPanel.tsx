@@ -71,8 +71,8 @@ export const TOOLS: Record<Tool, { name: string; icon: string; desc: string }> =
   dialIndicator: { name: "Dial Indicator Kit", icon: "🎯", desc: "9989876 + ext 85111493 + base 9999696" },
   barringTool: { name: "Turning Tool 88800014", icon: "🔄", desc: "Bar the engine over at the flywheel" },
   // ── general ──
-  ratchet: { name: "Ratchet Wrench", icon: "🔧", desc: "Reversible ratchet drive" },
-  snapOnRatchet: { name: "Snap-on Ratcheting Wrench", icon: "🔧", desc: "72-tooth reversible — takes 3\" or 6\" extensions" },
+  ratchet: { name: "1/2\" Drive Ratchet", icon: "🔧", desc: "Reversible ratchet drive, Snap-on-style head — standard 1/2\" sockets" },
+  snapOnRatchet: { name: "Snap-on 1/4\" Ratcheting Wrench", icon: "🔧", desc: "72-tooth reversible — takes 3\" or 6\" extensions, 1/4\" drive" },
   extension: { name: "Extension Bar", icon: "📏", desc: "Reach deep bolts" },
   drainPan: { name: "Drain Pan", icon: "🛢️", desc: "Catch draining oil" },
   funnel: { name: "Funnel", icon: "🫗", desc: "Pour new oil" },
