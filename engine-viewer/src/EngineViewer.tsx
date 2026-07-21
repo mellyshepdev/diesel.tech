@@ -958,6 +958,7 @@ export default function EngineViewer() {
       pos: new THREE.Vector3(1.5, 0.9, -2.7),
       look: new THREE.Vector3(-0.35, -0.1, -7.5),
     };
+    setView('toolbox');
     controlsRef.current.autoRotate = false;
     setAutoRotate(false);
   }, []);
@@ -989,6 +990,7 @@ export default function EngineViewer() {
       pos: new THREE.Vector3(worldPos.x, worldPos.y + dist * 0.94, worldPos.z + dist * 0.3),
       look: worldPos.clone(),
     };
+    setView('toolbox');
     if (controlsRef.current) controlsRef.current.autoRotate = false;
     setAutoRotate(false);
   }, []);
@@ -1007,6 +1009,7 @@ export default function EngineViewer() {
       pos: new THREE.Vector3(worldPos.x + dist * 0.5, worldPos.y + dist * 0.6, worldPos.z + dist * 0.85),
       look: worldPos.clone(),
     };
+    setView('truck');
     if (controlsRef.current) controlsRef.current.autoRotate = false;
     setAutoRotate(false);
   }, []);
@@ -1498,6 +1501,12 @@ export default function EngineViewer() {
           : activeRepair === 'hood-cable'
             ? hoodCableStep >= HOOD_CABLE_STEPS.length
             : panRemoved && (activeRepair === 'pan-gasket' || allFiltersOff);
+  // Which camera "zone" is currently framed — drives the left/right arrow
+  // overlay that switches between the truck and the toolbox. Set wherever
+  // the camera is deliberately sent to one side or the other (resetCamera /
+  // focusTruckPart → truck, focusToolbox / focusDrawer → toolbox); left
+  // untouched by focused repair close-ups so the arrow doesn't flicker mid-job.
+  const [view, setView] = useState<'truck' | 'toolbox'>('truck');
   const [autoRotate, setAutoRotate] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   // Reveal/hide the actual 3D geometry to match ownedSections — the
