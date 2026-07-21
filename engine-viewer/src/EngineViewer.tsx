@@ -997,6 +997,12 @@ export default function EngineViewer() {
    *  independent of toggleDrawer/openDrawer so several can be open at once. */
   const [openFacadeDrawers, setOpenFacadeDrawers] = useState<Set<string>>(new Set());
   const toggleFacadeDrawer = useCallback((name: string) => {
+    // The facade wall itself is invisible until bought — Three.js raycasts
+    // still hit invisible geometry (Raycaster doesn't check .visible), so
+    // without this guard a click landing on the plain unbroken cabinet panel
+    // that's standing in for the not-yet-purchased facade would silently
+    // toggle hidden drawer state.
+    if (!ownedSections.has('facade-upgrade')) return;
     const eg = engineGroupRef.current;
     const obj = eg?.getObjectByName(name);
     if (!obj) return;
@@ -1007,7 +1013,7 @@ export default function EngineViewer() {
       setSlide(name, 'z', open ? obj.userData.openZ : obj.userData.closedZ);
       return next;
     });
-  }, [setSlide]);
+  }, [setSlide, ownedSections]);
 
   /** Open/close one toolbox drawer, closing whichever was previously open. */
   const toggleDrawer = useCallback((key: DrawerKey) => {
