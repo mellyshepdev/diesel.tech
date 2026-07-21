@@ -4482,19 +4482,31 @@ export function buildVolvoD13(
   add(new THREE.BoxGeometry(0.28, 0.32, 0.92), lowerBody, { pos: [0.32, 0.44, 0], parent: hood });    // lower chin, receded + narrower, gloss black like the real bumper's lower valance
   add(new THREE.BoxGeometry(0.34, 0.24, 0.66), lowerBody, { pos: [0.42, 0.16, 0], parent: hood });    // bumper valance, further tucked under
 
-  // Grille insert — single dark panel across the mid face (not slats: the
-  // real grille reads as one large mesh insert), plus the chrome diagonal
-  // bar that's the VNL's signature front-end accent.
-  add(new THREE.BoxGeometry(0.03, 0.36, 1.1), grilleDark, { pos: [0.19, 0.8, 0], parent: hood });
-  add(new THREE.BoxGeometry(0.02, 1.05, 0.12), M.chrome, { pos: [0.185, 0.8, 0], rot: [0, 0, 0.55], shadow: false, parent: hood });
+  // Grille — reworked to match the redesigned VNL860 shield grille actually
+  // shown in docs/reference/truck/01-exterior-front-3q.png and
+  // 02-exterior-front-straight-on.png (a much newer/sharper design than the
+  // old round-pod-and-single-diagonal-bar front end this replaces): a wide
+  // black insert with a crossed lattice of thin ridges standing in for the
+  // diamond mesh (no real mesh texture available), a slim chrome surround
+  // peeking out behind it, and the round Volvo badge centered above it where
+  // the hood's center crease meets the grille top.
+  add(new THREE.BoxGeometry(0.03, 0.42, 1.05), grilleDark, { pos: [0.19, 0.78, 0], parent: hood });
+  add(new THREE.BoxGeometry(0.012, 0.46, 1.1), M.chrome, { pos: [0.172, 0.78, 0], shadow: false, parent: hood });
+  for (let i = -3; i <= 3; i++) {
+    add(new THREE.BoxGeometry(0.012, 0.55, 0.028), M.darkMetal, { pos: [0.207, 0.78, i * 0.145], rot: [0, 0, 0.62], shadow: false, parent: hood });
+    add(new THREE.BoxGeometry(0.012, 0.55, 0.028), M.darkMetal, { pos: [0.207, 0.78, i * 0.145], rot: [0, 0, -0.62], shadow: false, parent: hood });
+  }
+  add(new THREE.CylinderGeometry(0.06, 0.06, 0.016, 20), M.chrome, { pos: [0.225, 1.005, 0], rot: [0, 0, Math.PI / 2], shadow: false, parent: hood });
+  add(new THREE.CylinderGeometry(0.048, 0.048, 0.022, 20), M.darkMetal, { pos: [0.228, 1.005, 0], rot: [0, 0, Math.PI / 2], shadow: false, parent: hood });
 
-  // Headlight pods — round units at the mid-face outer corners (photo 01:
-  // roughly mid-height, well above the bumper), with an amber DRL strip
-  // running below them near the top of the valance.
+  // Headlight blades — swept diagonal units running from the upper fender
+  // corner down toward the bumper (photo 03, driver 3/4: a long angular
+  // "blade", not a round pod), dark glass-lens body in a chrome bezel with
+  // a short amber DRL accent near its lower/outer tip.
   [1, -1].forEach(s => {
-    add(new THREE.CylinderGeometry(0.14, 0.14, 0.05, 20), M.white, { pos: [0.16, 0.9, s * 0.63], rot: [0, 0, Math.PI / 2], shadow: false, parent: hood });
-    add(new THREE.CylinderGeometry(0.1, 0.1, 0.02, 16), M.chrome, { pos: [0.14, 0.9, s * 0.63], rot: [0, 0, Math.PI / 2], shadow: false, parent: hood });
-    add(new THREE.BoxGeometry(0.04, 0.05, 0.3), M.orange, { pos: [0.29, 0.58, s * 0.6], shadow: false, parent: hood });
+    add(new THREE.BoxGeometry(0.05, 0.44, 0.15), glass, { pos: [0.2, 0.8, s * 0.66], rot: [0, 0, s * 0.5], shadow: false, parent: hood });
+    add(new THREE.BoxGeometry(0.015, 0.46, 0.16), M.chrome, { pos: [0.185, 0.8, s * 0.66], rot: [0, 0, s * 0.5], shadow: false, parent: hood });
+    add(new THREE.BoxGeometry(0.03, 0.14, 0.05), M.orange, { pos: [0.21, 0.62, s * 0.71], rot: [0, 0, s * 0.5], shadow: false, parent: hood });
     // Round fog light, inset in the lower bumper valance
     add(new THREE.CylinderGeometry(0.06, 0.06, 0.03, 14), M.darkMetal, { pos: [0.44, 0.16, s * 0.42], rot: [0, 0, Math.PI / 2], shadow: false, parent: hood });
   });
