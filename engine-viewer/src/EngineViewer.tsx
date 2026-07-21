@@ -291,32 +291,51 @@ const LEVELS: { level: number; title: string; coinsRequired: number }[] = [
 const levelForCoins = (coins: number) => [...LEVELS].reverse().find(l => coins >= l.coinsRequired) ?? LEVELS[0];
 const nextLevel = (level: number) => LEVELS.find(l => l.level === level + 1);
 
-// Toolbox sections: the physical Snap-on "MR. BIG" wall (see the toolbox
-// build section, ~line 4300+) is never deleted or rebuilt smaller — a new
-// tech just doesn't own most of it yet. Starting kit is 5 drawers (both
-// socket drawers, both wrench drawers, general); the specialty Volvo-tool
-// drawer and the wall's decorative facade/lockers are bought section by
-// section as the two purchasable upgrades. Unowned sections are hidden via
-// `.visible` on their existing group (`toolbox-drawer-specialty` /
-// `toolbox-facade`), not deleted — same "never delete, only reveal" spirit
-// as the rest of this project's geometry rules.
-type ToolboxSectionId = 'specialty-drawer' | 'facade-upgrade';
+// Toolbox growth: a first-level tech's cart is genuinely small — a
+// waist/chest-high, 4-caster, 5-drawer rectangular rolling cart (all 5 tool
+// categories already live in it: both socket drawers, both wrench drawers,
+// and the merged misc drawer — nothing is locked behind a section
+// purchase). Buying a TOOLBOX_SECTIONS entry grows the cart's actual built
+// geometry — more drawer-bank capacity, then the full "MR. BIG" wall
+// hutch/end lockers — it never unlocks a new tool category. See
+// `buildToolboxGroup` (module-level, so a purchase can rebuild just this
+// subtree at runtime) and `readOwnedToolboxSections`.
+export type ToolboxSectionId = 'bankB' | 'bankC' | 'lockers';
 const TOOLBOX_SECTIONS: { id: ToolboxSectionId; label: string; desc: string; price: number; minLevel: number }[] = [
   {
-    id: 'specialty-drawer',
-    label: 'Specialty Drawer',
-    desc: 'Unlocks the Volvo service-tools drawer (filter wrench, line wrench, torque wrench, feeler gauges, dial indicator, barring tool) — still bought individually once the drawer itself is open.',
-    price: 150,
+    id: 'bankB',
+    label: 'Second Drawer Bank',
+    desc: 'A matching bay of facade drawers bolts on next to the cart — more staging room, still counter height.',
+    price: 400,
     minLevel: 2,
   },
   {
-    id: 'facade-upgrade',
-    label: 'Full Wall Upgrade',
-    desc: 'The rest of the Snap-on "MR. BIG" wall: side lockers, chrome trim, every decorative drawer face. Cosmetic — no new functional drawers — but this is what turns the starter 5-drawer chest into the whole dealer setup.',
+    id: 'bankC',
+    label: 'Third Drawer Bank ("MR. BIG")',
+    desc: 'The deep "MR. BIG" bottom drawer joins the line — the cart is now a full rolling bench.',
+    price: 600,
+    minLevel: 3,
+  },
+  {
+    id: 'lockers',
+    label: 'End Lockers & Hutch',
+    desc: 'Tall lockers bolt onto both ends and a canopy hutch with Snap-on signage rises across the top — the complete "MR. BIG" wall chest.',
     price: 500,
     minLevel: 4,
   },
 ];
+/** Read which toolbox sections are owned straight from localStorage — used
+ *  both to seed the very first scene build (buildVolvoD13 is a module-level
+ *  function with no React state access) and to initialize the component's
+ *  persisted `ownedSections` state. */
+function readOwnedToolboxSections(): Set<ToolboxSectionId> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const saved = JSON.parse(window.localStorage.getItem('diesel-tech-owned-sections') ?? '[]');
+    const valid = new Set(TOOLBOX_SECTIONS.map(s => s.id));
+    return new Set(Array.isArray(saved) ? saved.filter((s: unknown): s is ToolboxSectionId => valid.has(s as ToolboxSectionId)) : []);
+  } catch { return new Set(); }
+}
 
 // The real D13 pan is clamped by 22 spring-tension screws (QRG p.14/35):
 // 8 along each long side of the flange, 3 across each end.
@@ -740,13 +759,7 @@ export default function EngineViewer() {
     setServiceMsg(`🧰 Bought the ${TOOLS[tool].name} for 🪙 ${price} — it's in the drawer now.`);
   };
   // Toolbox sections owned (see TOOLBOX_SECTIONS) — persisted like ownedTools.
-  const [ownedSections, setOwnedSections] = useState<Set<ToolboxSectionId>>(() => {
-    if (typeof window === 'undefined') return new Set();
-    try {
-      const saved = JSON.parse(window.localStorage.getItem('diesel-tech-owned-sections') ?? '[]');
-      return new Set(Array.isArray(saved) ? saved : []);
-    } catch { return new Set(); }
-  });
+  const [ownedSections, setOwnedSections] = useState<Set<ToolboxSectionId>>(() => readOwnedToolboxSections());
   useEffect(() => {
     if (typeof window !== 'undefined') window.localStorage.setItem('diesel-tech-owned-sections', JSON.stringify([...ownedSections]));
   }, [ownedSections]);
@@ -762,9 +775,23 @@ export default function EngineViewer() {
       setServiceMsg(`Not enough coins for the ${section.label} — need 🪙 ${section.price}, you have 🪙 ${coins}.`);
       return;
     }
+    const next = new Set(ownedSections).add(id);
     setCoins(c => c - section.price);
-    setOwnedSections(prev => new Set(prev).add(id));
-    setServiceMsg(`🧰 Bought the ${section.label} for 🪙 ${section.price}!`);
+    setOwnedSections(next);
+    // Live rebuild: swap the toolbox-chest subtree in place (no full scene
+    // reload, so nothing else in progress — repairs, camera, etc. — resets).
+    // The spare-compressor prop is an existing object, just re-parented onto
+    // the new group's counter anchor, not rebuilt.
+    const eg = engineGroupRef.current;
+    const oldToolbox = eg?.getObjectByName('toolbox-chest');
+    if (eg && oldToolbox) {
+      const compressor = oldToolbox.getObjectByName('toolbox-air-compressor');
+      const newToolbox = buildToolboxGroup(next);
+      if (compressor) newToolbox.getObjectByName('toolbox-counter-anchor')?.add(compressor);
+      eg.remove(oldToolbox);
+      eg.add(newToolbox);
+    }
+    setServiceMsg(`🧰 Bought the ${section.label} for 🪙 ${section.price} — the cart just grew.`);
   };
   // Account login (Keycloak, blacksheep realm): makes coins/ownedTools follow
   // the player instead of just this browser's localStorage. `progressLoaded`
@@ -993,12 +1020,10 @@ export default function EngineViewer() {
     setAutoRotate(false);
   }, []);
 
-  /** Open/close one toolbox drawer, closing whichever was previously open. */
+  /** Open/close one toolbox drawer, closing whichever was previously open.
+   *  All 5 drawers on the starter cart are usable from day one — nothing is
+   *  gated behind a TOOLBOX_SECTIONS purchase, those only grow capacity. */
   const toggleDrawer = useCallback((key: DrawerKey) => {
-    if (key === 'specialty' && !ownedSections.has('specialty-drawer')) {
-      setServiceMsg(`🔒 That drawer isn't yours yet — buy the Specialty Drawer section (🪙 ${TOOLBOX_SECTIONS.find(s => s.id === 'specialty-drawer')!.price}) in 🔓 Toolbox Upgrades first.`);
-      return;
-    }
     setSectionsPanelOpen(false);
     const eg = engineGroupRef.current;
     const slideDrawer = (k: DrawerKey, open: boolean) => {
@@ -1013,7 +1038,7 @@ export default function EngineViewer() {
       focusDrawer(key);
       return key;
     });
-  }, [setSlide, focusToolbox, focusDrawer, ownedSections]);
+  }, [setSlide, focusToolbox, focusDrawer]);
 
   const clickDoor = () => {
     if (!doorUnlocked) {
@@ -1431,7 +1456,7 @@ export default function EngineViewer() {
     }
     const neededTool = REPAIR_REQUIRED_TOOL[id];
     if (neededTool && !ownedTools.has(neededTool)) {
-      setServiceMsg(`🔒 You need the ${TOOLS[neededTool].name} for this job — buy it in the 🧰 Toolbox's Specialty drawer (🪙 ${TOOL_PRICES[neededTool]}).`);
+      setServiceMsg(`🔒 You need the ${TOOLS[neededTool].name} for this job — buy it in the cart's Misc drawer (🪙 ${TOOL_PRICES[neededTool]}).`);
       return;
     }
     // PM Service and Annual Inspection need no hood/cab walk-around — the
@@ -1460,21 +1485,6 @@ export default function EngineViewer() {
             : panRemoved && (activeRepair === 'pan-gasket' || allFiltersOff);
   const [autoRotate, setAutoRotate] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
-  // Reveal/hide the actual 3D geometry to match ownedSections — the
-  // specialty drawer group and the whole decorative facade group already
-  // exist in the scene (buildVolvoD13), this just toggles .visible, same
-  // pattern as the hood-open/hotspot-markers effect above. Keyed on
-  // isLoading too so it re-syncs once the scene actually finishes building
-  // (ownedSections is seeded from localStorage before that, so the first
-  // run of this effect can land before engineGroupRef exists).
-  useEffect(() => {
-    const eg = engineGroupRef.current;
-    if (!eg) return;
-    const specialtyDrawer = eg.getObjectByName('toolbox-drawer-specialty');
-    if (specialtyDrawer) specialtyDrawer.visible = ownedSections.has('specialty-drawer');
-    const facade = eg.getObjectByName('toolbox-facade');
-    if (facade) facade.visible = ownedSections.has('facade-upgrade');
-  }, [ownedSections, isLoading]);
   const [loadProgress, setLoadProgress] = useState(0);
   const [screenPositions, setScreenPositions] = useState<Record<string, { x: number; y: number; visible: boolean }>>({});
   const [rpm, setRpm] = useState(800);
@@ -2262,7 +2272,7 @@ export default function EngineViewer() {
                 🔧 Repairs
               </button>
               <button
-                onClick={() => toggleDrawer(openDrawer ?? 'general')}
+                onClick={() => toggleDrawer(openDrawer ?? 'misc')}
                 className={`px-2.5 py-1 text-[11px] font-bold rounded border transition-all uppercase tracking-wider ${
                   openDrawer
                     ? 'text-cyan-300 border-cyan-400/60 bg-cyan-400/10'
@@ -2435,7 +2445,7 @@ export default function EngineViewer() {
                       </div>
                     ) : toolLocked ? (
                       <div className="text-gray-500 text-xs mt-1 leading-relaxed">
-                        Needs the {TOOLS[neededTool!].name} — buy it in the 🧰 Toolbox Specialty drawer (🪙 {TOOL_PRICES[neededTool!]})
+                        Needs the {TOOLS[neededTool!].name} — buy it in the cart's Misc drawer (🪙 {TOOL_PRICES[neededTool!]})
                       </div>
                     ) : (
                       <div className="text-gray-400 text-xs mt-1 leading-relaxed">{r.desc}</div>
@@ -4272,26 +4282,107 @@ export function buildVolvoD13(
   // caps facing up/down) is already the right one for a horizontal plate,
   // no rotation needed. Standing on edge, the 0.06-thick disc was reduced to
   // a near-invisible sliver from almost every camera angle.
-  add(new THREE.CylinderGeometry(0.46, 0.46, 0.06, 20), M.darkMetal, { pos: [0, 0, 0], parent: fifthWheel });
+  // Plate rebuilt from a plain round disc to the real kidney/oval casting
+  // shape (photo 06/09: wider across the shoulders, tapering toward the
+  // throat at the cab end) — an ellipse (scaled cylinder) instead of a
+  // circle, with a dark wedge overlay faking the kingpin-slot cutout at the
+  // throat (−x, per this file's rotated-180° convention) since true boolean
+  // geometry isn't worth it for one part. A duller, glossier "greasy worn
+  // steel" material stands in for the visible grease smear in the photos.
+  const greasySteel = new THREE.MeshStandardMaterial({ color: 0x3a3a3c, metalness: 0.55, roughness: 0.75 });
+  const plate = add(new THREE.CylinderGeometry(0.5, 0.5, 0.06, 24), greasySteel, { pos: [0, 0, 0], parent: fifthWheel });
+  plate.scale.set(0.86, 1, 1); // elongate along z (across the frame) vs x (toward the throat)
+  add(new THREE.BoxGeometry(0.22, 0.062, 0.14), M.black, { pos: [-0.36, 0, 0], parent: fifthWheel }); // throat-slot shadow wedge
+  // Locking-jaw mechanism at the throat: fixed jaw block, pivoting handle,
+  // and a grease fitting nub — same relative position as the original
+  // single jaw box, just more detailed.
   add(new THREE.BoxGeometry(0.16, 0.05, 0.3), M.darkMetal, { pos: [-0.4, 0, 0], parent: fifthWheel });
-  add(new THREE.CylinderGeometry(0.04, 0.04, 0.1, 10), M.brushedMetal, { pos: [-0.05, 0.05, 0], parent: fifthWheel });
+  add(new THREE.CylinderGeometry(0.04, 0.04, 0.1, 10), M.brushedMetal, { pos: [-0.05, 0.05, 0], parent: fifthWheel }); // kingpin bore
+  add(new THREE.CylinderGeometry(0.018, 0.018, 0.12, 8), M.brushedMetal, { pos: [-0.48, 0.02, -0.06], rot: [0, 0, Math.PI / 2.4], parent: fifthWheel }); // release handle
+  add(new THREE.SphereGeometry(0.02, 8, 8), M.chrome, { pos: [0.3, 0.035, 0.28], parent: fifthWheel }); // grease zerk fitting
+  // Support frame: diagonal channel braces down to the rails (kept from
+  // the original build) plus a flat mounting bracket bolting the plate to
+  // the top of those braces, per photo 06's frame-mounted casting.
   [0.42, -0.42].forEach(z => {
     add(new THREE.BoxGeometry(0.06, 0.24, 0.06), M.darkMetal, { pos: [2.05, -0.5, z], rot: [0.5, 0, 0], parent: truckBody });
+    add(new THREE.BoxGeometry(0.5, 0.03, 0.05), M.darkMetal, { pos: [2.05, -0.36, z], parent: truckBody });
   });
+
+  // Coiled air lines (red service/blue emergency glad-hand supply) +
+  // electrical cable, draped from the cab's back wall down toward the
+  // fifth wheel — the tangle of rainbow lines visible above the plate in
+  // photo 06/09. Approximated as a loose helix (TubeGeometry along a
+  // CatmullRom curve), same technique as the Sonata engine's dipstick tube
+  // elsewhere in this file, not a physically simulated coil.
+  const coil = (color: number, radius: number, turns: number, coilR: number, x0: number, y0: number, z: number) => {
+    const pts: THREE.Vector3[] = [];
+    const steps = turns * 10;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const a = t * turns * Math.PI * 2;
+      pts.push(new THREE.Vector3(x0 + Math.cos(a) * coilR, y0 - t * 0.32, z + Math.sin(a) * coilR * 0.6));
+    }
+    const curve = new THREE.CatmullRomCurve3(pts);
+    add(new THREE.TubeGeometry(curve, steps, radius, 6, false), new THREE.MeshStandardMaterial({ color, roughness: 0.6 }), { shadow: false, parent: truckBody });
+  };
+  coil(0xaa1100, 0.012, 5, 0.09, 2.35, 0.05, 0.12); // red service air line
+  coil(0x1155aa, 0.012, 5, 0.09, 2.35, 0.02, -0.1); // blue emergency air line
+  coil(0x141414, 0.01, 4, 0.07, 2.42, -0.08, 0.0); // black electrical cable
 
   // Rear crossmember, mud flaps, and marker-light bar — the very back of the
   // frame, per docs/reference/truck/05-exterior-rear.png (three-light bar
   // centered above the flaps: red-white-red; black flaps with a chrome trim
   // strip; a grab handle on the cab's back wall above the fifth wheel).
+  // Lenses are lit (emissive), not just flat-colored — dedicated materials
+  // here rather than reusing the shared M.white/M.red (those aren't meant
+  // to glow everywhere else they're used).
+  const idBarRed = new THREE.MeshStandardMaterial({ color: 0xcc2200, emissive: 0xaa1100, emissiveIntensity: 0.7, roughness: 0.4 });
+  const idBarWhite = new THREE.MeshStandardMaterial({ color: 0xeaeaea, emissive: 0xbfc8cc, emissiveIntensity: 0.5, roughness: 0.4 });
   add(new THREE.BoxGeometry(0.1, 0.08, 1.8), M.darkMetal, { pos: [3.5, -0.62, 0], parent: truckBody });
   [0.5, 0, -0.5].forEach((z, i) => {
-    add(new THREE.BoxGeometry(0.03, 0.05, 0.16), i === 1 ? M.white : M.red, { pos: [3.56, -0.62, z], shadow: false, parent: truckBody });
+    add(new THREE.BoxGeometry(0.03, 0.05, 0.16), i === 1 ? idBarWhite : idBarRed, { pos: [3.56, -0.62, z], shadow: false, parent: truckBody });
   });
   [0.78, -0.78].forEach(z => {
     add(new THREE.BoxGeometry(0.02, 0.34, 0.26), M.black, { pos: [3.48, -0.86, z], parent: truckBody });
     add(new THREE.BoxGeometry(0.03, 0.04, 0.26), M.chrome, { pos: [3.48, -0.7, z], shadow: false, parent: truckBody });
   });
   add(new THREE.TorusGeometry(0.02, 0.008, 6, 12, Math.PI), M.chrome, { pos: [3.66, -0.1, 0], rot: [0, 0, Math.PI / 2], shadow: false, parent: truckBody });
+
+  // Rear composite tail lamps — one at each frame rail end, above the mud
+  // flap brackets (x 3.48, z ±0.78, matching the bracket positions above).
+  // A bobtail tractor's own rear lighting is minimal in reality (the
+  // trailer normally carries the full stop/turn/tail/backup set), but this
+  // rig has no trailer, so it needs its own complete set: stacked red
+  // brake/tail (top, largest), amber turn signal (middle), white
+  // backup/reverse (bottom) — the standard stacked layout on a tractor's
+  // rear corner lamp. Reasoned layout, not photo-measured (no clean
+  // close-up of this rig's corner lamps) — medium confidence, see
+  // docs/reference/part-manifest.md.
+  {
+    const brakeRed = new THREE.MeshStandardMaterial({ color: 0xcc2200, emissive: 0xdd2200, emissiveIntensity: 0.85, roughness: 0.35 });
+    const turnAmber = new THREE.MeshStandardMaterial({ color: 0xff9500, emissive: 0xff8800, emissiveIntensity: 0.85, roughness: 0.35 });
+    const backupWhite = new THREE.MeshStandardMaterial({ color: 0xf0f0f0, emissive: 0xd8dde0, emissiveIntensity: 0.6, roughness: 0.35 });
+    [0.78, -0.78].forEach(z => {
+      const s = z > 0 ? 1 : -1;
+      add(new THREE.BoxGeometry(0.03, 0.32, 0.1), M.darkMetal, { pos: [3.49, -0.5, z + s * 0.18], parent: truckBody }); // housing
+      add(new THREE.BoxGeometry(0.02, 0.12, 0.08), brakeRed, { pos: [3.505, -0.4, z + s * 0.18], shadow: false, parent: truckBody });
+      add(new THREE.BoxGeometry(0.02, 0.09, 0.08), turnAmber, { pos: [3.505, -0.52, z + s * 0.18], shadow: false, parent: truckBody });
+      add(new THREE.BoxGeometry(0.02, 0.07, 0.08), backupWhite, { pos: [3.505, -0.62, z + s * 0.18], shadow: false, parent: truckBody });
+    });
+  }
+
+  // Rear-facing sleeper-roof marker bar — mirrors the front cab-roof bar
+  // (see the windshield/greenhouse section) at the trailing edge of the
+  // high-roof (x ≈ 3.63, matching the upper roof box's rear face). Real
+  // high-roof sleepers carry clearance lights facing backward too, for
+  // trailer/overhead clearance visibility, not just forward.
+  {
+    const markerAmberRear = new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0xff9500, emissiveIntensity: 0.9, metalness: 0.1, roughness: 0.4 });
+    add(new THREE.BoxGeometry(0.03, 0.03, 1.5), M.darkMetal, { pos: [3.63, 2.26, 0], parent: truckBody });
+    [-0.6, -0.3, 0, 0.3, 0.6].forEach(z => {
+      add(new THREE.CylinderGeometry(0.025, 0.025, 0.02, 10), markerAmberRear, { pos: [3.635, 2.26, z], rot: [Math.PI / 2, 0, 0], shadow: false, parent: truckBody });
+    });
+  }
   tick();
   // Cab shell + sleeper (VNL 860 tall roof). Cab floor stops at y 0.28 —
   // above the I-Shift (tops out ~0.22) so the transmission hangs visibly
@@ -4302,6 +4393,20 @@ export function buildVolvoD13(
   add(new THREE.BoxGeometry(0.06, 0.75, 1.5), glass, { pos: [1.48, 1.05, 0], rot: [0, 0, -0.12], parent: truckBody });
   add(new THREE.BoxGeometry(0.7, 0.45, 0.04), glass, { pos: [2.9, 1.05, 0.86], parent: truckBody });
   add(new THREE.BoxGeometry(0.7, 0.45, 0.04), glass, { pos: [2.9, 1.05, -0.86], parent: truckBody });
+  // Front cab-roof marker/clearance light bar — 5 amber lights along the
+  // leading edge of the sleeper roof, just above the windshield (photo 01:
+  // small round lights along the roof's front edge, standard on a North
+  // American high-roof sleeper — required cab-roof clearance marking).
+  // Not pixel-measured off the photo (too low-res at that spot), reasoned
+  // off the roof box's own front edge (x 1.65, matching the upper roof
+  // BoxGeometry(2.0,0.85,1.6) at pos x 2.65 above).
+  {
+    const markerAmber = new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0xff9500, emissiveIntensity: 0.9, metalness: 0.1, roughness: 0.4 });
+    add(new THREE.BoxGeometry(0.03, 0.03, 1.5), M.darkMetal, { pos: [1.66, 2.26, 0], parent: truckBody });
+    [-0.6, -0.3, 0, 0.3, 0.6].forEach(z => {
+      add(new THREE.CylinderGeometry(0.025, 0.025, 0.02, 10), markerAmber, { pos: [1.665, 2.26, z], rot: [Math.PI / 2, 0, 0], shadow: false, parent: truckBody });
+    });
+  }
   // Two-tone lower body: gloss-black rocker/skirt fairing under the cab,
   // running back past the fuel tank (docs/reference/truck/
   // 04-exterior-side-profile-driver.png — split sits right at the door
@@ -4322,6 +4427,17 @@ export function buildVolvoD13(
   const cabinTan = new THREE.MeshStandardMaterial({ color: 0xcabca6, metalness: 0, roughness: 0.85 }); // headliner/door-card beige, photos 16-20
   const dashDark = new THREE.MeshStandardMaterial({ color: 0x232427, metalness: 0.1, roughness: 0.6 }); // dash/console charcoal plastic, photo 15/21
   const seatFabric = new THREE.MeshStandardMaterial({ color: 0x5f584f, metalness: 0, roughness: 0.95 }); // gray-brown tweed, photo 15/20
+
+  // Headliner dome/reading light — rectangular fixture on the ceiling just
+  // behind the windshield header (photo 14: amber-tinted housing centered
+  // above the dash, switches on its face). Cab shell top face sits at
+  // y ≈ 0.89 + 1.22/2 = 1.5 (BoxGeometry(2.2,1.22,1.7) above); flush-mounted
+  // just below that.
+  add(new THREE.BoxGeometry(0.03, 0.03, 0.34), dashDark, { pos: [1.62, 1.47, 0], parent: truckBody }); // housing
+  add(new THREE.BoxGeometry(0.01, 0.01, 0.26), new THREE.MeshStandardMaterial({ color: 0xffdca0, emissive: 0xffb347, emissiveIntensity: 0.6, roughness: 0.5 }), { pos: [1.615, 1.465, 0], shadow: false, parent: truckBody }); // lens
+  [-0.1, 0.1].forEach(z => {
+    add(new THREE.CylinderGeometry(0.008, 0.008, 0.01, 8), M.chrome, { pos: [1.615, 1.465, z], shadow: false, parent: truckBody }); // switches
+  });
 
   // Dash — swept panel behind the windshield (x 1.48), full cab width
   add(new THREE.BoxGeometry(0.22, 0.34, 1.66), dashDark, { pos: [1.58, 0.48, 0], parent: truckBody });
@@ -4475,12 +4591,17 @@ export function buildVolvoD13(
   add(new THREE.BoxGeometry(0.02, 1.05, 0.12), M.chrome, { pos: [0.185, 0.8, 0], rot: [0, 0, 0.55], shadow: false, parent: hood });
 
   // Headlight pods — round units at the mid-face outer corners (photo 01:
-  // roughly mid-height, well above the bumper), with an amber DRL strip
-  // running below them near the top of the valance.
+  // roughly mid-height, well above the bumper), with an amber DRL/turn-
+  // signal strip running below them near the top of the valance. Lenses
+  // are lit (emissive) rather than flat white/orange, so they actually
+  // read as "on" per the reference photos instead of matte plastic disks —
+  // dedicated materials, not the shared M.white/M.orange used elsewhere.
+  const headlightLens = new THREE.MeshStandardMaterial({ color: 0xf5f7ff, emissive: 0xdfe6ff, emissiveIntensity: 0.8, roughness: 0.25 });
+  const drlAmber = new THREE.MeshStandardMaterial({ color: 0xff8800, emissive: 0xff7700, emissiveIntensity: 0.85, roughness: 0.4 });
   [1, -1].forEach(s => {
-    add(new THREE.CylinderGeometry(0.14, 0.14, 0.05, 20), M.white, { pos: [0.16, 0.9, s * 0.63], rot: [0, 0, Math.PI / 2], shadow: false, parent: hood });
+    add(new THREE.CylinderGeometry(0.14, 0.14, 0.05, 20), headlightLens, { pos: [0.16, 0.9, s * 0.63], rot: [0, 0, Math.PI / 2], shadow: false, parent: hood });
     add(new THREE.CylinderGeometry(0.1, 0.1, 0.02, 16), M.chrome, { pos: [0.14, 0.9, s * 0.63], rot: [0, 0, Math.PI / 2], shadow: false, parent: hood });
-    add(new THREE.BoxGeometry(0.04, 0.05, 0.3), M.orange, { pos: [0.29, 0.58, s * 0.6], shadow: false, parent: hood });
+    add(new THREE.BoxGeometry(0.04, 0.05, 0.3), drlAmber, { pos: [0.29, 0.58, s * 0.6], shadow: false, parent: hood });
     // Round fog light, inset in the lower bumper valance
     add(new THREE.CylinderGeometry(0.06, 0.06, 0.03, 14), M.darkMetal, { pos: [0.44, 0.16, s * 0.42], rot: [0, 0, Math.PI / 2], shadow: false, parent: hood });
   });
@@ -4518,217 +4639,24 @@ export function buildVolvoD13(
   tick();
 
   // ══════════════════════════════════════
-  // 17. TOOLBOX — Snap-on "MR. BIG" wall, rebuilt to the proportions
-  // measured off docs/reference/toolbox-snapon-reference.png (scale basis:
-  // the two mechanics in frame ≈ 70in tall → wall ≈ 216in wide, 88in tall,
-  // 24in deep; counter at 43in hits them mid-torso like the photo).
-  // Layout left→right: tall locker · drawer bay A · drawer bay B ·
-  // stacked bay C with the big "MR. BIG" bottom drawer · double-door locker.
-  // Six drawers stay functional (names `toolbox-drawer-<key>` map 1:1 to
-  // ToolPanel's CATEGORY_TOOLS and slide via userData.slides); the rest of
-  // the ~40 drawer faces are facade (`toolbox-facade`, click-inert).
-  // Scale basis: wheel Ø = 1.0 scene unit ≈ 43in, dims are inches × IN.
+  // 17. TOOLBOX / TOOL CART — see the standalone module-level
+  // buildToolboxGroup() below buildVolvoD13 for the actual geometry (kept
+  // out of this closure so a TOOLBOX_SECTIONS purchase can rebuild just
+  // that subtree at runtime). Seeded here from whatever's already owned in
+  // localStorage (readOwnedToolboxSections) — this only runs once, on the
+  // very first scene build; live growth after a purchase happens in
+  // EngineViewer's buySection.
   // ══════════════════════════════════════
-  const IN = 1 / 43;
-  const toolbox = new THREE.Group();
-  toolbox.name = 'toolbox-chest';
-  toolbox.position.set(-0.35, -1.1, -7.5); // pushed 3x deeper along the back of the shop, facing the truck
+  const toolbox = buildToolboxGroup(readOwnedToolboxSections());
   group.add(toolbox);
 
-  // Gloss-black powder-coat: clearcoat catches the shop lights like the photo.
-  const gloss = new THREE.MeshPhysicalMaterial({ color: 0x0b0b0e, metalness: 0.85, roughness: 0.3, clearcoat: 1.0, clearcoatRoughness: 0.08 });
-  const glossFace = new THREE.MeshPhysicalMaterial({ color: 0x16161b, metalness: 0.8, roughness: 0.35, clearcoat: 0.8, clearcoatRoughness: 0.15 });
-  const steel = new THREE.MeshStandardMaterial({ color: 0xb9bcc2, metalness: 0.9, roughness: 0.25 });
-
-  // Text decal on a transparent canvas — logos, badge, placards.
-  const decal = (text: string, w: number, h: number, opts?: { color?: string; bg?: string; italic?: boolean; header?: string }) => {
-    const c = document.createElement('canvas');
-    c.width = 512; c.height = Math.max(64, Math.round(512 * (h / w)));
-    const g = c.getContext('2d')!;
-    if (opts?.bg) { g.fillStyle = opts.bg; g.fillRect(0, 0, c.width, c.height); }
-    if (opts?.header) { // placard style: colored band on top with the text
-      g.fillStyle = '#b81f2d'; g.fillRect(0, 0, c.width, c.height * 0.28);
-      g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.font = `bold ${Math.round(c.height * 0.17)}px sans-serif`;
-      g.fillText(opts.header, c.width / 2, c.height * 0.14);
-    } else {
-      g.fillStyle = opts?.color ?? '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.font = `${opts?.italic === false ? '' : 'italic '}bold ${Math.round(c.height * 0.62)}px sans-serif`;
-      g.fillText(text, c.width / 2, c.height / 2);
-    }
-    const tex = new THREE.CanvasTexture(c);
-    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
-    m.name = 'toolbox-decal';
-    return m;
-  };
-  const putDecal = (mesh: THREE.Mesh, x: number, y: number, z: number) => { mesh.position.set(x, y, z); toolbox.add(mesh); };
-
-  // Vertical stack: casters → base cab (counter at 43") → open riser → canopy → crown rail
-  const CASTER_H = 5 * IN, COUNTER_Y = 43 * IN, RISER_H = 18 * IN, CAN_H = 20 * IN, CROWN_H = 8 * IN;
-  const CAN_Y0 = COUNTER_Y + RISER_H, TOP_Y = CAN_Y0 + CAN_H;
-  const W = 216 * IN, D = 24 * IN, CAN_D = 18 * IN;
-  const frontZ = D / 2;
-  const canFrontZ = -D / 2 + CAN_D; // canopy sits against the back plane
-
-  // Bay widths (inches, left→right) measured off the photo
-  const BAYS = { lockerL: 21, bankA: 47, bankB: 52, bankC: 43, lockerR: 53 };
-  const bayX = {} as Record<keyof typeof BAYS, [number, number]>;
-  {
-    let x = -W / 2;
-    (Object.keys(BAYS) as (keyof typeof BAYS)[]).forEach(k => { bayX[k] = [x, x + BAYS[k] * IN]; x += BAYS[k] * IN; });
-  }
-  const mid = (k: keyof typeof BAYS) => (bayX[k][0] + bayX[k][1]) / 2;
-  const bw = (k: keyof typeof BAYS) => BAYS[k] * IN;
-
-  // Casters: a pair under every bay seam
-  for (let i = 0; i <= 6; i++) {
-    const cx = -W / 2 + (i / 6) * W * 0.98 + W * 0.01;
-    [[-D * 0.32], [D * 0.32]].forEach(([cz]) => {
-      add(new THREE.CylinderGeometry(2.5 * IN, 2.5 * IN, 1.6 * IN, 12), M.rubber, { pos: [cx, 2.5 * IN, cz], rot: [Math.PI / 2, 0, 0], parent: toolbox });
-    });
-  }
-  // Kick rail behind the casters
-  add(new THREE.BoxGeometry(W, CASTER_H * 0.7, D * 0.86), M.darkMetal, { pos: [0, CASTER_H * 0.6, 0], parent: toolbox });
-
-  // ── Drawer-bay carcasses (bays A/B/C): base cab + stainless counter + riser back + canopy + lift door
-  (['bankA', 'bankB', 'bankC'] as const).forEach(k => {
-    const w = bw(k), cx = mid(k);
-    add(new THREE.BoxGeometry(w, COUNTER_Y - CASTER_H, D), gloss, { pos: [cx, CASTER_H + (COUNTER_Y - CASTER_H) / 2, 0], parent: toolbox });
-    add(new THREE.BoxGeometry(w + 0.006, 1.2 * IN, D + 0.02), steel, { pos: [cx, COUNTER_Y + 0.6 * IN, 0], parent: toolbox });
-    add(new THREE.BoxGeometry(w, RISER_H, 2 * IN), gloss, { pos: [cx, COUNTER_Y + RISER_H / 2, -D / 2 + IN], parent: toolbox });
-    add(new THREE.BoxGeometry(w, CAN_H, CAN_D), gloss, { pos: [cx, CAN_Y0 + CAN_H / 2, canFrontZ - CAN_D / 2], parent: toolbox });
-    // Lift-up canopy door: glossy panel, chrome lip along its bottom edge
-    add(new THREE.BoxGeometry(w - 1.5 * IN, CAN_H - 2 * IN, 0.5 * IN), glossFace, { pos: [cx, CAN_Y0 + CAN_H / 2, canFrontZ + 0.3 * IN], parent: toolbox });
-    add(new THREE.BoxGeometry(w - 1.5 * IN, 0.8 * IN, 0.9 * IN), M.chrome, { pos: [cx, CAN_Y0 + 1.6 * IN, canFrontZ + 0.4 * IN], parent: toolbox });
-  });
-
-  // ── Crown rail across the three drawer bays, carrying the script logos
-  const crownW = bayX.lockerR[0] - bayX.bankA[0];
-  const crownX = (bayX.bankA[0] + bayX.lockerR[0]) / 2;
-  add(new THREE.BoxGeometry(crownW, CROWN_H, CAN_D), gloss, { pos: [crownX, TOP_Y + CROWN_H / 2, canFrontZ - CAN_D / 2], parent: toolbox });
-  putDecal(decal('Snap-on', 14 * IN, 4 * IN), mid('bankA'), TOP_Y + CROWN_H / 2, canFrontZ + 0.01);
-  putDecal(decal('Snap-on', 14 * IN, 4 * IN), mid('bankC'), TOP_Y + CROWN_H / 2, canFrontZ + 0.01);
-
-  // ── Tall lockers (left single, right double) rise flush to the canopy top
-  (['lockerL', 'lockerR'] as const).forEach(k => {
-    const w = bw(k), cx = mid(k), lockerH = TOP_Y + CROWN_H - CASTER_H;
-    add(new THREE.BoxGeometry(w, lockerH, D), gloss, { pos: [cx, CASTER_H + lockerH / 2, 0], parent: toolbox });
-    const doors = k === 'lockerR' ? 2 : 1;
-    for (let i = 0; i < doors; i++) {
-      const dw = (w - 2 * IN) / doors;
-      const dx = cx - (w - 2 * IN) / 2 + dw * (i + 0.5);
-      add(new THREE.BoxGeometry(dw - 0.4 * IN, lockerH - 2 * IN, 0.5 * IN), glossFace, { pos: [dx, CASTER_H + lockerH / 2, frontZ + 0.15 * IN], parent: toolbox });
-      add(new THREE.CylinderGeometry(0.7 * IN, 0.7 * IN, 0.6 * IN, 12), M.chrome, { pos: [dx + (i === 0 ? 1 : -1) * dw * 0.32, COUNTER_Y + 9 * IN, frontZ + 0.5 * IN], rot: [Math.PI / 2, 0, 0], parent: toolbox });
-    }
-    // red-headed IMPORTANT placard, like the cards taped to the photo's lockers
-    putDecal(decal('', 7 * IN, 9.5 * IN, { bg: '#f4f2ee', header: 'IMPORTANT' }), cx - (k === 'lockerR' ? bw(k) * 0.24 : 0), COUNTER_Y + RISER_H + 2 * IN, frontZ + 0.45 * IN);
-  });
-  putDecal(decal('Snap-on', 10 * IN, 3 * IN, { color: '#3a3a40' }), mid('lockerR') + bw('lockerR') * 0.22, COUNTER_Y + 2 * IN, frontZ + 0.45 * IN);
-
-  // ── Chrome trim strip on every bay seam
-  (Object.keys(BAYS) as (keyof typeof BAYS)[]).slice(0, -1).forEach(k => {
-    add(new THREE.BoxGeometry(0.8 * IN, TOP_Y - CASTER_H, 0.5 * IN), M.chrome, { pos: [bayX[k][1], CASTER_H + (TOP_Y - CASTER_H) / 2, frontZ + 0.1 * IN], parent: toolbox });
-  });
-
-  // ── Drawers. Functional ones slide (userData contract shared with toggleDrawer);
-  // facade ones are solid faces with the same full-width Snap-on pull.
-  const drawerFace = (w: number, h: number, cx: number, cy: number, parent: THREE.Group) => {
-    add(new THREE.BoxGeometry(w, h - 0.3 * IN, 0.5 * IN), glossFace, { pos: [cx, cy, 0.25 * IN], parent });
-    add(new THREE.BoxGeometry(w * 0.95, 0.7 * IN, 0.7 * IN), M.chrome, { pos: [cx, cy + h / 2 - 0.75 * IN, 0.45 * IN], parent });
-  };
-  const buildDrawer = (key: DrawerKey, w: number, h: number, cx: number, cy: number) => {
-    const d0 = new THREE.Group();
-    d0.name = `toolbox-drawer-${key}`;
-    d0.position.set(cx, cy, frontZ);
-    d0.userData.closedZ = frontZ;
-    d0.userData.openZ = frontZ + D * 0.55;
-    d0.userData.w = w;
-    d0.userData.h = h; // read by focusDrawer to frame a close-up sized to this drawer
-    toolbox.add(d0);
-    add(new THREE.BoxGeometry(w - 0.8 * IN, h - 0.5 * IN, D * 0.8), M.darkMetal, { pos: [0, 0, -D * 0.4], parent: d0 });
-    add(new THREE.BoxGeometry(w, h - 0.3 * IN, 0.5 * IN), glossFace, { pos: [0, 0, 0.25 * IN], parent: d0 });
-    add(new THREE.BoxGeometry(w * 0.95, 0.7 * IN, 0.7 * IN), M.chrome, { pos: [0, h / 2 - 0.75 * IN, 0.45 * IN], parent: d0 });
-    // Visible contents — the tools live IN the drawers, laid out on the
-    // tub liner so sliding a drawer open shows real hardware: graded
-    // socket rows in the socket drawers, fanned combination wrenches in
-    // the wrench banks, loose kit in specialty/general. Cheap primitives,
-    // no shadows (matches ToolPanel's CATEGORY_TOOLS counts of 10 per
-    // socket/wrench drawer).
-    const tubTop = (h - 0.5 * IN) / 2;
-    const innerW = w - 3 * IN;
-    if (key === 'sockets-metric' || key === 'sockets-standard') {
-      for (let i = 0; i < 10; i++) {
-        const sx = -innerW / 2 + (i + 0.5) * (innerW / 10);
-        const r = (0.32 + i * 0.035) * IN;
-        [0.28, 0.55].forEach(f => {
-          add(new THREE.CylinderGeometry(r, r, 0.85 * IN, 10), M.chrome,
-            { pos: [sx, tubTop + 0.42 * IN, -D * f], shadow: false, parent: d0 });
-        });
-      }
-    } else if (key === 'wrenches-metric' || key === 'wrenches-standard') {
-      for (let i = 0; i < 10; i++) {
-        const sx = -innerW / 2 + (i + 0.5) * (innerW / 10);
-        add(new THREE.BoxGeometry(0.55 * IN, 0.22 * IN, (6.5 + i * 0.7) * IN), M.chrome,
-          { pos: [sx, tubTop + 0.11 * IN, -D * 0.42], shadow: false, parent: d0 });
-      }
-    } else {
-      // specialty / general: torque wrench, ratchet + extension, filter
-      // wrench ring, screwdriver, drain pan / rags
-      add(new THREE.BoxGeometry(12 * IN, 0.6 * IN, 0.9 * IN), M.chrome, { pos: [-innerW * 0.28, tubTop + 0.3 * IN, -D * 0.3], shadow: false, parent: d0 });
-      add(new THREE.BoxGeometry(8 * IN, 0.5 * IN, 0.7 * IN), M.brushedMetal, { pos: [-innerW * 0.05, tubTop + 0.25 * IN, -D * 0.5], shadow: false, parent: d0 });
-      add(new THREE.CylinderGeometry(1.6 * IN, 1.6 * IN, 0.5 * IN, 14), M.darkMetal, { pos: [innerW * 0.18, tubTop + 0.25 * IN, -D * 0.35], shadow: false, parent: d0 });
-      add(new THREE.BoxGeometry(5 * IN, 0.45 * IN, 0.45 * IN), M.red, { pos: [innerW * 0.33, tubTop + 0.22 * IN, -D * 0.52], shadow: false, parent: d0 });
-      add(new THREE.BoxGeometry(6 * IN, 0.8 * IN, 4 * IN), M.rubber, { pos: [innerW * 0.45, tubTop + 0.4 * IN, -D * 0.32], shadow: false, parent: d0 });
-    }
-    return d0;
-  };
-  const facade = new THREE.Group();
-  facade.name = 'toolbox-facade';
-  facade.position.set(0, 0, frontZ);
-  toolbox.add(facade);
-
-  // Fill a column with drawer rows; rows in `live` become the functional drawers.
-  const column = (cx: number, w: number, rows: number[], live: Partial<Record<number, DrawerKey>>) => {
-    const usable = COUNTER_Y - CASTER_H - 2 * IN;
-    const total = rows.reduce((a, b) => a + b, 0);
-    let y = COUNTER_Y - 1 * IN; // fill top→down like the photo's shallow-to-deep banks
-    rows.forEach((rh, i) => {
-      const h = (rh / total) * usable;
-      const cy = y - h / 2;
-      const key = live[i];
-      if (key) buildDrawer(key, w - 0.8 * IN, h - 0.25 * IN, cx, cy);
-      else drawerFace(w - 0.8 * IN, h - 0.25 * IN, cx, cy, facade);
-      y -= h;
-    });
-  };
-
-  // Bay A: wide column of 6 + narrow column of 8 (sockets live top-right, like a real setup —
-  // small parts closest to hand). Rows are relative heights, shallow up top.
-  column(mid('bankA') - bw('bankA') * 0.23, bw('bankA') * 0.52, [2, 2, 2.6, 3, 3.6, 4.2], {});
-  column(mid('bankA') + bw('bankA') * 0.27, bw('bankA') * 0.42, [2, 2, 2, 2.4, 2.8, 3, 3.4, 3.8], { 0: 'sockets-metric', 1: 'sockets-standard' });
-
-  // Bay B: two even banks of 8 shallow rows; wrenches live in the left bank
-  column(mid('bankB') - bw('bankB') * 0.25, bw('bankB') * 0.46, [2, 2, 2.2, 2.4, 2.8, 3, 3.4, 3.8], { 0: 'wrenches-metric', 1: 'wrenches-standard' });
-  column(mid('bankB') + bw('bankB') * 0.25, bw('bankB') * 0.46, [2, 2, 2.2, 2.4, 2.8, 3, 3.4, 3.8], {});
-  // keypad locks on the counter rail, silver discs like the photo
-  [mid('bankB') - 4 * IN, mid('bankB') + 4 * IN].forEach(x => {
-    add(new THREE.CylinderGeometry(1.1 * IN, 1.1 * IN, 0.5 * IN, 16), steel, { pos: [x, COUNTER_Y + 0.62 * IN, frontZ - 2 * IN], parent: toolbox });
-  });
-
-  // Bay C: full-width stack — specialty on top, the deep "MR. BIG" drawer (general) at the bottom
-  column(mid('bankC'), bw('bankC'), [2, 2.2, 2.6, 3, 3.6, 6.5], { 0: 'specialty', 5: 'general' });
-  putDecal(decal('Snap-on', 9 * IN, 2.6 * IN), mid('bankC'), COUNTER_Y - 1 * IN - (COUNTER_Y - CASTER_H - 2 * IN) * 0.45, frontZ + 0.6 * IN);
-  putDecal(decal('MR. BIG', 10 * IN, 3.2 * IN, { color: '#d7d9dd', italic: false }), mid('bankC') - bw('bankC') * 0.22, CASTER_H + 2.6 * IN, frontZ + 0.6 * IN);
-
-  // ── Replacement WABCO air compressor staged at the toolbox — it sits on
-  // the stainless counter of bay A (the part lives in the toolbox until it
+  // Replacement WABCO air compressor staged at the toolbox — it sits on the
+  // starter bay's stainless counter (the part lives in the toolbox until it
   // goes on the engine), drive gear facing along the counter.
   const { group: spareCompressor } = buildWabcoCompressor();
   spareCompressor.name = 'toolbox-air-compressor';
-  spareCompressor.position.set(mid('bankA'), COUNTER_Y + 1.2 * IN + 0.066, 4 * IN);
   spareCompressor.rotation.y = Math.PI / 2;
-  toolbox.add(spareCompressor);
+  toolbox.getObjectByName('toolbox-counter-anchor')?.add(spareCompressor);
 
   tick();
 
@@ -4754,6 +4682,260 @@ export function buildVolvoD13(
   tick(); tick(); tick(); tick(); tick();
   setProgress(100);
   setTimeout(() => setLoading(false), 500);
+}
+
+// ─────────────────────────────────────────────────────────
+// Toolbox / Tool Cart — a first-level tech's starter cart is genuinely
+// small: a waist/chest-high, 4-caster, 5-drawer rectangular rolling cart
+// (all 5 tool categories already live in it — both socket drawers, both
+// wrench drawers, misc). Buying TOOLBOX_SECTIONS grows the actual built
+// geometry: bankB/bankC add drawer-bank capacity, lockers adds the
+// canopy/hutch/end-lockers, growing it into the full "MR. BIG" wall chest
+// measured off docs/reference/toolbox-snapon-reference.png. Standalone
+// module function (not a buildVolvoD13 closure) so a purchase can rebuild
+// just this subtree at runtime — remove the old group, call this again,
+// re-add — without reloading the whole scene. No reference photo for the
+// small starter cart (generic rolling-cart proportions, medium confidence
+// — see docs/reference/part-manifest.md); the grown-out chest still
+// follows the Snap-on reference photo like the original build. Exposes a
+// `toolbox-counter-anchor` object so the caller can (re)stage the spare
+// WABCO compressor prop without duplicating this function's own
+// material/helper closures.
+// ─────────────────────────────────────────────────────────
+export function buildToolboxGroup(ownedSections: Set<ToolboxSectionId>): THREE.Group {
+  const IN = 1 / 43; // same real-inch → scene-unit scale as the rest of the shop/truck
+
+  const darkMetal = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, metalness: 0.82, roughness: 0.32 });
+  const chrome = new THREE.MeshStandardMaterial({ color: 0xc8c8c8, metalness: 0.96, roughness: 0.08 });
+  const rubber = new THREE.MeshStandardMaterial({ color: 0x141414, metalness: 0.0, roughness: 0.98 });
+  const brushedMetal = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.85, roughness: 0.25 });
+  const red = new THREE.MeshStandardMaterial({ color: 0xcc2200, metalness: 0.2, roughness: 0.55 });
+  const gloss = new THREE.MeshPhysicalMaterial({ color: 0x0b0b0e, metalness: 0.85, roughness: 0.3, clearcoat: 1.0, clearcoatRoughness: 0.08 });
+  const glossFace = new THREE.MeshPhysicalMaterial({ color: 0x16161b, metalness: 0.8, roughness: 0.35, clearcoat: 0.8, clearcoatRoughness: 0.15 });
+  const steel = new THREE.MeshStandardMaterial({ color: 0xb9bcc2, metalness: 0.9, roughness: 0.25 });
+
+  const toolbox = new THREE.Group();
+  toolbox.name = 'toolbox-chest';
+  toolbox.position.set(-0.35, -1.1, -7.5); // same back-wall spot as the original always-built chest
+
+  const add = (geo: THREE.BufferGeometry, mat: THREE.Material, opts?: { pos?: [number, number, number]; rot?: [number, number, number]; parent?: THREE.Group; shadow?: boolean }) => {
+    const mesh = new THREE.Mesh(geo, mat);
+    if (opts?.pos) mesh.position.set(...opts.pos);
+    if (opts?.rot) mesh.rotation.set(...opts.rot);
+    if (opts?.shadow !== false) { mesh.castShadow = true; mesh.receiveShadow = true; }
+    (opts?.parent ?? toolbox).add(mesh);
+    return mesh;
+  };
+
+  const decal = (text: string, w: number, h: number, opts?: { color?: string; bg?: string; italic?: boolean; header?: string }) => {
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = Math.max(64, Math.round(512 * (h / w)));
+    const g = c.getContext('2d')!;
+    if (opts?.bg) { g.fillStyle = opts.bg; g.fillRect(0, 0, c.width, c.height); }
+    if (opts?.header) {
+      g.fillStyle = '#b81f2d'; g.fillRect(0, 0, c.width, c.height * 0.28);
+      g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.font = `bold ${Math.round(c.height * 0.17)}px sans-serif`;
+      g.fillText(opts.header, c.width / 2, c.height * 0.14);
+    } else {
+      g.fillStyle = opts?.color ?? '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.font = `${opts?.italic === false ? '' : 'italic '}bold ${Math.round(c.height * 0.62)}px sans-serif`;
+      g.fillText(text, c.width / 2, c.height / 2);
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
+    m.name = 'toolbox-decal';
+    return m;
+  };
+  const putDecal = (mesh: THREE.Mesh, x: number, y: number, z: number) => { mesh.position.set(x, y, z); toolbox.add(mesh); };
+
+  const CASTER_H = 5 * IN, COUNTER_Y = 43 * IN, RISER_H = 18 * IN, CAN_H = 20 * IN, CROWN_H = 8 * IN;
+  const CAN_Y0 = COUNTER_Y + RISER_H, TOP_Y = CAN_Y0 + CAN_H;
+  const D = 24 * IN, CAN_D = 18 * IN;
+  const frontZ = D / 2;
+  const canFrontZ = -D / 2 + CAN_D;
+
+  // Which drawer bays exist: the starter bay (all 5 tool categories) is
+  // always present; bankB/bankC are purely-facade capacity bought with
+  // TOOLBOX_SECTIONS. The riser/canopy/hutch above the counter — and the
+  // two end lockers — only exist once 'lockers' (the finishing section) is
+  // bought; before that it's just a counter-height rolling cart.
+  const BAY_W = { starter: 26, bankB: 30, bankC: 43 };
+  const activeBays: (keyof typeof BAY_W)[] = ['starter'];
+  if (ownedSections.has('bankB')) activeBays.push('bankB');
+  if (ownedSections.has('bankC')) activeBays.push('bankC');
+  const hasHutch = ownedSections.has('lockers');
+  const LOCKER_W = 21;
+
+  const totalBayW = activeBays.reduce((a, k) => a + BAY_W[k], 0) * IN;
+  const W = totalBayW + (hasHutch ? 2 * LOCKER_W * IN : 0);
+
+  // Left-to-right x positions: lockerL (if owned) · active bays · lockerR (if owned)
+  const bayX: Partial<Record<string, [number, number]>> = {};
+  {
+    let x = -W / 2;
+    if (hasHutch) { bayX.lockerL = [x, x + LOCKER_W * IN]; x += LOCKER_W * IN; }
+    activeBays.forEach(k => { bayX[k] = [x, x + BAY_W[k] * IN]; x += BAY_W[k] * IN; });
+    if (hasHutch) { bayX.lockerR = [x, x + LOCKER_W * IN]; x += LOCKER_W * IN; }
+  }
+  const mid = (k: string) => { const b = bayX[k]!; return (b[0] + b[1]) / 2; };
+  const bw = (k: string) => { const b = bayX[k]!; return b[1] - b[0]; };
+
+  // Casters: exactly 4 (one at each corner) for the bare starter cart — a
+  // real small 5-drawer rolling cart, not a wheeled wall. Once it's grown
+  // (more bays, or the hutch/lockers), a caster pair rides under every bay
+  // seam instead, the way a real multi-bay bench needs the extra support.
+  const isBareStarter = activeBays.length === 1 && !hasHutch;
+  if (isBareStarter) {
+    [-1, 1].forEach(sx => [-1, 1].forEach(sz => {
+      add(new THREE.CylinderGeometry(2 * IN, 2 * IN, 1.4 * IN, 12), rubber, { pos: [sx * (W / 2 - 2 * IN), 2 * IN, sz * D * 0.32], rot: [Math.PI / 2, 0, 0] });
+    }));
+  } else {
+    const seams = Math.max(2, activeBays.length + (hasHutch ? 2 : 0));
+    for (let i = 0; i <= seams; i++) {
+      const cx = -W / 2 + (i / seams) * W * 0.98 + W * 0.01;
+      [[-D * 0.32], [D * 0.32]].forEach(([cz]) => {
+        add(new THREE.CylinderGeometry(2 * IN, 2 * IN, 1.4 * IN, 12), rubber, { pos: [cx, 2 * IN, cz], rot: [Math.PI / 2, 0, 0] });
+      });
+    }
+  }
+  add(new THREE.BoxGeometry(W, CASTER_H * 0.7, D * 0.86), darkMetal, { pos: [0, CASTER_H * 0.6, 0] });
+
+  // Drawer-bay carcasses: base cab + stainless counter, every active bay;
+  // riser/canopy only once the hutch is bought.
+  activeBays.forEach(k => {
+    const w = bw(k), cx = mid(k);
+    add(new THREE.BoxGeometry(w, COUNTER_Y - CASTER_H, D), gloss, { pos: [cx, CASTER_H + (COUNTER_Y - CASTER_H) / 2, 0] });
+    add(new THREE.BoxGeometry(w + 0.006, 1.2 * IN, D + 0.02), steel, { pos: [cx, COUNTER_Y + 0.6 * IN, 0] });
+    if (hasHutch) {
+      add(new THREE.BoxGeometry(w, RISER_H, 2 * IN), gloss, { pos: [cx, COUNTER_Y + RISER_H / 2, -D / 2 + IN] });
+      add(new THREE.BoxGeometry(w, CAN_H, CAN_D), gloss, { pos: [cx, CAN_Y0 + CAN_H / 2, canFrontZ - CAN_D / 2] });
+      add(new THREE.BoxGeometry(w - 1.5 * IN, CAN_H - 2 * IN, 0.5 * IN), glossFace, { pos: [cx, CAN_Y0 + CAN_H / 2, canFrontZ + 0.3 * IN] });
+      add(new THREE.BoxGeometry(w - 1.5 * IN, 0.8 * IN, 0.9 * IN), chrome, { pos: [cx, CAN_Y0 + 1.6 * IN, canFrontZ + 0.4 * IN] });
+    }
+  });
+
+  if (hasHutch) {
+    // Crown rail across the drawer bays, carrying the script logos
+    const crownW = bayX[activeBays[activeBays.length - 1]]![1] - bayX[activeBays[0]]![0];
+    const crownX = (bayX[activeBays[0]]![0] + bayX[activeBays[activeBays.length - 1]]![1]) / 2;
+    add(new THREE.BoxGeometry(crownW, CROWN_H, CAN_D), gloss, { pos: [crownX, TOP_Y + CROWN_H / 2, canFrontZ - CAN_D / 2] });
+    putDecal(decal('Snap-on', 14 * IN, 4 * IN), mid(activeBays[0]), TOP_Y + CROWN_H / 2, canFrontZ + 0.01);
+    putDecal(decal('Snap-on', 14 * IN, 4 * IN), mid(activeBays[activeBays.length - 1]), TOP_Y + CROWN_H / 2, canFrontZ + 0.01);
+
+    // Tall end lockers, flush to the canopy top
+    (['lockerL', 'lockerR'] as const).forEach(k => {
+      const w = bw(k), cx = mid(k), lockerH = TOP_Y + CROWN_H - CASTER_H;
+      add(new THREE.BoxGeometry(w, lockerH, D), gloss, { pos: [cx, CASTER_H + lockerH / 2, 0] });
+      add(new THREE.BoxGeometry(w - 1.5 * IN, lockerH - 2 * IN, 0.5 * IN), glossFace, { pos: [cx, CASTER_H + lockerH / 2, frontZ + 0.15 * IN] });
+      add(new THREE.CylinderGeometry(0.7 * IN, 0.7 * IN, 0.6 * IN, 12), chrome, { pos: [cx + (k === 'lockerL' ? 1 : -1) * w * 0.32, COUNTER_Y + 9 * IN, frontZ + 0.5 * IN], rot: [Math.PI / 2, 0, 0] });
+      putDecal(decal('', 7 * IN, 9.5 * IN, { bg: '#f4f2ee', header: 'IMPORTANT' }), cx, COUNTER_Y + RISER_H + 2 * IN, frontZ + 0.45 * IN);
+    });
+  }
+
+  // Chrome trim strip on every bay seam
+  const seamKeys: string[] = [...(hasHutch ? ['lockerL'] : []), ...activeBays, ...(hasHutch ? ['lockerR'] : [])];
+  seamKeys.slice(0, -1).forEach(k => {
+    add(new THREE.BoxGeometry(0.8 * IN, TOP_Y - CASTER_H, 0.5 * IN), chrome, { pos: [bayX[k]![1], CASTER_H + (TOP_Y - CASTER_H) / 2, frontZ + 0.1 * IN] });
+  });
+
+  // ── Drawers. Functional ones slide (userData contract shared with toggleDrawer);
+  // facade ones are solid faces with the same full-width Snap-on pull.
+  const drawerFace = (w: number, h: number, cx: number, cy: number, parent: THREE.Group) => {
+    add(new THREE.BoxGeometry(w, h - 0.3 * IN, 0.5 * IN), glossFace, { pos: [cx, cy, 0.25 * IN], parent });
+    add(new THREE.BoxGeometry(w * 0.95, 0.7 * IN, 0.7 * IN), chrome, { pos: [cx, cy + h / 2 - 0.75 * IN, 0.45 * IN], parent });
+  };
+  const buildDrawer = (key: DrawerKey, w: number, h: number, cx: number, cy: number) => {
+    const d0 = new THREE.Group();
+    d0.name = `toolbox-drawer-${key}`;
+    d0.position.set(cx, cy, frontZ);
+    d0.userData.closedZ = frontZ;
+    d0.userData.openZ = frontZ + D * 0.55;
+    d0.userData.w = w;
+    d0.userData.h = h; // read by focusDrawer to frame a close-up sized to this drawer
+    toolbox.add(d0);
+    add(new THREE.BoxGeometry(w - 0.8 * IN, h - 0.5 * IN, D * 0.8), darkMetal, { pos: [0, 0, -D * 0.4], parent: d0 });
+    add(new THREE.BoxGeometry(w, h - 0.3 * IN, 0.5 * IN), glossFace, { pos: [0, 0, 0.25 * IN], parent: d0 });
+    add(new THREE.BoxGeometry(w * 0.95, 0.7 * IN, 0.7 * IN), chrome, { pos: [0, h / 2 - 0.75 * IN, 0.45 * IN], parent: d0 });
+    // Visible contents — tools live IN the drawers, laid out on the tub
+    // liner so sliding one open shows real hardware.
+    const tubTop = (h - 0.5 * IN) / 2;
+    const innerW = w - 3 * IN;
+    if (key === 'sockets-metric' || key === 'sockets-standard') {
+      for (let i = 0; i < 10; i++) {
+        const sx = -innerW / 2 + (i + 0.5) * (innerW / 10);
+        const r = (0.32 + i * 0.035) * IN;
+        [0.28, 0.55].forEach(f => {
+          add(new THREE.CylinderGeometry(r, r, 0.85 * IN, 10), chrome, { pos: [sx, tubTop + 0.42 * IN, -D * f], shadow: false, parent: d0 });
+        });
+      }
+    } else if (key === 'wrenches-metric' || key === 'wrenches-standard') {
+      for (let i = 0; i < 10; i++) {
+        const sx = -innerW / 2 + (i + 0.5) * (innerW / 10);
+        add(new THREE.BoxGeometry(0.55 * IN, 0.22 * IN, (6.5 + i * 0.7) * IN), chrome, { pos: [sx, tubTop + 0.11 * IN, -D * 0.42], shadow: false, parent: d0 });
+      }
+    } else {
+      // misc: torque wrench, ratchet + extension, filter wrench ring, screwdriver, drain pan/rags
+      add(new THREE.BoxGeometry(12 * IN, 0.6 * IN, 0.9 * IN), chrome, { pos: [-innerW * 0.28, tubTop + 0.3 * IN, -D * 0.3], shadow: false, parent: d0 });
+      add(new THREE.BoxGeometry(8 * IN, 0.5 * IN, 0.7 * IN), brushedMetal, { pos: [-innerW * 0.05, tubTop + 0.25 * IN, -D * 0.5], shadow: false, parent: d0 });
+      add(new THREE.CylinderGeometry(1.6 * IN, 1.6 * IN, 0.5 * IN, 14), darkMetal, { pos: [innerW * 0.18, tubTop + 0.25 * IN, -D * 0.35], shadow: false, parent: d0 });
+      add(new THREE.BoxGeometry(5 * IN, 0.45 * IN, 0.45 * IN), red, { pos: [innerW * 0.33, tubTop + 0.22 * IN, -D * 0.52], shadow: false, parent: d0 });
+      add(new THREE.BoxGeometry(6 * IN, 0.8 * IN, 4 * IN), rubber, { pos: [innerW * 0.45, tubTop + 0.4 * IN, -D * 0.32], shadow: false, parent: d0 });
+    }
+    return d0;
+  };
+  const facade = new THREE.Group();
+  facade.name = 'toolbox-facade';
+  facade.position.set(0, 0, frontZ);
+  toolbox.add(facade);
+
+  // Fill a column with drawer rows; rows in `live` become the functional drawers.
+  const column = (cx: number, w: number, rows: number[], live: Partial<Record<number, DrawerKey>>) => {
+    const usable = COUNTER_Y - CASTER_H - 2 * IN;
+    const total = rows.reduce((a, b) => a + b, 0);
+    let y = COUNTER_Y - 1 * IN;
+    rows.forEach((rh, i) => {
+      const h = (rh / total) * usable;
+      const cy = y - h / 2;
+      const key = live[i];
+      if (key) buildDrawer(key, w - 0.8 * IN, h - 0.25 * IN, cx, cy);
+      else drawerFace(w - 0.8 * IN, h - 0.25 * IN, cx, cy, facade);
+      y -= h;
+    });
+  };
+
+  // Starter bay: single column, all 5 tool categories, shallow→deep top to bottom
+  column(mid('starter'), bw('starter'), [2, 2, 2.4, 2.8, 3.4], {
+    0: 'sockets-metric', 1: 'sockets-standard', 2: 'wrenches-metric', 3: 'wrenches-standard', 4: 'misc',
+  });
+
+  // bankB: facade capacity bay, two even columns of 8 shallow rows
+  if (ownedSections.has('bankB')) {
+    column(mid('bankB') - bw('bankB') * 0.25, bw('bankB') * 0.46, [2, 2, 2.2, 2.4, 2.8, 3, 3.4, 3.8], {});
+    column(mid('bankB') + bw('bankB') * 0.25, bw('bankB') * 0.46, [2, 2, 2.2, 2.4, 2.8, 3, 3.4, 3.8], {});
+    [mid('bankB') - 4 * IN, mid('bankB') + 4 * IN].forEach(x => {
+      add(new THREE.CylinderGeometry(1.1 * IN, 1.1 * IN, 0.5 * IN, 16), steel, { pos: [x, COUNTER_Y + 0.62 * IN, frontZ - 2 * IN] });
+    });
+  }
+
+  // bankC: full-width facade stack topped by the deep "MR. BIG" drawer
+  if (ownedSections.has('bankC')) {
+    column(mid('bankC'), bw('bankC'), [2, 2.2, 2.6, 3, 3.6, 6.5], {});
+    putDecal(decal('Snap-on', 9 * IN, 2.6 * IN), mid('bankC'), COUNTER_Y - 1 * IN - (COUNTER_Y - CASTER_H - 2 * IN) * 0.45, frontZ + 0.6 * IN);
+    putDecal(decal('MR. BIG', 10 * IN, 3.2 * IN, { color: '#d7d9dd', italic: false }), mid('bankC') - bw('bankC') * 0.22, CASTER_H + 2.6 * IN, frontZ + 0.6 * IN);
+  }
+
+  // Anchor for the staged spare-parts prop (WABCO compressor) — always on
+  // the starter bay's counter regardless of how many sections are owned,
+  // so the caller can (re)stage it without this function needing to know
+  // about buildWabcoCompressor.
+  const counterAnchor = new THREE.Object3D();
+  counterAnchor.name = 'toolbox-counter-anchor';
+  counterAnchor.position.set(mid('starter'), COUNTER_Y + 1.2 * IN + 0.066, 4 * IN);
+  toolbox.add(counterAnchor);
+
+  return toolbox;
 }
 
 // ═══════════════════════════════════════════════════════════
