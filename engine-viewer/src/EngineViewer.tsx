@@ -225,10 +225,10 @@ const REPAIRS: { id: RepairId; icon: string; label: string; desc: string; tier: 
     id: 'annual-inspection',
     icon: '📋',
     label: 'Annual Inspection',
-    desc: 'DOT annual: torque-check the rear axle housing bolts and the differential carrier bolts against spec, flag anything loose. The other job every tech starts on — no teardown, no specialty tool.',
+    desc: 'DOT annual: torque-check the rear axle housing and differential carrier bolts, inspect the fifth wheel (grease/kingpin/mounts), check tire tread & pressure, inspect brake pads/shoes and drums/rotors. The other job every tech starts on — no teardown, no specialty tool.',
     tier: 1,
     unlockLevel: 1,
-    coinReward: 75,
+    coinReward: 110,
   },
   {
     id: 'oil-change',
@@ -2065,6 +2065,9 @@ export default function EngineViewer() {
                 ? [
                     { id: 1, label: 'Torque-check the rear axle housing bolts', done: axleChecked.rearAxle, requiredTool: null },
                     { id: 2, label: 'Torque-check the differential carrier bolts', done: axleChecked.diff, requiredTool: null },
+                    { id: 3, label: 'Inspect the fifth wheel (grease, kingpin lock, mount bolts)', done: axleChecked.fifthWheel, requiredTool: null },
+                    { id: 4, label: 'Check tire tread depth & pressure, all positions', done: axleChecked.tires, requiredTool: null },
+                    { id: 5, label: 'Inspect brake pads/shoes and drums/rotors for wear', done: axleChecked.brakes, requiredTool: null },
                   ]
                 : activeRepair === 'hood-cable'
                   ? HOOD_CABLE_STEPS.map((label, i) => ({ id: i + 1, label, done: hoodCableStep > i, requiredTool: null }))
@@ -2587,6 +2590,9 @@ export default function EngineViewer() {
                   {([
                     { key: 'rearAxle' as const, icon: '⚙️', label: 'Rear axle housing bolts' },
                     { key: 'diff' as const, icon: '🔩', label: 'Differential carrier bolts' },
+                    { key: 'fifthWheel' as const, icon: '🪝', label: 'Fifth wheel (grease, kingpin, mounts)' },
+                    { key: 'tires' as const, icon: '🛞', label: 'Tires (tread & pressure, all positions)' },
+                    { key: 'brakes' as const, icon: '🛑', label: 'Brake pads/shoes & drums/rotors' },
                   ]).map(f => (
                     <button
                       key={f.key}
