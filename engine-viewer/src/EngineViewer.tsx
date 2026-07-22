@@ -5634,3 +5634,309 @@ export function buildPrevostH345(
   setProgress(100);
   setTimeout(() => setLoading(false), 400);
 }
+
+// ═══════════════════════════════════════════════════════════
+// NOTE: buildPrevost() below was an independent, concurrently-written first
+// draft of the Prevost H3-45 (built by another session's autosave process at
+// the same time as buildPrevostH345 above). It is NOT currently wired up —
+// buildPrevostH345 is the one referenced by the vehicle-build dispatch and
+// the VehicleId type — but it's kept here rather than deleted (this
+// project's "never delete, only add" rule) since it has real merit: a more
+// conservative reading of 3d-part-fidelity §1 (it deliberately builds
+// nothing for the rear/engine-bay/curbside since no photo of those exists,
+// rather than buildPrevostH345's reasoned-but-unverified rear hatch), a
+// proper CIN-based real-inch scale derivation, and a nicer canvas-decal
+// livery treatment (ported into buildPrevostH345's coach body above rather
+// than duplicated here again). If the Prevost is revisited with more
+// reference photos, both approaches are worth a look before picking one.
+// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
+// PREVOST H3-45 — a "Loki Coach" conversion (gray/silver, diagonal two-tone
+// stripe, "LOKI COACH H3" decal on the driver-side luggage bay). Built from
+// docs/reference/prevost/ (01 front 3/4 driver-side, 02 straight-on front,
+// 03 cockpit dash) per the 3d-part-fidelity skill — see that README for the
+// full photo inventory and gaps.
+//
+// IMPORTANT SCOPE NOTE: only the front cap, driver-side exterior profile,
+// and cockpit interior are photographed. There is NO rear, curbside, engine
+// -bay/rear-hatch, or passenger-cabin (lounge/galley/lavatory) reference
+// photo. Per 3d-part-fidelity §1 ("stop and ask rather than build from
+// generic knowledge"), none of those are modeled here — the rear is a plain
+// capped end, the curbside repeats the driver-side window/stripe pattern but
+// skips the luggage-door detail, and the passenger cabin interior doesn't
+// exist behind the tinted glass. This is a walk-around + cockpit viewer only:
+// no truck-door/truck-hood objects are created, so the door-unlock/hood
+// -release/repair flow (which assumes both) is skipped for this vehicle
+// (see the `vehicle !== 'prevost'` gates around the pre-trip checklist).
+// Ask for engine-bay, rear 3/4, and curbside photos to extend this further.
+//
+// Scale: CIN = scene units per inch, chosen so the real ~540in/45ft H3-45
+// comes out to a body length (9.6 units) in the same order of magnitude as
+// the VNL (frame rail 6.2 units + hood), not pixel/blueprint-derived —
+// medium confidence, reasoned proportion only. Nose (local −x) faces the
+// walk-up camera after the 180° rotation below, same convention as the
+// car/truck.
+export function buildPrevost(
+  group: THREE.Group,
+  setProgress: (n: number) => void,
+  setLoading: (b: boolean) => void,
+) {
+  let step = 0;
+  const totalSteps = 14;
+  const tick = () => { step++; setProgress(Math.min(98, Math.round((step / totalSteps) * 100))); };
+
+  const CIN = 1 / 56;
+  const L = 540 * CIN;   // ≈9.64 — overall coach length
+  const W = 102 * CIN;   // ≈1.82 — overall coach width
+
+  // ── Materials — silver/gray metallic per both exterior photos, with the
+  // darker diagonal stripe as a second paint tone (not a decal — the photos
+  // show it as an actual two-tone panel split, catching light differently
+  // than the surrounding silver).
+  const paint = new THREE.MeshPhysicalMaterial({ color: 0xa8acb2, metalness: 0.75, roughness: 0.28, clearcoat: 0.9, clearcoatRoughness: 0.15 });
+  const stripe = new THREE.MeshPhysicalMaterial({ color: 0x6f747c, metalness: 0.7, roughness: 0.35, clearcoat: 0.7, clearcoatRoughness: 0.2 });
+  const glass = new THREE.MeshStandardMaterial({ color: 0x0a1018, metalness: 0.6, roughness: 0.1, transparent: true, opacity: 0.85 });
+  const M = {
+    chrome: new THREE.MeshStandardMaterial({ color: 0xd8dadd, metalness: 0.95, roughness: 0.1 }),
+    darkMetal: new THREE.MeshStandardMaterial({ color: 0x1c1d20, metalness: 0.7, roughness: 0.35 }),
+    black: new THREE.MeshStandardMaterial({ color: 0x0c0c0e, metalness: 0.2, roughness: 0.6 }),
+    rubber: new THREE.MeshStandardMaterial({ color: 0x141414, metalness: 0.0, roughness: 0.98 }),
+    grille: new THREE.MeshStandardMaterial({ color: 0x101114, metalness: 0.55, roughness: 0.4 }),
+    headlightLens: new THREE.MeshStandardMaterial({ color: 0xf5f7ff, emissive: 0xdfe6ff, emissiveIntensity: 0.7, roughness: 0.2 }),
+    amber: new THREE.MeshStandardMaterial({ color: 0xff8800, emissive: 0xff7700, emissiveIntensity: 0.8, roughness: 0.4 }),
+    tan: new THREE.MeshStandardMaterial({ color: 0xcabb9e, metalness: 0.05, roughness: 0.75 }),
+    tanDark: new THREE.MeshStandardMaterial({ color: 0x9c8c70, metalness: 0.05, roughness: 0.8 }),
+    dashPlastic: new THREE.MeshStandardMaterial({ color: 0x3a3733, metalness: 0.15, roughness: 0.55 }),
+  };
+
+  const body = new THREE.Group();
+  body.name = 'prevost-body';
+  body.rotation.y = Math.PI; // nose (local −x) toward the walk-up camera
+  group.add(body);
+
+  const add = (geo: THREE.BufferGeometry, mat: THREE.Material, opts?: { pos?: [number, number, number]; rot?: [number, number, number]; parent?: THREE.Group; shadow?: boolean }) => {
+    const mesh = new THREE.Mesh(geo, mat);
+    if (opts?.pos) mesh.position.set(...opts.pos);
+    if (opts?.rot) mesh.rotation.set(...opts.rot);
+    if (opts?.shadow !== false) { mesh.castShadow = true; mesh.receiveShadow = true; }
+    (opts?.parent ?? body).add(mesh);
+    return mesh;
+  };
+
+  const decal = (text: string, w: number, h: number, opts?: { color?: string; bg?: string; header?: string }) => {
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = Math.max(64, Math.round(512 * (h / w)));
+    const g = c.getContext('2d')!;
+    if (opts?.bg) { g.fillStyle = opts.bg; g.fillRect(0, 0, c.width, c.height); }
+    g.fillStyle = opts?.color ?? '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = `bold ${Math.round(c.height * 0.55)}px sans-serif`;
+    g.fillText(text, c.width / 2, c.height / 2);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
+    m.name = 'prevost-decal';
+    return m;
+  };
+
+  // ── Vertical layout (see comment block above for the CIN scale basis).
+  // Floor sits above the wheel centers; window band splits the body into
+  // the lower "basement" luggage-bay section and the upper glass band; roof
+  // cap is a 2-step taper standing in for the photos' continuous curve.
+  const wheelR = 22 * CIN;
+  const wheelCY = -0.9;
+  const floorY = -0.5;
+  const waistY = 0.32;      // basement/window split — photo 01's character-line stripe sits right at this seam
+  const winTopY = 1.5;      // top of glass band, where the roof cap curve begins
+  const roofY = 1.82;       // roof peak
+
+  // ── Main body shell: lower basement box (full width) + inset window band
+  // + roof cap. Nose sits at x = −L/2; tail (unmodeled, see scope note) is a
+  // plain flat cap at x = +L/2.
+  const bodyLen = L * 0.78; // front cap eats the rest — see nose section below
+  const bodyMidX = -L / 2 + 2.1 + bodyLen / 2;
+  add(new THREE.BoxGeometry(bodyLen, waistY - floorY, W), paint, { pos: [bodyMidX, (floorY + waistY) / 2, 0] });
+  add(new THREE.BoxGeometry(bodyLen * 0.99, winTopY - waistY, W * 0.94), glass, { pos: [bodyMidX, (waistY + winTopY) / 2, 0] });
+  add(new THREE.BoxGeometry(bodyLen * 0.99, 0.08, W * 0.96), paint, { pos: [bodyMidX, winTopY + 0.04, 0] }); // window-band top rail
+  add(new THREE.BoxGeometry(bodyLen * 0.9, roofY - winTopY, W * 0.86), paint, { pos: [bodyMidX + bodyLen * 0.05, (winTopY + roofY) / 2, 0] }); // roof cap, stepped in from the sides
+  // Flat rear cap — UNMODELED hatch/engine-bay detail, see scope note
+  add(new THREE.BoxGeometry(0.1, roofY - floorY, W * 0.92), stripe, { pos: [L / 2, (floorY + roofY) / 2, 0] });
+  tick();
+
+  // ── Diagonal two-tone stripe (photo 01: a darker gray panel sweeping up
+  // from the lower-front basement toward the beltline, both sides) — built
+  // as a thin angled plate proud of the paint, not a texture, since the
+  // photo shows a visible panel-line edge, not just a color change.
+  [1, -1].forEach(s => {
+    add(new THREE.BoxGeometry(bodyLen * 0.42, waistY - floorY + 0.1, 0.01), stripe,
+      { pos: [bodyMidX - bodyLen * 0.18, (floorY + waistY) / 2, s * (W / 2 + 0.005)], rot: [0, 0, 0.18], shadow: false });
+  });
+
+  // ── Luggage bay doors, driver side only (curbside unmodeled — no photo).
+  // 6 doors per photo 01, roughly even width, small recessed handle on each.
+  const doorCount = 6;
+  const doorW = bodyLen * 0.9 / doorCount;
+  for (let i = 0; i < doorCount; i++) {
+    const dx = bodyMidX - bodyLen * 0.45 + doorW * (i + 0.5);
+    add(new THREE.BoxGeometry(doorW * 0.9, waistY - floorY - 0.06, 0.015), stripe, { pos: [dx, (floorY + waistY) / 2, W / 2 + 0.008], shadow: false });
+    add(new THREE.BoxGeometry(0.02, 0.1, 0.02), M.chrome, { pos: [dx + doorW * 0.3, (floorY + waistY) / 2, W / 2 + 0.02], shadow: false });
+  }
+  // "LOKI COACH H3" decal near the front luggage doors, per the README
+  const lokiDecal = decal('LOKI COACH H3', 0.9, 0.14, { color: '#e8e8ea' });
+  lokiDecal.position.set(bodyMidX - bodyLen * 0.32, waistY - 0.15, W / 2 + 0.01);
+  lokiDecal.rotation.y = Math.PI / 2;
+  body.add(lokiDecal);
+  tick();
+
+  // ── Roof-edge marker lights (photo 02: small lights along the leading
+  // roof edge, amber, evenly spaced — not pixel-measured, medium confidence).
+  for (let i = -2; i <= 2; i++) {
+    add(new THREE.SphereGeometry(0.02, 8, 6), M.amber, { pos: [-L / 2 + 2.05, roofY - 0.02, i * 0.14], shadow: false });
+  }
+  tick();
+
+  // ══════════════════════════════════════
+  // FRONT CAP — the only exterior end with two photo angles (01 3/4, 02
+  // straight-on). Multi-segment taper standing in for the compound-curved
+  // nose/roof-cap, same "stepped boxes approximate a curve" technique the
+  // VNL hood taper uses.
+  // ══════════════════════════════════════
+  const noseX0 = -L / 2;
+  // Roof cap curve: 3 steps down from the body roof to the windshield header
+  const roofSteps: [number, number][] = [[roofY, 0.5], [roofY - 0.18, 0.75], [roofY - 0.42, 1.05]];
+  roofSteps.forEach(([y, x], i) => {
+    const w = i === 0 ? W * 0.86 : W * (0.86 - i * 0.05);
+    add(new THREE.BoxGeometry(0.5, 0.1, w), paint, { pos: [noseX0 + x, y, 0], rot: [0, 0, -0.12 * (i + 1)] });
+  });
+  // Windshield: 2 panels + center pillar + header, raked back per photo 02's
+  // strongly angled glass. Header sits at the top of the roof-cap taper.
+  const wsHeaderY = roofY - 0.5;
+  const wsBottomY = waistY + 0.55;
+  const wsX = noseX0 + 1.35;
+  add(new THREE.BoxGeometry(0.06, wsHeaderY - wsBottomY, 0.05), M.black, { pos: [wsX, (wsHeaderY + wsBottomY) / 2, 0], rot: [0, 0, -0.28], shadow: false }); // center pillar
+  [1, -1].forEach(s => {
+    add(new THREE.BoxGeometry(0.04, wsHeaderY - wsBottomY - 0.06, (W * 0.86) / 2 - 0.08), glass,
+      { pos: [wsX - 0.02, (wsHeaderY + wsBottomY) / 2, s * ((W * 0.86) / 4 + 0.03)], rot: [0, 0, -0.28], shadow: false });
+  });
+  add(new THREE.BoxGeometry(0.05, 0.06, W * 0.9), M.black, { pos: [wsX + 0.05, wsHeaderY, 0], shadow: false }); // header trim
+  // Wiper arms — two, crossing diagonally, per photo 02
+  [1, -1].forEach(s => {
+    add(new THREE.CylinderGeometry(0.012, 0.012, 0.55, 8), M.black, { pos: [wsX - 0.1, wsBottomY - 0.02, s * 0.28], rot: [Math.PI / 2.3, 0, s * 0.5], shadow: false });
+  });
+  tick();
+
+  // Lower nose taper: 3 panels from the windshield base down to the bumper,
+  // narrowing slightly (matches the mildly trapezoidal front silhouette in
+  // photo 02).
+  add(new THREE.BoxGeometry(0.08, wsBottomY - (waistY + 0.28), W * 0.86), paint, { pos: [noseX0 + 0.55, (wsBottomY + waistY + 0.28) / 2, 0] });
+  add(new THREE.BoxGeometry(0.1, 0.24, W * 0.8), M.grille, { pos: [noseX0 + 0.62, waistY + 0.16, 0] }); // grille bar band
+  const prevostDecal = decal('PREVOST', 0.55, 0.09, { color: '#d4d6d9' });
+  prevostDecal.position.set(noseX0 + 0.68, waistY + 0.16, 0);
+  prevostDecal.rotation.y = Math.PI / 2;
+  body.add(prevostDecal);
+  for (let i = 0; i < 3; i++) {
+    add(new THREE.BoxGeometry(0.02, 0.03, 0.4), M.darkMetal, { pos: [noseX0 + 0.63, waistY + 0.05, -0.3 + i * 0.3], shadow: false });
+  }
+  // Headlight clusters — rectangular, angular DRL element, one each side
+  [1, -1].forEach(s => {
+    add(new THREE.BoxGeometry(0.06, 0.16, 0.32), M.headlightLens, { pos: [noseX0 + 0.6, waistY + 0.02, s * (W * 0.86 / 2 - 0.2)], shadow: false });
+    add(new THREE.BoxGeometry(0.03, 0.03, 0.28), M.amber, { pos: [noseX0 + 0.63, waistY - 0.07, s * (W * 0.86 / 2 - 0.2)], shadow: false });
+    add(new THREE.BoxGeometry(0.02, 0.18, 0.34), M.chrome, { pos: [noseX0 + 0.57, waistY + 0.02, s * (W * 0.86 / 2 - 0.2)], shadow: false });
+  });
+  // Bumper + corner marker lights
+  add(new THREE.BoxGeometry(0.12, 0.22, W * 0.84), paint, { pos: [noseX0 + 0.78, waistY - 0.14, 0] });
+  [1, -1].forEach(s => {
+    add(new THREE.CylinderGeometry(0.025, 0.025, 0.02, 12), M.amber, { pos: [noseX0 + 0.83, waistY - 0.18, s * (W * 0.84 / 2 - 0.1)], rot: [Math.PI / 2, 0, 0], shadow: false });
+  });
+  tick();
+
+  // Mirror arms — long stalks mounted low on the A-pillar, per photo 02
+  [1, -1].forEach(s => {
+    add(new THREE.CylinderGeometry(0.015, 0.02, 0.5, 8), M.darkMetal, { pos: [noseX0 + 1.15, wsBottomY - 0.15, s * (W / 2 + 0.25)], rot: [0, 0, s * 0.35], shadow: false });
+    add(new THREE.BoxGeometry(0.14, 0.22, 0.06), M.darkMetal, { pos: [noseX0 + 1.15, wsBottomY - 0.15, s * (W / 2 + 0.5)], shadow: false });
+  });
+  tick();
+
+  // ── Wheels: tri-axle — single steer up front, close-coupled drive+tag
+  // (dual wheels) at the rear, per photo 01.
+  const wheelAt = (wx: number, wz: number, dual: boolean) => {
+    const offs = dual ? [-1, 1] : [0];
+    offs.forEach(o => {
+      const wz2 = wz + o * 0.13;
+      add(new THREE.CylinderGeometry(wheelR, wheelR, 0.18, 24), M.rubber, { pos: [wx, wheelCY, wz2], rot: [Math.PI / 2, 0, 0] });
+      add(new THREE.CylinderGeometry(wheelR * 0.42, wheelR * 0.42, 0.19, 20), M.chrome, { pos: [wx, wheelCY, wz2], rot: [Math.PI / 2, 0, 0], shadow: false });
+    });
+  };
+  const steerX = noseX0 + 1.6;
+  const driveX = L / 2 - 1.9;
+  const tagX = L / 2 - 1.15;
+  [1, -1].forEach(s => wheelAt(steerX, s * (W / 2 - 0.08), false));
+  [1, -1].forEach(s => wheelAt(driveX, s * (W / 2 - 0.1), true));
+  [1, -1].forEach(s => wheelAt(tagX, s * (W / 2 - 0.1), true));
+  tick();
+
+  // ══════════════════════════════════════
+  // COCKPIT — photo 03, driver's-eye view. Tan/beige leather, black wheel
+  // w/ Prevost badge, digital cluster, large center touchscreen.
+  // ══════════════════════════════════════
+  const dashX = noseX0 + 1.6;
+  add(new THREE.BoxGeometry(0.5, 0.55, W * 0.82), M.dashPlastic, { pos: [dashX, waistY + 0.55, 0] });
+  add(new THREE.BoxGeometry(0.06, 0.5, W * 0.8), M.tanDark, { pos: [dashX - 0.24, waistY + 0.55, 0], shadow: false }); // dash cap trim
+
+  // Steering wheel — rim + Prevost badge boss, matches the VNL wheel's
+  // "badge on its own lower boss" construction pattern
+  const wheel = new THREE.Group();
+  wheel.position.set(dashX - 0.15, waistY + 0.62, 0.32);
+  wheel.rotation.x = 1.1;
+  body.add(wheel);
+  add(new THREE.TorusGeometry(0.16, 0.022, 10, 24), M.black, { parent: wheel });
+  const badge = decal('PREVOST', 0.09, 0.03, { color: '#e8e8ea', bg: '#141414' });
+  badge.position.set(0, -0.02, 0.02);
+  wheel.add(badge);
+  add(new THREE.CylinderGeometry(0.04, 0.04, 0.06, 16), M.black, { pos: [0, 0, -0.02], rot: [Math.PI / 2, 0, 0], parent: wheel, shadow: false });
+
+  // Digital gauge cluster (canvas decal, ahead of the wheel through the rim)
+  const cluster = decal('0', 0.24, 0.1, { color: '#ffffff', bg: '#0a0a0c' });
+  cluster.position.set(dashX - 0.005, waistY + 0.68, 0.32);
+  cluster.rotation.y = Math.PI / 2;
+  body.add(cluster);
+
+  // Center touchscreen — large vertical-ish panel, right of the wheel
+  const screen = decal('02:39', 0.22, 0.32, { color: '#bcd6ff', bg: '#0d1a33' });
+  screen.position.set(dashX - 0.15, waistY + 0.52, -0.42);
+  screen.rotation.y = Math.PI / 2;
+  body.add(screen);
+  add(new THREE.BoxGeometry(0.04, 0.36, 0.26), M.tanDark, { pos: [dashX - 0.16, waistY + 0.52, -0.42], shadow: false }); // screen bezel
+
+  // Rocker-switch panel, left of the wheel
+  add(new THREE.BoxGeometry(0.04, 0.3, 0.2), M.darkMetal, { pos: [dashX - 0.18, waistY + 0.64, 0.55], shadow: false });
+  for (let i = 0; i < 6; i++) {
+    add(new THREE.BoxGeometry(0.01, 0.03, 0.03), M.black, { pos: [dashX - 0.2, waistY + 0.72 - Math.floor(i / 3) * 0.08, 0.48 + (i % 3) * 0.06], shadow: false });
+  }
+  tick();
+
+  // Driver seat — tan leather, side bolsters, headrest (same construction
+  // family as the VNL pedestal seat, retextured tan)
+  const seat = new THREE.Group();
+  seat.position.set(dashX + 0.55, floorY + 0.42, 0.35);
+  body.add(seat);
+  add(new THREE.CylinderGeometry(0.05, 0.07, 0.42, 10), M.darkMetal, { pos: [0, -0.21, 0], parent: seat, shadow: false }); // pedestal
+  add(new THREE.BoxGeometry(0.44, 0.08, 0.42), M.tan, { pos: [0, 0, 0], parent: seat }); // cushion
+  add(new THREE.BoxGeometry(0.06, 0.5, 0.42), M.tan, { pos: [-0.19, 0.28, 0], rot: [0, 0, -0.12], parent: seat }); // backrest
+  [1, -1].forEach(s => {
+    add(new THREE.BoxGeometry(0.06, 0.42, 0.06), M.tanDark, { pos: [-0.19, 0.28, s * 0.2], rot: [0, 0, -0.12], parent: seat, shadow: false }); // bolsters
+  });
+  add(new THREE.BoxGeometry(0.05, 0.14, 0.28), M.tan, { pos: [-0.36, 0.62, 0], parent: seat, shadow: false }); // headrest
+  tick();
+
+  // Shifter/parking-brake console (R/N/D rocker puck per photo 03, not a stalk)
+  add(new THREE.BoxGeometry(0.12, 0.1, 0.14), M.darkMetal, { pos: [dashX + 0.05, floorY + 0.62, 0.62] });
+  add(new THREE.CylinderGeometry(0.03, 0.03, 0.02, 16), M.chrome, { pos: [dashX + 0.05, floorY + 0.68, 0.62], rot: [Math.PI / 2, 0, 0], shadow: false });
+  tick();
+
+  group.position.y = 0;
+  group.rotation.y = Math.PI * 0.08;
+
+  tick(); tick();
+  setProgress(100);
+  setTimeout(() => setLoading(false), 400);
+}

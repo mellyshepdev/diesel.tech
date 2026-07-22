@@ -122,3 +122,17 @@ the comment doesn't.
 | Roofline amber marker lights | `truck-cab` | n/a — reasoned (every NA coach/bus carries these), no dedicated photo | rail at nose-adjacent x, matching the roof box's front section | 2026-07-21 |
 
 **Known gaps, same as the prevost README**: no rear, opposite-profile, engine-bay, or passenger-cabin (lounge/galley/lav) photos exist yet, so the mid/rear body past what photo 01's 3/4 angle reveals, and the entire rear engine hatch/bay area, are reasoned rather than photo-verified. X-Ray flow mode stays VNL-only (gated on `vehicle === 'vnl860'`, unchanged) since it wasn't verified against the reused engine's new position/rotation inside the coach.
+
+## Entries added 2026-07-21, concurrent buildPrevost() draft (kept, not wired up)
+
+Another session's autosave process independently wrote its own Prevost H3-45
+draft at the same time as the `buildPrevostH345` work above. It's kept in
+`EngineViewer.tsx` (with an explanatory note at its definition) per this
+project's "never delete, only add" rule rather than discarded, since it has
+real merit — see that in-file note for why. It is **not** referenced by the
+`VehicleId`/build dispatch; `buildPrevostH345` is what actually runs.
+
+| name | parent group | source photo(s) | scale basis / anchor | added |
+|---|---|---|---|---|
+| `prevost-body` (`buildPrevost()`, unreferenced): front cap (windshield/pillar/header, grille bar + PREVOST decal, headlight clusters, bumper + corner markers, wipers, mirror arms, roof-cap taper), driver-side exterior (basement/window-band body shell, diagonal two-tone stripe, 6 luggage-bay doors, LOKI COACH H3 decal — this specific decal technique was ported into `buildPrevostH345`'s coach body instead of duplicated), roof marker lights, tri-axle wheels, and cockpit interior (dash, wheel w/ Prevost badge boss, digital cluster + center touchscreen decals, rocker-switch panel, tan driver seat, shifter console) | top-level (`group`), returned by `buildPrevost` | `docs/reference/prevost/01-exterior-front-3q.webp`, `02-exterior-front-straight-on.webp`, `03-interior-dash-cockpit.webp` | `CIN = 1/56` scene-units-per-inch, chosen so the real ~540in (45ft) coach comes out ≈9.6 units long — a cleaner real-world-derived scale basis than `buildPrevostH345`'s "sized to fit the reused engine" approach | 2026-07-21 |
+| Deliberately NOT modeled in this draft: rear body/engine hatch, curbside (passenger-side) exterior detail, passenger-cabin interior — all blocked on missing reference photos per 3d-part-fidelity §1, and no `truck-door`/`truck-hood` objects exist so the pre-trip/hood-release/repair flow is gated off entirely for this vehicle rather than faked. A more conservative scope than `buildPrevostH345`'s reasoned-but-unverified rear hatch + reused engine bay | n/a | n/a — explicitly asked for in the prevost README's "Known gaps" section | n/a | 2026-07-21 |
