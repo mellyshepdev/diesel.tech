@@ -736,6 +736,16 @@ export default function EngineViewer() {
   const engine = vehicle === 'sonata2017' ? SONATA_ENGINE : vehicle === 'prevost' ? PREVOST_ENGINE : ENGINES[engineId];
   const hotspots = HOTSPOT_DATA.map(h => ({ ...h, desc: engine.hotspotDescs?.[h.id] ?? h.desc }));
   const [activeHotspot, setActiveHotspot] = useState<string | null>(null);
+  // Pre-trip checklist bar starts collapsed to a small pill once the player's
+  // dismissed it once (persisted per-browser) — full text-in-a-row bar was
+  // reported as blocking whatever sits behind it at top-24 center screen.
+  const [checklistMinimized, setChecklistMinimized] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem('diesel-tech-checklist-minimized') === '1';
+  });
+  useEffect(() => {
+    if (typeof window !== 'undefined') window.localStorage.setItem('diesel-tech-checklist-minimized', checklistMinimized ? '1' : '0');
+  }, [checklistMinimized]);
 
   // ── Repairs / service mode ──
   const [repairsOpen, setRepairsOpen] = useState(false);
