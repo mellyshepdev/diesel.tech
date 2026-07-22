@@ -2887,14 +2887,31 @@ export default function EngineViewer() {
           assumes both exist — is skipped entirely rather than dead-ending
           the player on an unclickable door. */}
       {vehicle !== 'prevost' && !isLoading && !hoodOpen && !inspecting && (
-        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded-xl bg-black/75 backdrop-blur-md border border-white/15 flex items-center gap-4 text-[11px] pointer-events-none">
-          <span className={doorUnlocked ? 'text-green-300' : 'text-white font-bold'}>{doorUnlocked ? '✓' : '1.'} 🔑 Unlock the door (key in hand, click the door)</span>
-          <span className={parkingBrake ? 'text-green-300' : doorUnlocked ? 'text-white font-bold' : 'text-gray-500'}>{parkingBrake ? '✓' : '2.'} 🅿 Set the parking brake (in the cab)</span>
-          {vehicle !== 'sonata2017' && (
-            <span className={hoodLeverPulled ? 'text-green-300' : parkingBrake ? 'text-white font-bold' : 'text-gray-500'}>{hoodLeverPulled ? '✓' : '3.'} 🔓 Pull the hood release (in the cab)</span>
-          )}
-          <span className={hoodOpen ? 'text-green-300' : (vehicle === 'sonata2017' ? parkingBrake : hoodLeverPulled) ? 'text-white font-bold' : 'text-gray-500'}>{vehicle === 'sonata2017' ? '3.' : '4.'} Open the hood (click it — outside the cab)</span>
-        </div>
+        checklistMinimized ? (
+          <button
+            onClick={() => setChecklistMinimized(false)}
+            title="Show pre-trip checklist"
+            className="absolute top-24 left-1/2 -translate-x-1/2 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-black/75 backdrop-blur-md border border-white/15 text-white/70 hover:text-white hover:border-white/30 pointer-events-auto text-xs"
+          >
+            📋
+          </button>
+        ) : (
+          <div className="absolute top-24 left-1/2 -translate-x-1/2 z-20 pl-4 pr-2 py-2 rounded-xl bg-black/75 backdrop-blur-md border border-white/15 flex items-center gap-4 text-[11px] pointer-events-none">
+            <span className={doorUnlocked ? 'text-green-300' : 'text-white font-bold'}>{doorUnlocked ? '✓' : '1.'} 🔑 Unlock the door (key in hand, click the door)</span>
+            <span className={parkingBrake ? 'text-green-300' : doorUnlocked ? 'text-white font-bold' : 'text-gray-500'}>{parkingBrake ? '✓' : '2.'} 🅿 Set the parking brake (in the cab)</span>
+            {vehicle !== 'sonata2017' && (
+              <span className={hoodLeverPulled ? 'text-green-300' : parkingBrake ? 'text-white font-bold' : 'text-gray-500'}>{hoodLeverPulled ? '✓' : '3.'} 🔓 Pull the hood release (in the cab)</span>
+            )}
+            <span className={hoodOpen ? 'text-green-300' : (vehicle === 'sonata2017' ? parkingBrake : hoodLeverPulled) ? 'text-white font-bold' : 'text-gray-500'}>{vehicle === 'sonata2017' ? '3.' : '4.'} Open the hood (click it — outside the cab)</span>
+            <button
+              onClick={() => setChecklistMinimized(true)}
+              title="Minimize checklist"
+              className="text-gray-500 hover:text-white pointer-events-auto text-sm leading-none"
+            >
+              ➖
+            </button>
+          </div>
+        )
       )}
 
       {/* Climb into the cab */}
