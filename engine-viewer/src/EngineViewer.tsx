@@ -4162,6 +4162,19 @@ export default function EngineViewer() {
         </button>
         {vehicle === 'vnl860' && (
           <button
+            onClick={toggleWorkOrderMode}
+            title="Work Orders: the vehicle only shows up once you request a job, and pull-out quality is graded"
+            className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200"
+            style={workOrderMode
+              ? { background: 'rgba(0,212,255,0.15)', border: '1px solid rgba(0,212,255,0.5)', color: '#00d4ff' }
+              : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.5)' }
+            }
+          >
+            📋 Work Orders
+          </button>
+        )}
+        {vehicle === 'vnl860' && (
+          <button
             onClick={toggleXray}
             className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200"
             style={xrayOn
