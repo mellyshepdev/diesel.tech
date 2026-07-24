@@ -1133,6 +1133,7 @@ export default function EngineViewer() {
     if (typeof window !== 'undefined') window.localStorage.setItem('diesel-tech-owned-sections', JSON.stringify([...ownedSections]));
   }, [ownedSections]);
   const [sectionsPanelOpen, setSectionsPanelOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const buySection = (id: ToolboxSectionId) => {
     if (ownedSections.has(id)) return;
     const section = TOOLBOX_SECTIONS.find(s => s.id === id)!;
@@ -3031,6 +3032,32 @@ export default function EngineViewer() {
         <ReferencePanel onClose={() => setReferenceOpen(false)} />
       )}
 
+      {/* Controls settings — currently just look-inversion; the fuller
+          remap UI (rebinding move/look, mobile joystick swap) is still
+          pending, this is the first real settings surface backing
+          controlSettingsRef so it isn't dead state. */}
+      {settingsOpen && !isLoading && (
+        <div className="absolute right-4 top-32 w-72 max-w-[92vw] bg-black/75 backdrop-blur-md border border-cyan-400/25 rounded-xl p-3 z-30 space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-cyan-300 text-xs font-bold tracking-widest uppercase">⚙ Controls</span>
+            <button onClick={() => setSettingsOpen(false)} className="text-gray-500 hover:text-white text-sm">✕</button>
+          </div>
+          <div className="px-1 text-[11px] text-gray-400 leading-snug">
+            Move: <span className="text-gray-200 font-mono">WASD</span> &nbsp;·&nbsp;
+            Look: <span className="text-gray-200 font-mono">arrows / mouse</span>
+          </div>
+          <label className="flex items-center justify-between px-1 py-1.5 rounded-lg hover:bg-white/5 cursor-pointer">
+            <span className="text-xs text-gray-300">Invert look (pitch)</span>
+            <input
+              type="checkbox"
+              checked={controlSettings.invertLook}
+              onChange={(e) => setControlSettings(prev => ({ ...prev, invertLook: e.target.checked }))}
+              className="accent-cyan-400"
+            />
+          </label>
+        </div>
+      )}
+
       {/* Toolbox Upgrades — buying the toolbox itself, section by section, as
           distinct from buying individual tools inside it (ToolPanel/TOOL_PRICES). */}
       {sectionsPanelOpen && !isLoading && (
@@ -3994,6 +4021,14 @@ export default function EngineViewer() {
           }
         >
           {walkMode ? '🎮 Walking (Esc to exit)' : '🎮 Walk Mode'}
+        </button>
+        <button
+          onClick={() => setSettingsOpen(v => !v)}
+          title="Controls settings"
+          className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200"
+          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.5)' }}
+        >
+          ⚙ Settings
         </button>
         {vehicle === 'vnl860' && (
           <button
