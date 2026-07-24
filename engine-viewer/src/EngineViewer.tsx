@@ -592,6 +592,15 @@ const REPAIRS: { id: RepairId; icon: string; label: string; desc: string; tier: 
     unlockLevel: 6,
     coinReward: 90,
   },
+  {
+    id: 'dpf-service',
+    icon: '🌫️',
+    label: 'Diesel Particulate Filter (DPF) Service',
+    desc: 'Per the QRG: let it cool, pull the fairing/braces, disconnect wiring/sensors, mark module alignment at the V-band clamps, support the DPF\'s weight on a jack before loosening clamps, separate the modules, replace gaskets and worn clamps, reinstall aligned and torqued, then reset soot trigger levels with the PTT. The heaviest, most module-heavy job in the shop.',
+    tier: 6,
+    unlockLevel: 6,
+    coinReward: 85,
+  },
 ];
 
 // Career levels — title reflects the *kind* of job that level's mechanic can
