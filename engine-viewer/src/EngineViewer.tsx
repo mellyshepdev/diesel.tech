@@ -1917,6 +1917,15 @@ export default function EngineViewer() {
   // untouched by focused repair close-ups so the arrow doesn't flicker mid-job.
   const [view, setView] = useState<'truck' | 'toolbox'>('truck');
   const [autoRotate, setAutoRotate] = useState(true);
+  // FPS-style walk mode: pointer-locked mouse look (yaw/pitch straight on
+  // the camera quaternion, not OrbitControls' orbit-around-a-target) +
+  // WASD move relative to where the camera is actually facing. A ref
+  // mirrors the state so the animate()/mousemove closures (set up once per
+  // vehicle load, see the main scene useEffect) always read the current
+  // value instead of closing over a stale one.
+  const [walkMode, setWalkMode] = useState(false);
+  const walkModeRef = useRef(false);
+  useEffect(() => { walkModeRef.current = walkMode; }, [walkMode]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
   const [screenPositions, setScreenPositions] = useState<Record<string, { x: number; y: number; visible: boolean }>>({});
