@@ -1835,6 +1835,14 @@ export default function EngineViewer() {
   // Tools the mechanic has pulled from the chest drawers into the tray.
   // A tool must be in the tray before it can go in your hand.
   const [tray, setTray] = useState<Tool[]>([]);
+  // Vehicle keys sit on the toolbox counter (see 'toolbox-vehicle-keys' in
+  // buildVolvoD13), not locked behind a drawer purchase — grab them straight
+  // into the tray so a brand-new tech isn't stuck needing coins they can
+  // only earn by first getting into the truck.
+  const grabKeys = useCallback(() => {
+    setTray(prev => (prev.includes('key') ? prev : [...prev, 'key']));
+    setServiceMsg('🔑 Keys grabbed — in your tray.');
+  }, []);
 
   // Simulate RPM when engine "on"
   useEffect(() => {
@@ -2314,6 +2322,7 @@ export default function EngineViewer() {
     if (name === 'truck-hood') { clickHood(); return; }
     if (name === 'truck-fifthwheel') { focusTruckPart('truck-fifthwheel'); return; }
     if (name.startsWith('truck-')) return;
+    if (name === 'toolbox-vehicle-keys') { grabKeys(); return; }
     if (name.startsWith('toolbox-drawer-facade-')) {
       toggleFacadeDrawer(name);
       return;
