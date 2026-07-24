@@ -885,12 +885,13 @@ const flowPath = (pts: [number, number, number][]) => {
 const makeFlow = (
   parent: THREE.Group, color: number, count: number, size: number, speed: number,
   path?: THREE.CurvePath<THREE.Vector3>, splash?: FlowSystem['splash'],
+  blending: THREE.Blending = THREE.AdditiveBlending,
 ): FlowSystem => {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(count * 3), 3));
   const mat = new THREE.PointsMaterial({
     color, size, transparent: true, opacity: 0.9, depthWrite: false,
-    blending: THREE.AdditiveBlending, sizeAttenuation: true,
+    blending, sizeAttenuation: true,
   });
   const points = new THREE.Points(geo, mat);
   points.name = 'flow-points';
@@ -907,8 +908,11 @@ const buildFlowSystems = (): { flowGroup: THREE.Group; systems: FlowSystem[] } =
   flowGroup.visible = false;
   const systems: FlowSystem[] = [];
 
-  // Cool intake air: cleaner duct → compressor → charge pipe → intake manifold
-  systems.push(makeFlow(flowGroup, 0x7fd0ff, 130, 0.05, 0.055, flowPath([
+  // Cool intake air: cleaner duct → compressor → charge pipe → intake manifold.
+  // White per the user's fluid-color scheme (blue=coolant, white=cold air,
+  // black=exhaust, green=fuel) — previously a pale blue that read too close
+  // to the coolant loop's color.
+  systems.push(makeFlow(flowGroup, 0xffffff, 130, 0.05, 0.055, flowPath([
     [1.25, 0.15, 0.75],
     [0.85, 0.24, 0.62],
     [0.73, 0.26, 0.52],
@@ -920,15 +924,24 @@ const buildFlowSystems = (): { flowGroup: THREE.Group; systems: FlowSystem[] } =
   ])));
 
   // Air working through the six cylinders: intake port → bore → exhaust port
+  // — same white as the intake system above, it's the same cold air
+  // continuing its route.
   const cyl: [number, number, number][] = [];
   for (let i = 0; i < 6; i++) {
     const rx = -0.78 + i * 0.31;
     cyl.push([rx, 0.40, -0.24], [rx, -0.15, 0], [rx, 0.44, 0.36], [rx, 0.60, 0.52]);
   }
-  systems.push(makeFlow(flowGroup, 0xb9c7d2, 120, 0.045, 0.05, flowPath(cyl)));
+  systems.push(makeFlow(flowGroup, 0xffffff, 120, 0.045, 0.05, flowPath(cyl)));
 
-  // Hot exhaust: log → turbine flange → through the turbo → downpipe out back
-  systems.push(makeFlow(flowGroup, 0xff9a55, 90, 0.055, 0.06, flowPath([
+  // Hot exhaust: log → turbine flange → through the turbo → downpipe out back.
+  // Black smoke per the user's fluid-color scheme. Additive blending (used
+  // by every other flow system here) makes black contribute nothing — same
+  // class of bug already hit and fixed on the nasa-project sun — so this is
+  // the one system that needs normal (non-additive) alpha blending to
+  // actually render as visibly dark smoke instead of disappearing. Dark
+  // gray rather than pure black so it still reads against the x-ray void's
+  // own near-black background (0x050810, see scene.background above).
+  systems.push(makeFlow(flowGroup, 0x3a3a3a, 90, 0.07, 0.06, flowPath([
     [-0.78, 0.60, 0.52],
     [0.33, 0.60, 0.52],
     [0.33, 0.50, 0.52],
@@ -936,7 +949,7 @@ const buildFlowSystems = (): { flowGroup: THREE.Group; systems: FlowSystem[] } =
     [0.42, -0.1, 0.72],
     [0.9, -0.55, 0.9],
     [1.7, -0.6, 0.95],
-  ])));
+  ]), undefined, THREE.NormalBlending));
 
   // Coolant loop: pump → block gallery → head → thermostat → radiator → pump.
   // Bug fix 2026-07-21: pump/thermostat/radiator waypoints were all at
@@ -947,7 +960,8 @@ const buildFlowSystems = (): { flowGroup: THREE.Group; systems: FlowSystem[] } =
   // unchanged — pump feeding the block at the front, flowing rearward
   // through the water jacket into the head, then forward again to the
   // thermostat, is the real physical routing anyway.
-  systems.push(makeFlow(flowGroup, 0x35e0c8, 110, 0.045, 0.045, flowPath([
+  // Blue per the user's fluid-color scheme (was teal).
+  systems.push(makeFlow(flowGroup, 0x2288ff, 110, 0.045, 0.045, flowPath([
     [0.98, 0.02, 0.16],
     [-0.5, 0.05, 0.22],
     [0.4, 0.1, 0.22],
