@@ -1716,6 +1716,14 @@ export default function EngineViewer() {
 
   const finishRepair = () => {
     const repair = REPAIRS.find(r => r.id === activeRepair);
+    // Payout scales with % of procSteps done (chock-wheels step included)
+    // — only a 100% job (wheels chocked + every mechanical step done) pays
+    // the full coinReward. Captured before resetService() clears state;
+    // procSteps is this render's already-computed snapshot either way.
+    const stepsTotal = procSteps.length;
+    const stepsDone = procSteps.filter(s => s.done).length;
+    const completionPct = stepsTotal > 0 ? stepsDone / stepsTotal : 1;
+    const payout = repair ? Math.round(repair.coinReward * completionPct) : 0;
     resetService();
     setServiceMsg((activeRepair === 'pan-gasket'
       ? 'New gasket fitted; 22 screws torqued 24 ± 4 Nm middle-out, A & B re-checked, drain plug 60 ± 10 Nm ✓'
@@ -1729,15 +1737,17 @@ export default function EngineViewer() {
               ? 'Rear axle housing and differential carrier bolts torque-checked to spec, nothing loose ✓'
               : activeRepair === 'hood-cable'
                 ? 'New hood release cable routed & secured, trim reinstalled, latch tested — pops free clean, no binding ✓'
-                : 'New filters on (oiled gaskets, 3/4–1 turn), pan torqued 24 ± 4 Nm, filled with VDS-4 10W-30 ✓')
-      + (repair ? ` — 🪙 +${repair.coinReward} coins` : ''));
+                : activeRepair && GENERIC_CHECKLISTS[activeRepair]
+                  ? `${repair?.label ?? 'Job'} complete ✓`
+                  : 'New filters on (oiled gaskets, 3/4–1 turn), pan torqued 24 ± 4 Nm, filled with VDS-4 10W-30 ✓')
+      + (repair ? ` — 🪙 +${payout} coins${completionPct < 1 ? ` (${Math.round(completionPct * 100)}% — forgot to chock the wheels)` : ''}` : ''));
     // Award coins and check for a level-up against the level *before* this
     // job's payout, so a job that crosses a threshold announces the new
     // level exactly once instead of every render after.
     if (repair) {
       const before = mechanicLevel;
-      const after = levelForCoins(coins + repair.coinReward);
-      setCoins(c => c + repair.coinReward);
+      const after = levelForCoins(coins + payout);
+      setCoins(c => c + payout);
       if (after.level > before.level) {
         setLevelUpMsg(`🎉 LEVEL UP — you're now a ${after.title} (Level ${after.level})`);
       }
