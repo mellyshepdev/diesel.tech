@@ -1083,6 +1083,12 @@ export default function EngineViewer() {
   // rather than raycast clicks on those (unnamed) meshes.
   const [axleChecked, setAxleChecked] = useState({ rearAxle: false, diff: false, fifthWheel: false, tires: false, brakes: false });
   const allAxleChecked = Object.values(axleChecked).every(Boolean);
+  // Wheel chocks: a universal first step on every job, PM Service onward —
+  // not gating (you can still finish without it), but finishRepair pays out
+  // coinReward * (steps done / steps total) including this one, so skipping
+  // it costs real coins instead of blocking the job outright. Resets with
+  // the rest of the service state on every job start/finish.
+  const [wheelsChocked, setWheelsChocked] = useState(false);
   // Checklist-style repairs added for GENERIC_CHECKLISTS ids (starter, CCV,
   // bumper, fairing, water pump, air compressor, radiator, venturi, EGR
   // cooler, rear diff): one boolean array per repair, keyed by RepairId,
@@ -1704,6 +1710,7 @@ export default function EngineViewer() {
     setAxleChecked({ rearAxle: false, diff: false, fifthWheel: false, tires: false, brakes: false });
     setHoodCableStep(0);
     setGenericChecklist({});
+    setWheelsChocked(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restoreParts, exitInspect]);
 
