@@ -381,6 +381,22 @@ const GENERIC_CHECKLISTS: Partial<Record<RepairId, { icon: string; label: string
     { icon: '✅', label: 'No manual tensioning needed — the auto-tensioner sets optimum tension itself' },
     { icon: '🔍', label: 'Inspect tensioner & belt condition once more before closing up' },
   ],
+  // Per the QRG's "Air Intake System" component-location page (p.109):
+  // fresh air comes in above the back of the cab, ducted to the paper
+  // filter assembly on the bulkhead under the hood (with room for a second
+  // filter in extreme environments), through a pressure/temperature sensor
+  // pipe to the turbo — that sensor is what actually tells the driver the
+  // filter needs changing. No dedicated duct/housing geometry is modeled
+  // yet, so no `focus` target on these steps.
+  'air-intake-service': [
+    { icon: '🔍', label: 'Inspect the intake duct from the cab-back inlet to the filter housing for cracks or blockage' },
+    { icon: '🔓', label: 'Open the filter housing on the bulkhead under the hood' },
+    { icon: '📤', label: 'Remove the primary paper air filter element' },
+    { icon: '🧩', label: 'Add/inspect the secondary filter if extreme-environment duty calls for one' },
+    { icon: '📊', label: 'Check the pressure/temperature sensor on the housing-to-turbo pipe is seated correctly' },
+    { icon: '📥', label: 'Install the new filter element(s) and reseal the housing' },
+    { icon: '✅', label: 'Verify no leaks past the filter seal and a clean sensor reading' },
+  ],
 };
 
 // Tools a repair actually can't be started without — the two specialty
