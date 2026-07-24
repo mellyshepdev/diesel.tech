@@ -2349,7 +2349,7 @@ export default function EngineViewer() {
             : [];
 
   // Guided procedure steps, derived from the live physics state.
-  const procSteps: ProcStep[] =
+  const repairTypeSteps: ProcStep[] =
     activeRepair === 'oil-change'
       ? [
           { id: 1, label: 'Drain the oil hot (plug reinstalls at 60 ± 10 Nm)', done: oilDrained, active: draining, requiredTool: 'socket13' },
@@ -2405,6 +2405,18 @@ export default function EngineViewer() {
                         requiredTool: null,
                       }))
                     : [];
+
+  // Chock the wheels: universal first step on every job (PM Service
+  // onward) — see the `wheelsChocked` declaration above. Doesn't gate
+  // repairComplete (each repair's own logic still decides when the
+  // mechanical work is done), but is counted into the % that decides the
+  // finishRepair coin payout, so skipping it always costs coins.
+  const procSteps: ProcStep[] = activeRepair
+    ? [
+        { id: 0, label: 'Chock the wheels', done: wheelsChocked, requiredTool: null },
+        ...repairTypeSteps.map(s => ({ ...s, id: s.id + 1 })),
+      ]
+    : [];
 
   /** Switch to a vehicle (or back to the dropdown with null): reset every
    *  walk-around / service state so the freshly built scene starts clean. */
