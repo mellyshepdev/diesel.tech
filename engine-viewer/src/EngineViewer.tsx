@@ -3667,9 +3667,9 @@ export default function EngineViewer() {
       {/* Floating Tool Tray — always visible (not just while a drawer's
           open), draggable side to side via the ⋮⋮ handle so it can be
           pushed out of the way. See onTrayDragStart/trayOffsetX above. */}
-      {!isLoading && (
+      {!isLoading && !inspecting && (
         <div
-          className="absolute bottom-24 z-30 pointer-events-auto"
+          className="absolute bottom-36 z-30 pointer-events-auto"
           style={{ left: '50%', transform: `translateX(calc(-50% + ${trayOffsetX}px))` }}
         >
           <div className="flex items-center gap-2 rounded-xl border border-cyan-400/25 bg-black/75 backdrop-blur-md p-2 max-w-[90vw]">
