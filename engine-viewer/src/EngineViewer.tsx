@@ -2776,6 +2776,17 @@ export default function EngineViewer() {
                 {REPAIRS.find(r => r.id === activeRepair)!.icon} {REPAIRS.find(r => r.id === activeRepair)!.label}
               </div>
 
+              <button
+                onClick={() => setWheelsChocked(v => !v)}
+                className={`w-full flex items-center gap-2 p-2 rounded-lg border text-left transition ${
+                  wheelsChocked ? 'border-green-500/40 bg-green-500/10' : 'border-red-500/40 bg-red-500/10 hover:border-amber-400/50'
+                }`}
+              >
+                <span>{wheelsChocked ? '✅' : '🔺'}</span>
+                <span className="text-xs text-white flex-1">Chock the wheels</span>
+                <span className="text-[11px] text-gray-400">{wheelsChocked ? 'Chocked' : 'Required for 100% pay'}</span>
+              </button>
+
               <ProcedurePanel title={REPAIRS.find(r => r.id === activeRepair)!.label} steps={procSteps} />
 
               {activeRepair === 'turbo-replace' && (
