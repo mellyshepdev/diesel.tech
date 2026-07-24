@@ -4989,10 +4989,13 @@ export function buildVolvoD13(
   // FED_X (1.26) front-end-drive pulleys, not the bell-housing end where the
   // starter and pinion (x -1.08 to -1.19) actually are. Mirrored x to the
   // correct side; y/z unchanged.
-  add(new THREE.CylinderGeometry(0.09, 0.11, 0.1, 14), M.teal, { pos: [0.98, 0.02, 0.16], rot: [0, 0, Math.PI / 2] });
-  add(new THREE.BoxGeometry(0.1, 0.12, 0.12), M.teal, { pos: [0.95, 0.3, 0.12] });
+  const waterPump = new THREE.Group();
+  waterPump.name = 'service-water-pump';
+  group.add(waterPump);
+  add(new THREE.CylinderGeometry(0.09, 0.11, 0.1, 14), M.teal, { pos: [0.98, 0.02, 0.16], rot: [0, 0, Math.PI / 2], parent: waterPump });
+  add(new THREE.BoxGeometry(0.1, 0.12, 0.12), M.teal, { pos: [0.95, 0.3, 0.12], parent: waterPump });
   // Thermostat outlet to the upper radiator hose
-  add(new THREE.CylinderGeometry(0.04, 0.04, 0.1, 10), M.brushedMetal, { pos: [1.02, 0.36, 0.12], rot: [0, 0, Math.PI / 2] });
+  add(new THREE.CylinderGeometry(0.04, 0.04, 0.1, 10), M.brushedMetal, { pos: [1.02, 0.36, 0.12], rot: [0, 0, Math.PI / 2], parent: waterPump });
   tick();
 
   /** WABCO twin-cylinder brake air compressor — modeled from the part
