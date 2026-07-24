@@ -5373,8 +5373,11 @@ export function buildVolvoD13(
   // 04-exterior-side-profile-driver.png — split sits right at the door
   // sill). Thin skin panels flush with the cab's side faces (z ±0.85 —
   // see the cab BoxGeometry(2.2,1.22,1.7) above), not a solid underbody.
+  const fairing = new THREE.Group();
+  fairing.name = 'service-fairing';
+  truckBody.add(fairing);
   [0.86, -0.86].forEach(z => {
-    add(new THREE.BoxGeometry(2.3, 0.42, 0.04), lowerBody, { pos: [2.5, -0.33, z], parent: truckBody });
+    add(new THREE.BoxGeometry(2.3, 0.42, 0.04), lowerBody, { pos: [2.5, -0.33, z], parent: fairing });
   });
 
   // ── Cab interior — dash, wheel, seats, and the full sleeper. Previously
