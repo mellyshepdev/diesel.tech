@@ -2383,6 +2383,46 @@ export default function EngineViewer() {
         }
       }
 
+      // Work-order vehicle pull-in/pull-out: same eased-queue pattern as
+      // cameraMove above, but moves engineGroup itself (truck + engine are
+      // siblings directly under it — see buildVolvoD13's `group` param)
+      // rather than the camera. The toolbox is also a direct child of
+      // engineGroup (a tech's stationary cart, not part of the vehicle), so
+      // its local x is compensated by the exact inverse of engineGroup's
+      // shift each frame, keeping it visually stationary in world space
+      // while everything else (the actual vehicle) drives in/out.
+      const vMove = engineGroup.userData.vehicleMove as { targetX: number; onDone?: () => void } | undefined;
+      if (vMove) {
+        const toolbox = engineGroup.getObjectByName('toolbox-chest');
+        const startEgX = engineGroup.position.x;
+        engineGroup.position.x += (vMove.targetX - engineGroup.position.x) * 0.045;
+        if (toolbox) toolbox.position.x -= (engineGroup.position.x - startEgX);
+        if (Math.abs(engineGroup.position.x - vMove.targetX) < 0.02) {
+          engineGroup.position.x = vMove.targetX;
+          engineGroup.userData.vehicleMove = undefined;
+          vMove.onDone?.();
+        }
+      }
+
+      // Work-order pull-out failure: a wheel that wasn't properly torqued
+      // (wheelsChocked left unchecked) works itself loose and drops off
+      // mid-drive-away — per mechanism-kinematics, a real physical
+      // consequence tied to the actual quality signal already tracked by
+      // procSteps/finishRepair, not a scripted cutscene independent of what
+      // the tech actually did.
+      const wheelFail = engineGroup.userData.wheelFailure as
+        { mesh: THREE.Object3D; vy: number; settled: boolean } | undefined;
+      if (wheelFail && !wheelFail.settled) {
+        wheelFail.vy -= 0.006; // gravity
+        wheelFail.mesh.position.y += wheelFail.vy;
+        wheelFail.mesh.rotation.z += 0.25;
+        wheelFail.mesh.rotation.x += 0.08;
+        if (wheelFail.mesh.position.y <= -1.05) {
+          wheelFail.mesh.position.y = -1.05;
+          wheelFail.settled = true;
+        }
+      }
+
       const keys = keysHeldRef.current;
       if (walkModeRef.current) {
         // Walk mode: WASD moves relative to where the camera is actually
