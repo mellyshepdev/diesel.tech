@@ -3162,6 +3162,51 @@ export default function EngineViewer() {
         <ReferencePanel onClose={() => setReferenceOpen(false)} />
       )}
 
+      {/* Work Orders: request banner (vehicle off-screen, idle), a small
+          status pill while it's driving in/out, and a graded summary once
+          a job's been turned in. */}
+      {workOrderMode && !isLoading && workOrderStatus === 'idle' && !workOrderGrade && (
+        <div className="absolute left-1/2 top-24 -translate-x-1/2 z-30 flex flex-col items-center gap-2">
+          <button
+            onClick={requestWorkOrder}
+            className="px-6 py-3 rounded-full text-sm font-bold tracking-wide transition-all duration-200 hover:scale-105"
+            style={{ background: 'rgba(0,212,255,0.18)', border: '1px solid rgba(0,212,255,0.6)', color: '#00d4ff', boxShadow: '0 0 20px rgba(0,212,255,0.25)' }}
+          >
+            🚛 Request Work Order
+          </button>
+        </div>
+      )}
+      {workOrderMode && (workOrderStatus === 'arriving' || workOrderStatus === 'departing') && (
+        <div className="absolute left-1/2 top-24 -translate-x-1/2 z-30 px-5 py-2 rounded-full text-xs font-semibold tracking-wide bg-black/70 border border-cyan-400/30 text-cyan-300">
+          {workOrderStatus === 'arriving' ? '🚛 Vehicle pulling in…' : '🚛 Vehicle pulling out…'}
+        </div>
+      )}
+      {workOrderGrade && (
+        <div className="absolute left-1/2 top-24 -translate-x-1/2 z-30 w-80 max-w-[92vw] bg-black/85 backdrop-blur-md border rounded-xl p-4 space-y-3 text-center"
+          style={{ borderColor: workOrderGrade.failed ? 'rgba(239,68,68,0.4)' : 'rgba(16,185,129,0.4)' }}
+        >
+          <div className="text-2xl">{workOrderGrade.failed ? '⚠️' : '✅'}</div>
+          <div className="text-sm font-bold tracking-wide" style={{ color: workOrderGrade.failed ? '#f87171' : '#34d399' }}>
+            {workOrderGrade.failed ? 'QUALITY FAILURE — CUSTOMER COMEBACK' : 'WORK ORDER COMPLETE'}
+          </div>
+          <div className="text-xs text-gray-400">
+            {Math.round(workOrderGrade.pct * 100)}% of steps completed — 🪙 +{workOrderGrade.payout}
+            {workOrderGrade.failed && <span className="text-red-400"> (−25 quality penalty)</span>}
+          </div>
+          {workOrderGrade.failed && (
+            <div className="text-[11px] text-red-300 leading-snug">
+              An un-torqued wheel worked loose and dropped off during pull-out. Chock the wheels and finish every step to avoid this.
+            </div>
+          )}
+          <button
+            onClick={() => setWorkOrderGrade(null)}
+            className="px-5 py-2 rounded-full text-xs font-semibold bg-white/10 hover:bg-white/20 text-gray-200 transition-colors"
+          >
+            Next Job
+          </button>
+        </div>
+      )}
+
       {/* Controls settings — currently just look-inversion; the fuller
           remap UI (rebinding move/look, mobile joystick swap) is still
           pending, this is the first real settings surface backing
