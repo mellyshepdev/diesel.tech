@@ -1703,6 +1703,7 @@ export default function EngineViewer() {
     setFluidsChecked({ oil: false, coolant: false, washer: false, def: false, grease: false });
     setAxleChecked({ rearAxle: false, diff: false, fifthWheel: false, tires: false, brakes: false });
     setHoodCableStep(0);
+    setGenericChecklist({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restoreParts, exitInspect]);
 
@@ -1771,7 +1772,9 @@ export default function EngineViewer() {
           ? allAxleChecked
           : activeRepair === 'hood-cable'
             ? hoodCableStep >= HOOD_CABLE_STEPS.length
-            : panRemoved && (activeRepair === 'pan-gasket' || allFiltersOff);
+            : activeRepair && GENERIC_CHECKLISTS[activeRepair]
+              ? (genericChecklist[activeRepair]?.filter(Boolean).length ?? 0) >= GENERIC_CHECKLISTS[activeRepair]!.length
+              : panRemoved && (activeRepair === 'pan-gasket' || allFiltersOff);
   // Which camera "zone" is currently framed — drives the left/right arrow
   // overlay that switches between the truck and the toolbox. Set wherever
   // the camera is deliberately sent to one side or the other (resetCamera /
