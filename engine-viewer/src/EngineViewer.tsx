@@ -5203,19 +5203,31 @@ export function buildVolvoD13(
   // 08-rear-tandem-axle-top.png and 09-rear-tandem-fifthwheel-2.png both
   // show two tires per hub on the drive axles; the front steer axle stays
   // single, as on the real truck.
-  const wheelAt = (wx: number, wz: number) => {
-    add(new THREE.CylinderGeometry(0.5, 0.5, 0.28, 24), M.rubber, { pos: [wx, -0.6, wz], rot: [Math.PI / 2, 0, 0], parent: truckBody });
-    add(new THREE.CylinderGeometry(0.22, 0.22, 0.29, 16), M.chrome, { pos: [wx, -0.6, wz], rot: [Math.PI / 2, 0, 0], parent: truckBody });
+  // Each wheel is its own small named group (tire + hub) rather than two
+  // loose meshes on truckBody directly, so a work-order pull-out failure
+  // (see the `wheelFailure` handling in the animate loop) has a real object
+  // to detach and drop instead of faking it with a separate prop mesh.
+  const wheelAt = (wx: number, wz: number, name?: string) => {
+    const w = new THREE.Group();
+    if (name) w.name = name;
+    truckBody.add(w);
+    add(new THREE.CylinderGeometry(0.5, 0.5, 0.28, 24), M.rubber, { pos: [wx, -0.6, wz], rot: [Math.PI / 2, 0, 0], parent: w });
+    add(new THREE.CylinderGeometry(0.22, 0.22, 0.29, 16), M.chrome, { pos: [wx, -0.6, wz], rot: [Math.PI / 2, 0, 0], parent: w });
+    return w;
   };
   // Outer tire sits 0.30 further out than the inner (tire width 0.28 + a
   // ~0.02 gap, same tire-width anchor as the single-wheel geometry above).
-  const dualWheelAt = (wx: number, wz: number) => {
+  const dualWheelAt = (wx: number, wz: number, outerName?: string) => {
     const outward = wz > 0 ? 1 : -1;
     wheelAt(wx, wz);
-    wheelAt(wx, wz + outward * 0.30);
+    wheelAt(wx, wz + outward * 0.30, outerName);
   };
   [[-1.5, 0.75], [-1.5, -0.75]].forEach(([wx, wz]) => wheelAt(wx, wz));
-  [[4.6, 0.78], [4.6, -0.78], [5.5, 0.78], [5.5, -0.78]].forEach(([wx, wz]) => dualWheelAt(wx, wz));
+  [[4.6, 0.78], [4.6, -0.78]].forEach(([wx, wz]) => dualWheelAt(wx, wz));
+  // Rearmost passenger-side outer dual: the wheel a work-order QA failure
+  // (lugs left un-torqued) can visibly shed on pull-out.
+  dualWheelAt(5.5, 0.78, 'truck-wheel-loose');
+  dualWheelAt(5.5, -0.78);
 
   // Tandem rear suspension + interaxle driveline, per docs/reference/truck/
   // 08-rear-tandem-axle-top.png and 09-rear-tandem-fifthwheel-2.png: two
