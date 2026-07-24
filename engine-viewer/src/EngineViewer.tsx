@@ -2353,33 +2353,49 @@ export default function EngineViewer() {
       const keys = keysHeldRef.current;
       if (walkModeRef.current) {
         // Walk mode: WASD moves relative to where the camera is actually
-        // facing (mouse look, via onMouseMove below, aims it) — real FPS
-        // convention. Forward is flattened to the horizontal plane so
-        // looking up/down doesn't fly you into the floor or ceiling.
-        if (keys.size) {
+        // facing (mouse OR arrow keys look — settings.controls.invertLook
+        // flips pitch on both). Forward is flattened to the horizontal
+        // plane so looking up/down doesn't fly you into the floor/ceiling.
+        if (keys.has('w') || keys.has('a') || keys.has('s') || keys.has('d')) {
           const forward = new THREE.Vector3();
           camera.getWorldDirection(forward);
           forward.y = 0;
           if (forward.lengthSq() > 0) forward.normalize();
           const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
           const move = new THREE.Vector3();
-          if (keys.has('w') || keys.has('arrowup')) move.add(forward);
-          if (keys.has('s') || keys.has('arrowdown')) move.sub(forward);
-          if (keys.has('d') || keys.has('arrowright')) move.add(right);
-          if (keys.has('a') || keys.has('arrowleft')) move.sub(right);
+          if (keys.has('w')) move.add(forward);
+          if (keys.has('s')) move.sub(forward);
+          if (keys.has('d')) move.add(right);
+          if (keys.has('a')) move.sub(right);
           if (move.lengthSq() > 0) {
             move.normalize().multiplyScalar(0.05);
             camera.position.add(move);
           }
         }
+        // Arrow-key look: same euler yaw/pitch the mouse (onMouseMove
+        // below) drives, just keyboard-driven instead of movementX/Y —
+        // lets a mouse-less/trackpad user still look around in walk mode.
+        if (keys.has('arrowup') || keys.has('arrowdown') || keys.has('arrowleft') || keys.has('arrowright')) {
+          const lookSpeed = 0.03;
+          const invert = controlSettingsRef.current.invertLook ? -1 : 1;
+          const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+          euler.setFromQuaternion(camera.quaternion);
+          if (keys.has('arrowleft'))  euler.y += lookSpeed;
+          if (keys.has('arrowright')) euler.y -= lookSpeed;
+          if (keys.has('arrowup'))    euler.x += lookSpeed * invert;
+          if (keys.has('arrowdown'))  euler.x -= lookSpeed * invert;
+          euler.x = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, euler.x));
+          camera.quaternion.setFromEuler(euler);
+        }
       } else if (keys.size) {
-        // Orbit mode's own keyboard nav: arrows walk the rig (camera +
+        // Orbit mode's own keyboard nav: WASD moves the rig (camera +
         // target move together, same offset preserved — equivalent to
-        // OrbitControls' own panning), WASD turns the view (only the
+        // OrbitControls' own panning), arrows turn the view (only the
         // target orbits the fixed camera position, like turning your
-        // head) — kept as two separate schemes per how the player asked
-        // for them, not the more common "WASD moves" convention. Left
-        // untouched by walk mode; only active while walk mode is off.
+        // head). Swapped 2026-07-24 per the player's chosen scheme —
+        // WASD=move/arrows=look, the more common convention (previously
+        // arrows moved / WASD looked, the reverse). Left untouched by
+        // walk mode; only active while walk mode is off.
         controls.autoRotate = false;
         setAutoRotate(false);
         const forward = new THREE.Vector3();
@@ -2388,23 +2404,25 @@ export default function EngineViewer() {
         if (forward.lengthSq() > 0) forward.normalize();
         const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
         const move = new THREE.Vector3();
-        if (keys.has('arrowup')) move.add(forward);
-        if (keys.has('arrowdown')) move.sub(forward);
-        if (keys.has('arrowright')) move.add(right);
-        if (keys.has('arrowleft')) move.sub(right);
+        if (keys.has('w')) move.add(forward);
+        if (keys.has('s')) move.sub(forward);
+        if (keys.has('d')) move.add(right);
+        if (keys.has('a')) move.sub(right);
         if (move.lengthSq() > 0) {
           move.normalize().multiplyScalar(0.06);
           camera.position.add(move);
           controls.target.add(move);
         }
-        if (keys.has('a') || keys.has('d') || keys.has('w') || keys.has('s')) {
+        if (keys.has('arrowleft') || keys.has('arrowright') || keys.has('arrowup') || keys.has('arrowdown')) {
           const lookSpeed = 0.022;
+          const invert = controlSettingsRef.current.invertLook ? -1 : 1;
           const offset = new THREE.Vector3().subVectors(controls.target, camera.position);
-          if (keys.has('a')) offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), lookSpeed);
-          if (keys.has('d')) offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), -lookSpeed);
-          if (keys.has('w') || keys.has('s')) {
+          if (keys.has('arrowleft'))  offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), lookSpeed);
+          if (keys.has('arrowright')) offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), -lookSpeed);
+          if (keys.has('arrowup') || keys.has('arrowdown')) {
             const pitchAxis = new THREE.Vector3().crossVectors(offset, camera.up).normalize();
-            const pitched = offset.clone().applyAxisAngle(pitchAxis, keys.has('w') ? lookSpeed : -lookSpeed);
+            const pitchDir = (keys.has('arrowup') ? 1 : -1) * invert;
+            const pitched = offset.clone().applyAxisAngle(pitchAxis, pitchDir * lookSpeed);
             // Clamp so looking up/down can't flip past straight overhead/underfoot.
             const horiz = Math.sqrt(pitched.x * pitched.x + pitched.z * pitched.z);
             if (Math.abs(Math.atan2(pitched.y, horiz)) < Math.PI * 0.47) offset.copy(pitched);
