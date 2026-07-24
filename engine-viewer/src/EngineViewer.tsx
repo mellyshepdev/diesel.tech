@@ -3309,7 +3309,8 @@ export default function EngineViewer() {
               </div>
             </div>
 
-            {/* Red + yellow air knobs (per the center-dash photo) */}
+            {/* Red + yellow air knobs — dash-mounted, per the center-dash
+                photo (docs/reference/truck/21-interior-dash-center-stack-parkingbrake.png). */}
             <div className="flex gap-3 justify-center mb-3">
               <button
                 onClick={() => setTrailerAir(t => !t)}
@@ -3333,25 +3334,36 @@ export default function EngineViewer() {
                 <span className="text-black text-[9px] font-bold block mt-1 leading-tight">PARKING<br />BRAKE</span>
                 <span className="text-yellow-900 text-[8px]">{parkingBrake ? 'PULLED — APPLIED ✓' : 'PULL TO APPLY'}</span>
               </button>
-              {vehicle !== 'sonata2017' && (
+            </div>
+
+            {/* Hood release — NOT a dash knob. Per the Volvo TSB (repairs.pdf,
+                "release the cables from the pull handle below the steering
+                wheel"), it's a separate pull-handle mechanism low on the
+                steering column, down near the pedal carrier — kept visually
+                and structurally apart from the two air-valve knobs above. */}
+            {vehicle !== 'sonata2017' && (
+              <div className="rounded-lg border border-white/10 bg-white/[0.03] p-2.5 mb-3">
+                <p className="text-gray-500 text-[9px] uppercase tracking-widest text-center mb-1.5">🔩 Base of steering column</p>
                 <button
                   onClick={() => {
                     if (hoodLeverPulled) return;
                     setHoodLeverPulled(true);
                     setServiceMsg('🔓 Hood latch released — climb out, then click the hood to lift it.');
                   }}
-                  className={`w-32 rounded-lg border-2 p-2 text-center transition ${hoodLeverPulled ? 'border-neutral-500 bg-neutral-700/70' : 'border-neutral-400 bg-neutral-600 hover:brightness-110'}`}
+                  className={`w-full flex items-center gap-3 rounded-lg border-2 p-2 transition ${hoodLeverPulled ? 'border-neutral-500 bg-neutral-700/70' : 'border-neutral-400 bg-neutral-600 hover:brightness-110'}`}
                 >
-                  <span className={`block w-3 h-10 mx-auto rounded-full shadow-inner ${hoodLeverPulled ? 'bg-neutral-500' : 'bg-neutral-300'}`} />
-                  <span className="text-white text-[9px] font-bold block mt-1 leading-tight">HOOD<br />RELEASE</span>
-                  <span className="text-neutral-300 text-[8px]">{hoodLeverPulled ? 'RELEASED ✓' : 'PULL TO UNLATCH'}</span>
+                  <span className={`block w-3 h-10 rounded-full shadow-inner ${hoodLeverPulled ? 'bg-neutral-500' : 'bg-neutral-300'}`} />
+                  <span className="text-left flex-1">
+                    <span className="text-white text-[10px] font-bold block leading-tight">HOOD RELEASE</span>
+                    <span className="text-neutral-300 text-[9px]">{hoodLeverPulled ? 'RELEASED ✓' : 'Pull handle, low — unlatch the hood'}</span>
+                  </span>
                 </button>
-              )}
-            </div>
+              </div>
+            )}
 
             <p className="text-gray-500 text-[11px] text-center leading-relaxed">
               {vehicle !== 'sonata2017'
-                ? 'Pull the yellow diamond to set the spring brakes, and the hood release if you\'re popping the hood, before you leave the cab.'
+                ? 'Pull the yellow diamond to set the spring brakes, and the hood release handle at the base of the column if you\'re popping the hood, before you leave the cab.'
                 : 'Pull the yellow diamond to set the spring brakes before you leave the cab.'}
             </p>
             <button
