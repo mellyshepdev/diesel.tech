@@ -5188,9 +5188,9 @@ export function buildVolvoD13(
     const curve = new THREE.CatmullRomCurve3(pts);
     add(new THREE.TubeGeometry(curve, steps, radius, 6, false), new THREE.MeshStandardMaterial({ color, roughness: 0.6 }), { shadow: false, parent: truckBody });
   };
-  coil(0xaa1100, 0.012, 5, 0.09, 2.35, 0.05, 0.12); // red service air line
-  coil(0x1155aa, 0.012, 5, 0.09, 2.35, 0.02, -0.1); // blue emergency air line
-  coil(0x141414, 0.01, 4, 0.07, 2.42, -0.08, 0.0); // black electrical cable
+  coil(0xaa1100, 0.012, 5, 0.09, 4.55, 0.05, 0.12); // red service air line
+  coil(0x1155aa, 0.012, 5, 0.09, 4.55, 0.02, -0.1); // blue emergency air line
+  coil(0x141414, 0.01, 4, 0.07, 4.62, -0.08, 0.0); // black electrical cable
 
   // Rear crossmember, mud flaps, and marker-light bar — the very back of the
   // frame, per docs/reference/truck/05-exterior-rear.png (three-light bar
