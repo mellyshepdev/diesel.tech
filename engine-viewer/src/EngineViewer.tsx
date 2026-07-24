@@ -247,14 +247,16 @@ const GENERIC_CHECKLISTS: Partial<Record<RepairId, { icon: string; label: string
     { icon: '🔌', label: 'Reconnect solenoid wire, battery cable, then the ground' },
     { icon: '⚡', label: 'Crank-test — clean engagement, no grinding', focus: 'engine-starter' },
   ],
+  // Per the Volvo D13F QRG (Basic Service, "Crankcase Ventilation System",
+  // p.137): the CCV separator isn't repairable, so service is inspect →
+  // spin-test → replace-if-needed, not a straight swap.
   'ccv-replace': [
-    { icon: '🔍', label: 'Locate the CCV module on top of the valve cover' },
-    { icon: '🧵', label: 'Disconnect the breather hose' },
-    { icon: '🔩', label: 'Remove the CCV mounting bolts/clips' },
-    { icon: '📤', label: 'Pull the old CCV filter element/module' },
-    { icon: '📥', label: 'Seat the new CCV module & gasket' },
-    { icon: '🔧', label: 'Torque mounting bolts, reconnect breather hose' },
-    { icon: '👃', label: 'Idle check — no oil misting from the vent' },
+    { icon: '🔍', label: 'Inspect the separator inlet hose & connectors at the valve cover — clear any obstruction, oil film, or residue' },
+    { icon: '🔍', label: 'Inspect the separator outlet hose & connector — clear any obstruction, oil film, or residue' },
+    { icon: '🔩', label: 'Remove the separator and try turning the turbine by hand' },
+    { icon: '🔄', label: 'Turbine doesn\'t turn easily → replace the separator. Turns easily → inspect/clean the oil jet nozzle' },
+    { icon: '📥', label: 'Reassemble the separator and hoses' },
+    { icon: '👃', label: 'If faulty operation continues, keep fault-tracing with Guided Diagnostics' },
   ],
   'bumper-replace': [
     { icon: '🔌', label: 'Disconnect the fog light / marker light connectors' },
