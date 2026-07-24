@@ -275,12 +275,12 @@ const GENERIC_CHECKLISTS: Partial<Record<RepairId, { icon: string; label: string
   ],
   'water-pump-replace': [
     { icon: '🧊', label: 'Drain the coolant (radiator + block drains)' },
-    { icon: '🔩', label: 'Remove the fan shroud & release belt tension' },
-    { icon: '⚙️', label: 'Unbolt the water pump pulley' },
-    { icon: '🔩', label: 'Remove the pump housing bolts' },
-    { icon: '🧽', label: 'Peel off the old gasket, clean the mating surface' },
-    { icon: '📥', label: 'Fit the new pump with a fresh gasket, torque bolts' },
-    { icon: '💧', label: 'Reinstall pulley & belt, refill coolant, bleed the system' },
+    { icon: '🔩', label: 'Remove the fan shroud & release belt tension', focus: 'service-water-pump' },
+    { icon: '⚙️', label: 'Unbolt the water pump pulley', focus: 'service-water-pump' },
+    { icon: '🔩', label: 'Remove the pump housing bolts', focus: 'service-water-pump' },
+    { icon: '🧽', label: 'Peel off the old gasket, clean the mating surface', focus: 'service-water-pump' },
+    { icon: '📥', label: 'Fit the new pump with a fresh gasket, torque bolts', focus: 'service-water-pump' },
+    { icon: '💧', label: 'Reinstall pulley & belt, refill coolant, bleed the system', focus: 'service-water-pump' },
   ],
   'air-compressor-replace': [
     { icon: '💨', label: 'Disconnect the governor & discharge air lines', focus: 'air-compressor' },
