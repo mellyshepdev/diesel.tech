@@ -5172,12 +5172,18 @@ export function buildVolvoD13(
   // isn't worth the coordinate risk for a driveline part that's mostly
   // hidden behind the wheels anyway.)
   const AXLE1_X = 4.6, AXLE2_X = 5.5;
+  const rearDiff = new THREE.Group();
+  rearDiff.name = 'service-rear-diff';
+  truckBody.add(rearDiff);
   [AXLE1_X, AXLE2_X].forEach(ax => {
-    add(new THREE.CylinderGeometry(0.045, 0.045, 1.62, 12), M.darkMetal, { pos: [ax, -0.64, 0], rot: [Math.PI / 2, 0, 0], parent: truckBody });
-    add(new THREE.SphereGeometry(0.11, 14, 12), M.darkMetal, { pos: [ax, -0.64, 0], parent: truckBody });
+    add(new THREE.CylinderGeometry(0.045, 0.045, 1.62, 12), M.darkMetal, { pos: [ax, -0.64, 0], rot: [Math.PI / 2, 0, 0], parent: rearDiff });
+    add(new THREE.SphereGeometry(0.11, 14, 12), M.darkMetal, { pos: [ax, -0.64, 0], parent: rearDiff });
   });
+  const driveline = new THREE.Group();
+  driveline.name = 'service-driveline';
+  truckBody.add(driveline);
   add(new THREE.CylinderGeometry(0.035, 0.035, AXLE2_X - AXLE1_X - 0.22, 10), M.brushedMetal,
-    { pos: [(AXLE1_X + AXLE2_X) / 2, -0.64, 0], rot: [0, 0, Math.PI / 2], parent: truckBody });
+    { pos: [(AXLE1_X + AXLE2_X) / 2, -0.64, 0], rot: [0, 0, Math.PI / 2], parent: driveline });
   [0.78, -0.78].forEach(z => {
     add(new THREE.BoxGeometry(AXLE2_X - AXLE1_X + 0.3, 0.06, 0.05), M.black, { pos: [(AXLE1_X + AXLE2_X) / 2, -0.7, z], parent: truckBody });
     [AXLE1_X, AXLE2_X].forEach(ax => {
