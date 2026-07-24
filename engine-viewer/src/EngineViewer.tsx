@@ -259,12 +259,12 @@ const GENERIC_CHECKLISTS: Partial<Record<RepairId, { icon: string; label: string
     { icon: '👃', label: 'If faulty operation continues, keep fault-tracing with Guided Diagnostics' },
   ],
   'bumper-replace': [
-    { icon: '🔌', label: 'Disconnect the fog light / marker light connectors' },
-    { icon: '🔩', label: 'Remove the bumper mounting bolts' },
-    { icon: '📤', label: 'Pull the bumper cover free' },
-    { icon: '📥', label: 'Mount the new bumper, torque the bolts' },
-    { icon: '🔌', label: 'Reconnect the lighting harness' },
-    { icon: '📏', label: 'Check panel gaps & alignment' },
+    { icon: '🔌', label: 'Disconnect the fog light / marker light connectors', focus: 'service-bumper' },
+    { icon: '🔩', label: 'Remove the bumper mounting bolts', focus: 'service-bumper' },
+    { icon: '📤', label: 'Pull the bumper cover free', focus: 'service-bumper' },
+    { icon: '📥', label: 'Mount the new bumper, torque the bolts', focus: 'service-bumper' },
+    { icon: '🔌', label: 'Reconnect the lighting harness', focus: 'service-bumper' },
+    { icon: '📏', label: 'Check panel gaps & alignment', focus: 'service-bumper' },
   ],
   'fairing-replace': [
     { icon: '🔩', label: 'Remove the fairing mounting fasteners/clips', focus: 'service-fairing' },
