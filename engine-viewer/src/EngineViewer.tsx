@@ -1842,6 +1842,7 @@ export default function EngineViewer() {
   // Which physical drawer on the 3D toolbox is currently slid open.
   const [openDrawer, setOpenDrawer] = useState<DrawerKey | null>(null);
   const [referenceOpen, setReferenceOpen] = useState(false);
+  const [specsCollapsed, setSpecsCollapsed] = useState(false);
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
   // Tools the mechanic has pulled from the chest drawers into the tray.
   // A tool must be in the tray before it can go in your hand.
@@ -1854,6 +1855,29 @@ export default function EngineViewer() {
     setTray(prev => (prev.includes('key') ? prev : [...prev, 'key']));
     setServiceMsg('🔑 Keys grabbed — in your tray.');
   }, []);
+  // Floating tool-tray HUD (always visible, not just while a drawer is
+  // open) — drags side to side so it can be pushed out of the way of
+  // whatever's on screen. Horizontal-only offset from center, clamped to
+  // stay on screen; not persisted, resets on reload.
+  const [trayOffsetX, setTrayOffsetX] = useState(0);
+  const trayDragRef = useRef<{ startX: number; startOffset: number } | null>(null);
+  const onTrayDragStart = useCallback((e: React.PointerEvent) => {
+    trayDragRef.current = { startX: e.clientX, startOffset: trayOffsetX };
+    const onMove = (ev: PointerEvent) => {
+      if (!trayDragRef.current) return;
+      const dx = ev.clientX - trayDragRef.current.startX;
+      const max = window.innerWidth / 2 - 40;
+      setTrayOffsetX(Math.max(-max, Math.min(max, trayDragRef.current.startOffset + dx)));
+    };
+    const onUp = () => {
+      trayDragRef.current = null;
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trayOffsetX]);
 
   // Simulate RPM when engine "on"
   useEffect(() => {
@@ -3513,21 +3537,28 @@ export default function EngineViewer() {
         </button>
       )}
 
-      {/* Specs panel (left) */}
-      <div className="absolute top-1/2 left-5 -translate-y-1/2 hidden xl:block pointer-events-none">
+      {/* Specs panel (left) — collapsible so it can be tucked away */}
+      <div className="absolute top-1/2 left-5 -translate-y-1/2 hidden xl:block pointer-events-auto">
         <div className="w-52 rounded-2xl p-4" style={{ background: 'rgba(5,8,22,0.85)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)' }}>
-          <div className="flex items-center gap-2 mb-3">
+          <button
+            onClick={() => setSpecsCollapsed(v => !v)}
+            className={`flex items-center gap-2 w-full text-left ${specsCollapsed ? '' : 'mb-3'}`}
+            title={specsCollapsed ? 'Expand specifications' : 'Collapse specifications'}
+          >
             <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-            <span className="text-cyan-400 text-xs font-bold tracking-widest uppercase">Specifications</span>
-          </div>
-          <div className="space-y-2.5">
-            {engine.specs.map(s => (
-              <div key={s.label} className="flex items-center justify-between">
-                <span className="text-gray-500 text-xs">{s.label}</span>
-                <span className="text-white text-xs font-bold font-mono">{s.value}</span>
-              </div>
-            ))}
-          </div>
+            <span className="text-cyan-400 text-xs font-bold tracking-widest uppercase flex-1">Specifications</span>
+            <span className="text-cyan-400 text-xs">{specsCollapsed ? '▸' : '▾'}</span>
+          </button>
+          {!specsCollapsed && (
+            <div className="space-y-2.5">
+              {engine.specs.map(s => (
+                <div key={s.label} className="flex items-center justify-between">
+                  <span className="text-gray-500 text-xs">{s.label}</span>
+                  <span className="text-white text-xs font-bold font-mono">{s.value}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
