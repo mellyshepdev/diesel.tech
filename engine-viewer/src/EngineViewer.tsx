@@ -5136,7 +5136,7 @@ export function buildVolvoD13(
   // truck-is-rotated-180° convention).
   const fifthWheel = new THREE.Group();
   fifthWheel.name = 'truck-fifthwheel';
-  fifthWheel.position.set(2.1, -0.42, 0);
+  fifthWheel.position.set(4.3, -0.42, 0);
   truckBody.add(fifthWheel);
   // Bug fix: this was rotated like the wheel geometry above (rot: [PI/2,0,0]),
   // which stands a cylinder up on its edge with the flat faces pointing
@@ -5167,8 +5167,8 @@ export function buildVolvoD13(
   // the original build) plus a flat mounting bracket bolting the plate to
   // the top of those braces, per photo 06's frame-mounted casting.
   [0.42, -0.42].forEach(z => {
-    add(new THREE.BoxGeometry(0.06, 0.24, 0.06), M.darkMetal, { pos: [2.05, -0.5, z], rot: [0.5, 0, 0], parent: truckBody });
-    add(new THREE.BoxGeometry(0.5, 0.03, 0.05), M.darkMetal, { pos: [2.05, -0.36, z], parent: truckBody });
+    add(new THREE.BoxGeometry(0.06, 0.24, 0.06), M.darkMetal, { pos: [4.25, -0.5, z], rot: [0.5, 0, 0], parent: truckBody });
+    add(new THREE.BoxGeometry(0.5, 0.03, 0.05), M.darkMetal, { pos: [4.25, -0.36, z], parent: truckBody });
   });
 
   // Coiled air lines (red service/blue emergency glad-hand supply) +
