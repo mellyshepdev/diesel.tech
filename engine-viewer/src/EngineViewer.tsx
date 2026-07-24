@@ -213,7 +213,111 @@ interface OilFlow {
   onDone?: () => void;
 }
 
-type RepairId = 'fluid-check' | 'annual-inspection' | 'oil-change' | 'hood-cable' | 'pan-gasket' | 'overhead-adjust' | 'turbo-replace';
+type RepairId = 'fluid-check' | 'annual-inspection' | 'oil-change' | 'hood-cable' | 'pan-gasket' | 'overhead-adjust' | 'turbo-replace'
+  | 'starter-replace' | 'ccv-replace' | 'bumper-replace' | 'fairing-replace' | 'water-pump-replace' | 'air-compressor-replace'
+  | 'radiator-replace' | 'venturi-replace' | 'egr-cooler-replace' | 'rear-diff-replace';
+
+/** Repairs that are attached to real, already-modeled geometry (see
+ *  buildVolvoD13) but don't have bolt-by-bolt 3D teardown steps yet — a
+ *  button checklist like PM Service/Annual Inspection, with each checkpoint
+ *  wired to `focusTruckPart` on the actual named object so the part being
+ *  worked is genuinely the thing on screen, not a placeholder. Every part
+ *  named below models the real component on this truck build, not a
+ *  generic stand-in (air-compressor: docs/reference/air-compressor/,
+ *  egr-cooler/venturi: docs/reference/egr/, starter: engine-starter group
+ *  with its working pinion-engage animation). Water pump, radiator, bumper,
+ *  fairing, and rear diff exist as unnamed meshes / inspection-only
+ *  geometry today, so those checklists have no `focus` target yet — add
+ *  one once that geometry gets a name. */
+const GENERIC_CHECKLISTS: Partial<Record<RepairId, { icon: string; label: string; focus?: string }[]>> = {
+  'starter-replace': [
+    { icon: '🔋', label: 'Disconnect the battery ground cable' },
+    { icon: '🔌', label: 'Unplug the solenoid trigger wire & battery cable', focus: 'engine-starter' },
+    { icon: '🔩', label: 'Remove the 2 starter mounting bolts', focus: 'engine-starter' },
+    { icon: '📤', label: 'Pull the starter clear of the bellhousing', focus: 'engine-starter' },
+    { icon: '📥', label: 'Mount the new starter, torque the bolts', focus: 'engine-starter' },
+    { icon: '🔌', label: 'Reconnect solenoid wire, battery cable, then the ground' },
+    { icon: '⚡', label: 'Crank-test — clean engagement, no grinding', focus: 'engine-starter' },
+  ],
+  'ccv-replace': [
+    { icon: '🔍', label: 'Locate the CCV module on top of the valve cover' },
+    { icon: '🧵', label: 'Disconnect the breather hose' },
+    { icon: '🔩', label: 'Remove the CCV mounting bolts/clips' },
+    { icon: '📤', label: 'Pull the old CCV filter element/module' },
+    { icon: '📥', label: 'Seat the new CCV module & gasket' },
+    { icon: '🔧', label: 'Torque mounting bolts, reconnect breather hose' },
+    { icon: '👃', label: 'Idle check — no oil misting from the vent' },
+  ],
+  'bumper-replace': [
+    { icon: '🔌', label: 'Disconnect the fog light / marker light connectors' },
+    { icon: '🔩', label: 'Remove the bumper mounting bolts' },
+    { icon: '📤', label: 'Pull the bumper cover free' },
+    { icon: '📥', label: 'Mount the new bumper, torque the bolts' },
+    { icon: '🔌', label: 'Reconnect the lighting harness' },
+    { icon: '📏', label: 'Check panel gaps & alignment' },
+  ],
+  'fairing-replace': [
+    { icon: '🔩', label: 'Remove the fairing mounting fasteners/clips' },
+    { icon: '🔌', label: 'Disconnect any wiring routed through the fairing' },
+    { icon: '📤', label: 'Pull the fairing panel free' },
+    { icon: '📥', label: 'Mount the new fairing, reinstall fasteners' },
+    { icon: '📏', label: 'Verify no rattles, panel gaps even' },
+  ],
+  'water-pump-replace': [
+    { icon: '🧊', label: 'Drain the coolant (radiator + block drains)' },
+    { icon: '🔩', label: 'Remove the fan shroud & release belt tension' },
+    { icon: '⚙️', label: 'Unbolt the water pump pulley' },
+    { icon: '🔩', label: 'Remove the pump housing bolts' },
+    { icon: '🧽', label: 'Peel off the old gasket, clean the mating surface' },
+    { icon: '📥', label: 'Fit the new pump with a fresh gasket, torque bolts' },
+    { icon: '💧', label: 'Reinstall pulley & belt, refill coolant, bleed the system' },
+  ],
+  'air-compressor-replace': [
+    { icon: '💨', label: 'Disconnect the governor & discharge air lines', focus: 'air-compressor' },
+    { icon: '🧊', label: 'Disconnect the coolant supply line', focus: 'air-compressor' },
+    { icon: '🔩', label: 'Remove the compressor mounting bolts', focus: 'air-compressor' },
+    { icon: '⚙️', label: 'Unbolt the drive-gear coupling & pull the compressor', focus: 'air-compressor' },
+    { icon: '📥', label: 'Mount the new compressor, torque the bolts', focus: 'air-compressor' },
+    { icon: '🔌', label: 'Reconnect coolant & air lines', focus: 'air-compressor' },
+    { icon: '📊', label: 'Build air pressure, check the governor cut-out' },
+  ],
+  'radiator-replace': [
+    { icon: '🧊', label: 'Drain the coolant system' },
+    { icon: '🔧', label: 'Disconnect the upper & lower radiator hoses' },
+    { icon: '🔩', label: 'Disconnect the fan shroud' },
+    { icon: '🔩', label: 'Remove the radiator mounting bolts' },
+    { icon: '📤', label: 'Lift the radiator out of the cradle' },
+    { icon: '📥', label: 'Set the new radiator, mount & torque bolts' },
+    { icon: '💧', label: 'Reconnect hoses & shroud, refill coolant, bleed & pressure-test' },
+  ],
+  'venturi-replace': [
+    { icon: '🔧', label: 'Disconnect the coolant transfer tube fittings', focus: 'service-egr-venturi' },
+    { icon: '🔩', label: 'Remove the venturi mounting bolts', focus: 'service-egr-venturi' },
+    { icon: '📤', label: 'Pull the venturi pipe free', focus: 'service-egr-venturi' },
+    { icon: '📥', label: 'Fit the new venturi with fresh gaskets, torque fittings', focus: 'service-egr-venturi' },
+    { icon: '🔌', label: 'Reconnect the coolant transfer lines' },
+    { icon: '📊', label: 'Verify EGR flow, check for leaks' },
+  ],
+  'egr-cooler-replace': [
+    { icon: '🔌', label: 'Unplug the EGR valve harness', focus: 'service-egr-harness' },
+    { icon: '🔧', label: 'Disconnect the EGR valve coupler', focus: 'service-egr-coupler' },
+    { icon: '🔩', label: 'Loosen the venturi V-band clamp', focus: 'service-egr-vband' },
+    { icon: '🔩', label: 'Remove the cooler mounting bolts', focus: 'egr-cooler' },
+    { icon: '📤', label: 'Lift the cooler off the exhaust manifold', focus: 'egr-cooler' },
+    { icon: '📥', label: 'Set the new cooler with fresh gaskets, torque bolts + V-band', focus: 'egr-cooler' },
+    { icon: '🔌', label: 'Reconnect coupler & harness, check for exhaust leaks', focus: 'egr-cooler' },
+  ],
+  'rear-diff-replace': [
+    { icon: '🛢️', label: 'Drain the differential gear oil' },
+    { icon: '🔧', label: 'Disconnect the driveline at the pinion yoke' },
+    { icon: '🏗️', label: 'Support the diff housing & disconnect the axle shafts' },
+    { icon: '🔩', label: 'Remove the carrier mounting bolts' },
+    { icon: '📤', label: 'Pull the differential carrier free' },
+    { icon: '📥', label: 'Set the new/rebuilt carrier with a fresh gasket, torque bolts' },
+    { icon: '🔧', label: 'Reconnect axle shafts & driveline' },
+    { icon: '🛢️', label: 'Refill gear oil, check backlash & leaks' },
+  ],
+};
 
 // Tools a repair actually can't be started without — the two specialty
 // tools its procSteps checks for (`requiredTool`). Every specialty tool is
@@ -260,7 +364,25 @@ const REPAIRS: { id: RepairId; icon: string; label: string; desc: string; tier: 
     desc: 'Drain (plug: 60 ± 10 Nm on install), spin off the three filters with the 9998487 filter wrench, then drop the pan. The 22 pan screws need the 10" socket extension + electric runner or hand tools. Refill: VDS-4 10W-30, 25–30 L sump.',
     tier: 2,
     unlockLevel: 2,
-    coinReward: 100,
+    coinReward: 20,
+  },
+  {
+    id: 'starter-replace',
+    icon: '🔌',
+    label: 'Starter Motor Replacement',
+    desc: 'Disconnect the battery ground, unplug the solenoid trigger wire and battery cable, pull the 2 mounting bolts, and swap the starter at the bellhousing. Torque the bolts, reconnect wiring, crank-test for clean engagement.',
+    tier: 2,
+    unlockLevel: 2,
+    coinReward: 20,
+  },
+  {
+    id: 'ccv-replace',
+    icon: '🌬️',
+    label: 'CCV (Crankcase Ventilation) Replacement',
+    desc: 'Swap the crankcase ventilation module on top of the valve cover: disconnect the breather hose, pull the mounting bolts, drop in a fresh CCV element, reconnect and check for oil misting at idle.',
+    tier: 2,
+    unlockLevel: 2,
+    coinReward: 15,
   },
   {
     id: 'hood-cable',
@@ -269,7 +391,25 @@ const REPAIRS: { id: RepairId; icon: string; label: string; desc: string; tier: 
     desc: 'Per Volvo TSB (hood cable binding/broken, VNL/VNR/VNM/VNX/VAH/VHD): strip the dash/kick/steering-column trim, free the old cable through the firewall, route + secure the new one, swap the latch/L-bracket if needed, reinstall trim, then test the release lever.',
     tier: 3,
     unlockLevel: 3,
-    coinReward: 150,
+    coinReward: 30,
+  },
+  {
+    id: 'bumper-replace',
+    icon: '🛡️',
+    label: 'Bumper Replacement',
+    desc: 'Unplug the fog/marker lights, pull the mounting bolts, swap the front bumper cover, torque it back down and reconnect the lighting harness.',
+    tier: 3,
+    unlockLevel: 3,
+    coinReward: 25,
+  },
+  {
+    id: 'fairing-replace',
+    icon: '🧩',
+    label: 'Fairing / Skirt Panel Replacement',
+    desc: 'Remove the rocker/skirt fairing fasteners and any routed wiring, swap the panel, refasten and check for even gaps with no rattle.',
+    tier: 3,
+    unlockLevel: 3,
+    coinReward: 25,
   },
   {
     id: 'pan-gasket',
@@ -278,7 +418,25 @@ const REPAIRS: { id: RepairId; icon: string; label: string; desc: string; tier: 
     desc: 'Break all 22 spring-tension pan screws loose one at a time, drop the pan, fit the new gasket, re-torque 24 ± 4 Nm from the middle outwards.',
     tier: 4,
     unlockLevel: 4,
-    coinReward: 175,
+    coinReward: 40,
+  },
+  {
+    id: 'water-pump-replace',
+    icon: '💦',
+    label: 'Water Pump Replacement',
+    desc: 'Drain the coolant, pull the fan shroud and belt, unbolt the gear-driven pump off the front of the block, fit a new gasket, torque it back down, refill and bleed the cooling system.',
+    tier: 4,
+    unlockLevel: 4,
+    coinReward: 40,
+  },
+  {
+    id: 'air-compressor-replace',
+    icon: '🗜️',
+    label: 'Air Compressor Replacement',
+    desc: 'Disconnect the governor/discharge air lines and coolant feed, unbolt the WABCO twin-cylinder compressor off the timing train, swap it, torque the mounts, reconnect lines, and build air pressure to check the governor cut-out.',
+    tier: 4,
+    unlockLevel: 4,
+    coinReward: 35,
   },
   {
     id: 'overhead-adjust',
@@ -287,7 +445,25 @@ const REPAIRS: { id: RepairId; icon: string; label: string; desc: string; tier: 
     desc: 'Pull the 16 valve cover perimeter bolts (13mm) one at a time, then lift the cover off to expose the rockers. Check/adjust lash at TDC compression per cylinder, then reinstall with a fresh gasket, bolts snugged in a criss-cross pattern.',
     tier: 5,
     unlockLevel: 5,
-    coinReward: 225,
+    coinReward: 55,
+  },
+  {
+    id: 'radiator-replace',
+    icon: '🌡️',
+    label: 'Radiator Replacement',
+    desc: 'Drain the coolant, disconnect the upper/lower hoses and fan shroud, unbolt the core from its cradle behind the grille, set the new radiator, reconnect, refill and pressure-test.',
+    tier: 5,
+    unlockLevel: 5,
+    coinReward: 50,
+  },
+  {
+    id: 'venturi-replace',
+    icon: '🫧',
+    label: 'EGR Venturi Pipe Replacement',
+    desc: 'Disconnect the EGR venturi\'s coolant transfer tube fittings, pull its mounting bolts, swap the pipe with fresh gaskets, reconnect and verify EGR flow.',
+    tier: 5,
+    unlockLevel: 5,
+    coinReward: 45,
   },
   {
     id: 'turbo-replace',
@@ -296,7 +472,25 @@ const REPAIRS: { id: RepairId; icon: string; label: string; desc: string; tier: 
     desc: 'Remove & replace the VGT turbo. Select the right tool, then click each fastener in 3D (or use the buttons): harness → V-bands → oil feed → coolant × 2 → oil drain → 4 flange nuts → lift. The turbo shares the engine\'s OIL and COOLANT — reconnect everything and PRIME the oil before starting, or it grenades.',
     tier: 6,
     unlockLevel: 6,
-    coinReward: 300,
+    coinReward: 75,
+  },
+  {
+    id: 'egr-cooler-replace',
+    icon: '♻️',
+    label: 'EGR Cooler Replacement',
+    desc: 'Unplug the EGR valve harness and coupler, loosen the venturi V-band, pull the cooler off the exhaust manifold, fit the new cooler with fresh gaskets, torque the V-band and bolts, reconnect and check for exhaust leaks.',
+    tier: 6,
+    unlockLevel: 6,
+    coinReward: 70,
+  },
+  {
+    id: 'rear-diff-replace',
+    icon: '⚙️',
+    label: 'Rear Differential Replacement',
+    desc: 'Drain the gear oil, disconnect the driveline at the pinion yoke and both axle shafts, support and pull the differential carrier, set the new/rebuilt carrier with a fresh gasket, torque it down, reconnect the driveline, refill gear oil and check backlash.',
+    tier: 6,
+    unlockLevel: 6,
+    coinReward: 90,
   },
 ];
 
