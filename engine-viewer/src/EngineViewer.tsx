@@ -267,11 +267,11 @@ const GENERIC_CHECKLISTS: Partial<Record<RepairId, { icon: string; label: string
     { icon: '📏', label: 'Check panel gaps & alignment' },
   ],
   'fairing-replace': [
-    { icon: '🔩', label: 'Remove the fairing mounting fasteners/clips' },
-    { icon: '🔌', label: 'Disconnect any wiring routed through the fairing' },
-    { icon: '📤', label: 'Pull the fairing panel free' },
-    { icon: '📥', label: 'Mount the new fairing, reinstall fasteners' },
-    { icon: '📏', label: 'Verify no rattles, panel gaps even' },
+    { icon: '🔩', label: 'Remove the fairing mounting fasteners/clips', focus: 'service-fairing' },
+    { icon: '🔌', label: 'Disconnect any wiring routed through the fairing', focus: 'service-fairing' },
+    { icon: '📤', label: 'Pull the fairing panel free', focus: 'service-fairing' },
+    { icon: '📥', label: 'Mount the new fairing, reinstall fasteners', focus: 'service-fairing' },
+    { icon: '📏', label: 'Verify no rattles, panel gaps even', focus: 'service-fairing' },
   ],
   'water-pump-replace': [
     { icon: '🧊', label: 'Drain the coolant (radiator + block drains)' },
