@@ -327,6 +327,60 @@ const GENERIC_CHECKLISTS: Partial<Record<RepairId, { icon: string; label: string
     { icon: '🔧', label: 'Reconnect axle shafts & driveline' },
     { icon: '🛢️', label: 'Refill gear oil, check backlash & leaks' },
   ],
+  // The 5 checklists below are transcribed from the Volvo D13F QRG's own
+  // "Basic Service" section (docs — volvo-d13f-engine-quick-reference-guide.pdf,
+  // printed p.138-168), not improvised — real step sequences, not just
+  // plausible ones.
+  'fuel-filter-replace': [
+    { icon: '🔌', label: 'Disconnect the water-in-fuel sensor electrical cable' },
+    { icon: '🪣', label: 'Drain the water separating pre-filter into a container' },
+    { icon: '🔩', label: 'Unscrew and remove the water cup' },
+    { icon: '🔧', label: 'Remove the pre-filter with a filter wrench; oil the new gasket, spin on 3/4–1 turn past contact' },
+    { icon: '📥', label: 'Screw the water cup back onto the new pre-filter' },
+    { icon: '🔧', label: 'Remove the full-flow main filter the same way; oil the new gasket, spin on 3/4–1 turn past contact' },
+    { icon: '🔌', label: 'Reconnect the water-in-fuel sensor cable' },
+    { icon: '⏱️', label: 'Idle 5 minutes to fill the filters, check for leaks' },
+  ],
+  'coolant-filter-replace': [
+    { icon: '🚫', label: 'Close the shut-off valve on the coolant pump housing' },
+    { icon: '🪣', label: 'Place a container below the filter to catch spillage' },
+    { icon: '🔧', label: 'Unscrew and discard the old spin-on filter with a filter wrench' },
+    { icon: '🧴', label: 'Apply a light film of coolant to the new filter\'s gasket' },
+    { icon: '📥', label: 'Screw on the new filter, tighten one full turn past gasket contact' },
+    { icon: '✅', label: 'Open the shut-off valve' },
+    { icon: '💧', label: 'Check for coolant leaks' },
+  ],
+  'dpf-service': [
+    { icon: '🥶', label: 'Let the unit cool; remove the fairing, braces & steps for access' },
+    { icon: '🔌', label: 'Disconnect wiring, sensors & the pressure differential tube from the DPF/outlet modules' },
+    { icon: '✏️', label: 'Mark alignment across each module section at the V-band clamps' },
+    { icon: '🏗️', label: 'Support the DPF\'s weight on a transmission jack (or lifting device) before loosening the V-band clamps' },
+    { icon: '📤', label: 'Separate the DPF from the outlet and catalyst modules; discard the old gaskets' },
+    { icon: '🔍', label: 'Inspect/replace worn V-band clamps, clean all gasket surfaces' },
+    { icon: '📥', label: 'Install new gaskets, align modules to the marks, torque the V-band clamps to spec' },
+    { icon: '🔌', label: 'Reinstall lines, sensors, and the fairing/heat shield' },
+    { icon: '📊', label: 'Reset soot trigger levels with the Premium Tech Tool (PTT)' },
+  ],
+  'afi-replace': [
+    { icon: '🅿️', label: 'Set the parking brake, neutral, disconnect the battery ground cables' },
+    { icon: '🧊', label: 'Drain the coolant at the radiator drain fitting' },
+    { icon: '🔩', label: 'Remove the P-clamp securing the AFI harness & fuel supply line' },
+    { icon: '🔧', label: 'Disconnect the inlet/outlet coolant lines and the AFI wiring harness connector' },
+    { icon: '✏️', label: 'Mark AFI orientation, then remove the mounting bolts/spacers and discard the old gaskets' },
+    { icon: '📥', label: 'Fit new gaskets, anti-seize the new bolts, hand-start the injector on the diffuser pipe as marked' },
+    { icon: '🔧', label: 'Torque the mounting bolts to spec' },
+    { icon: '🔌', label: 'Reconnect harness, coolant lines & fuel line; refill coolant' },
+    { icon: '📊', label: 'Reconnect the battery ground, reset the AFI adaptive factor via VCADS/PTT, check for leaks' },
+  ],
+  'drive-belt-replace': [
+    { icon: '🔍', label: 'Identify the belt: 10/12-rib fan & coolant-pump belt (lower tensioner), or 6-rib alternator/AC belt (upper tensioner)' },
+    { icon: '🔧', label: 'Swing the auto-tensioner to fully sprung with belt tensioner tool J 44392 — no force, don\'t snap it against its stops' },
+    { icon: '📤', label: 'Slip the old belt off the pulleys' },
+    { icon: '📥', label: 'Route the new belt over every pulley — don\'t pry it over a pulley' },
+    { icon: '🔄', label: 'Release the tensioner smoothly onto the belt' },
+    { icon: '✅', label: 'No manual tensioning needed — the auto-tensioner sets optimum tension itself' },
+    { icon: '🔍', label: 'Inspect tensioner & belt condition once more before closing up' },
+  ],
 };
 
 // Tools a repair actually can't be started without — the two specialty
