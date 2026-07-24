@@ -1244,6 +1244,17 @@ export default function EngineViewer() {
   // it costs real coins instead of blocking the job outright. Resets with
   // the rest of the service state on every job start/finish.
   const [wheelsChocked, setWheelsChocked] = useState(false);
+  // Work orders: opt-in mode (toggle button) that gates repair access
+  // behind an actual vehicle arrival instead of the truck always just
+  // being parked and ready. 'idle' = off-screen, waiting on a request;
+  // 'arriving'/'departing' = mid pull-in/pull-out animation (engineGroup
+  // userData.vehicleMove, eased in the animate loop); 'active' = parked,
+  // repairs open. workOrderGrade is set once a job's pulled out, cleared
+  // on the next request.
+  const [workOrderMode, setWorkOrderMode] = useState(false);
+  const [workOrderStatus, setWorkOrderStatus] = useState<'idle' | 'arriving' | 'active' | 'departing'>('idle');
+  const [workOrderGrade, setWorkOrderGrade] = useState<{ pct: number; payout: number; failed: boolean } | null>(null);
+  const VEHICLE_OFFSTAGE_X = -14;
   // Checklist-style repairs added for GENERIC_CHECKLISTS ids (starter, CCV,
   // bumper, fairing, water pump, air compressor, radiator, venturi, EGR
   // cooler, rear diff): one boolean array per repair, keyed by RepairId,
@@ -1914,7 +1925,45 @@ export default function EngineViewer() {
     setActiveRepair(null);
   };
 
+  // Work orders: toggling the mode sends the vehicle off-screen (or back)
+  // instantly — no request has happened yet, so there's nothing to animate.
+  // The toolbox (a stationary child of engineGroup, see part-manifest.md)
+  // is position-compensated so it doesn't jump when the vehicle does.
+  const toggleWorkOrderMode = () => {
+    setWorkOrderMode(prev => {
+      const next = !prev;
+      const eg = engineGroupRef.current;
+      if (eg) {
+        const targetX = next ? VEHICLE_OFFSTAGE_X : 0;
+        const toolbox = eg.getObjectByName('toolbox-chest');
+        if (toolbox) toolbox.position.x -= (targetX - eg.position.x);
+        eg.position.x = targetX;
+        eg.userData.vehicleMove = undefined;
+        eg.userData.wheelFailure = undefined;
+        const wheel = eg.getObjectByName('truck-wheel-loose');
+        if (wheel) { wheel.position.y = 0; wheel.rotation.set(0, 0, 0); }
+      }
+      setWorkOrderStatus('idle');
+      setWorkOrderGrade(null);
+      return next;
+    });
+  };
+
+  const requestWorkOrder = () => {
+    if (workOrderStatus !== 'idle') return;
+    setWorkOrderGrade(null);
+    setWorkOrderStatus('arriving');
+    const eg = engineGroupRef.current;
+    if (eg) {
+      eg.userData.vehicleMove = { targetX: 0, onDone: () => setWorkOrderStatus('active') };
+    }
+  };
+
   const openRepair = (id: RepairId) => {
+    if (workOrderMode && workOrderStatus !== 'active') {
+      setServiceMsg('🚛 Request a work order first — the vehicle isn\'t in the bay yet.');
+      return;
+    }
     const repair = REPAIRS.find(r => r.id === id)!;
     if (mechanicLevel.level < repair.unlockLevel) {
       setServiceMsg(`🔒 Locked — reach Level ${repair.unlockLevel} (${LEVELS.find(l => l.level === repair.unlockLevel)!.title}) to take this job.`);
