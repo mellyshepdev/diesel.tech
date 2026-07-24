@@ -222,7 +222,8 @@ interface OilFlow {
 
 type RepairId = 'fluid-check' | 'annual-inspection' | 'oil-change' | 'hood-cable' | 'pan-gasket' | 'overhead-adjust' | 'turbo-replace'
   | 'starter-replace' | 'ccv-replace' | 'bumper-replace' | 'fairing-replace' | 'water-pump-replace' | 'air-compressor-replace'
-  | 'radiator-replace' | 'venturi-replace' | 'egr-cooler-replace' | 'rear-diff-replace';
+  | 'radiator-replace' | 'venturi-replace' | 'egr-cooler-replace' | 'rear-diff-replace'
+  | 'fuel-filter-replace' | 'coolant-filter-replace' | 'dpf-service' | 'afi-replace' | 'drive-belt-replace';
 
 /** Repairs that are attached to real, already-modeled geometry (see
  *  buildVolvoD13) but don't have bolt-by-bolt 3D teardown steps yet — a
