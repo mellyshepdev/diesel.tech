@@ -3669,7 +3669,7 @@ export default function EngineViewer() {
           pushed out of the way. See onTrayDragStart/trayOffsetX above. */}
       {!isLoading && (
         <div
-          className="absolute bottom-6 z-30 pointer-events-auto"
+          className="absolute bottom-24 z-30 pointer-events-auto"
           style={{ left: '50%', transform: `translateX(calc(-50% + ${trayOffsetX}px))` }}
         >
           <div className="flex items-center gap-2 rounded-xl border border-cyan-400/25 bg-black/75 backdrop-blur-md p-2 max-w-[90vw]">
