@@ -1951,6 +1951,23 @@ export default function EngineViewer() {
   const [walkMode, setWalkMode] = useState(false);
   const walkModeRef = useRef(false);
   useEffect(() => { walkModeRef.current = walkMode; }, [walkMode]);
+  // Control scheme: move = WASD (walk) / arrows (orbit-pan, swapped from
+  // the old default), look = mouse+arrows (walk) / arrows (orbit-turn).
+  // invertLook flips pitch on both look inputs. Settings UI (Task: Settings
+  // menu) will read/write this; the movement code above already honors it.
+  const [controlSettings, setControlSettings] = useState<{ invertLook: boolean }>(() => {
+    if (typeof window === 'undefined') return { invertLook: false };
+    try {
+      return { invertLook: false, ...JSON.parse(window.localStorage.getItem('diesel-tech-control-settings') ?? '{}') };
+    } catch {
+      return { invertLook: false };
+    }
+  });
+  const controlSettingsRef = useRef(controlSettings);
+  useEffect(() => {
+    controlSettingsRef.current = controlSettings;
+    if (typeof window !== 'undefined') window.localStorage.setItem('diesel-tech-control-settings', JSON.stringify(controlSettings));
+  }, [controlSettings]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
   const [screenPositions, setScreenPositions] = useState<Record<string, { x: number; y: number; visible: boolean }>>({});
