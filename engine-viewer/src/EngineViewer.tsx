@@ -2547,6 +2547,51 @@ export default function EngineViewer() {
         }}
       />
 
+      {/* Account avatar — top of page, always visible regardless of vehicle/
+          loading state. Initials circle + dropdown when signed in, generic
+          silhouette circle when not. */}
+      {!isLoading && (
+        <div className="absolute top-4 right-4 z-40">
+          <button
+            onClick={() => setAvatarMenuOpen(v => !v)}
+            className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-black border transition ${
+              loggedIn
+                ? 'bg-gradient-to-br from-cyan-400 to-blue-600 border-cyan-300/60 text-white'
+                : 'bg-white/10 border-white/20 text-gray-400 hover:border-white/40'
+            }`}
+            title={loggedIn ? (playerName ?? 'Signed in') : 'Sign in'}
+          >
+            {loggedIn ? avatarInitial : '👤'}
+          </button>
+          {avatarMenuOpen && (
+            <div className="absolute right-0 mt-2 w-56 rounded-xl border border-white/15 bg-black/85 backdrop-blur-md p-3 space-y-2 shadow-xl">
+              {loggedIn ? (
+                <>
+                  <div className="text-white text-xs font-bold truncate">👤 {playerName ?? 'Signed in'}</div>
+                  <div className="text-gray-400 text-[11px]">⭐ Lv.{mechanicLevel.level} {mechanicLevel.title} · 🪙 {coins}</div>
+                  <button
+                    onClick={() => { setAvatarMenuOpen(false); kcLogout(); }}
+                    className="w-full text-left px-2 py-1.5 rounded-lg text-[11px] font-bold bg-white/5 border border-white/15 text-gray-300 hover:text-white hover:border-white/30"
+                  >
+                    Sign out
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="text-gray-400 text-[11px] leading-relaxed">Sign in to save your level/coins to your account, not just this browser.</div>
+                  <button
+                    onClick={() => { setAvatarMenuOpen(false); kcLogin(); }}
+                    className="w-full text-left px-2 py-1.5 rounded-lg text-[11px] font-bold bg-cyan-400/10 border border-cyan-400/30 text-cyan-300 hover:bg-cyan-400/20"
+                  >
+                    🔑 Sign in
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 pointer-events-none">
         <div className="flex items-start justify-between px-5 pt-4">
