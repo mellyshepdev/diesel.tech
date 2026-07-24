@@ -5201,15 +5201,15 @@ export function buildVolvoD13(
   // to glow everywhere else they're used).
   const idBarRed = new THREE.MeshStandardMaterial({ color: 0xcc2200, emissive: 0xaa1100, emissiveIntensity: 0.7, roughness: 0.4 });
   const idBarWhite = new THREE.MeshStandardMaterial({ color: 0xeaeaea, emissive: 0xbfc8cc, emissiveIntensity: 0.5, roughness: 0.4 });
-  add(new THREE.BoxGeometry(0.1, 0.08, 1.8), M.darkMetal, { pos: [3.5, -0.62, 0], parent: truckBody });
+  add(new THREE.BoxGeometry(0.1, 0.08, 1.8), M.darkMetal, { pos: [5.7, -0.62, 0], parent: truckBody });
   [0.5, 0, -0.5].forEach((z, i) => {
-    add(new THREE.BoxGeometry(0.03, 0.05, 0.16), i === 1 ? idBarWhite : idBarRed, { pos: [3.56, -0.62, z], shadow: false, parent: truckBody });
+    add(new THREE.BoxGeometry(0.03, 0.05, 0.16), i === 1 ? idBarWhite : idBarRed, { pos: [5.76, -0.62, z], shadow: false, parent: truckBody });
   });
   [0.78, -0.78].forEach(z => {
-    add(new THREE.BoxGeometry(0.02, 0.34, 0.26), M.black, { pos: [3.48, -0.86, z], parent: truckBody });
-    add(new THREE.BoxGeometry(0.03, 0.04, 0.26), M.chrome, { pos: [3.48, -0.7, z], shadow: false, parent: truckBody });
+    add(new THREE.BoxGeometry(0.02, 0.34, 0.26), M.black, { pos: [5.68, -0.86, z], parent: truckBody });
+    add(new THREE.BoxGeometry(0.03, 0.04, 0.26), M.chrome, { pos: [5.68, -0.7, z], shadow: false, parent: truckBody });
   });
-  add(new THREE.TorusGeometry(0.02, 0.008, 6, 12, Math.PI), M.chrome, { pos: [3.66, -0.1, 0], rot: [0, 0, Math.PI / 2], shadow: false, parent: truckBody });
+  add(new THREE.TorusGeometry(0.02, 0.008, 6, 12, Math.PI), M.chrome, { pos: [5.86, -0.1, 0], rot: [0, 0, Math.PI / 2], shadow: false, parent: truckBody });
 
   // Rear composite tail lamps — one at each frame rail end, above the mud
   // flap brackets (x 3.48, z ±0.78, matching the bracket positions above).
@@ -5227,10 +5227,10 @@ export function buildVolvoD13(
     const backupWhite = new THREE.MeshStandardMaterial({ color: 0xf0f0f0, emissive: 0xd8dde0, emissiveIntensity: 0.6, roughness: 0.35 });
     [0.78, -0.78].forEach(z => {
       const s = z > 0 ? 1 : -1;
-      add(new THREE.BoxGeometry(0.03, 0.32, 0.1), M.darkMetal, { pos: [3.49, -0.5, z + s * 0.18], parent: truckBody }); // housing
-      add(new THREE.BoxGeometry(0.02, 0.12, 0.08), brakeRed, { pos: [3.505, -0.4, z + s * 0.18], shadow: false, parent: truckBody });
-      add(new THREE.BoxGeometry(0.02, 0.09, 0.08), turnAmber, { pos: [3.505, -0.52, z + s * 0.18], shadow: false, parent: truckBody });
-      add(new THREE.BoxGeometry(0.02, 0.07, 0.08), backupWhite, { pos: [3.505, -0.62, z + s * 0.18], shadow: false, parent: truckBody });
+      add(new THREE.BoxGeometry(0.03, 0.32, 0.1), M.darkMetal, { pos: [5.69, -0.5, z + s * 0.18], parent: truckBody }); // housing
+      add(new THREE.BoxGeometry(0.02, 0.12, 0.08), brakeRed, { pos: [5.705, -0.4, z + s * 0.18], shadow: false, parent: truckBody });
+      add(new THREE.BoxGeometry(0.02, 0.09, 0.08), turnAmber, { pos: [5.705, -0.52, z + s * 0.18], shadow: false, parent: truckBody });
+      add(new THREE.BoxGeometry(0.02, 0.07, 0.08), backupWhite, { pos: [5.705, -0.62, z + s * 0.18], shadow: false, parent: truckBody });
     });
   }
 
