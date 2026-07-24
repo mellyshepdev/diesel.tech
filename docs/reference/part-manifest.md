@@ -165,3 +165,24 @@ Continuing the water-pump/radiator naming pass above, same session.
 |---|---|---|---|---|
 | `service-rear-diff` | `truckBody` | `docs/reference/truck/08-rear-tandem-axle-top.png`, `09-rear-tandem-fifthwheel-2.png` | same geometry/position as before (axle tube + diff-housing sphere bulge at each of AXLE1_X=4.6/AXLE2_X=5.5), just wrapped in a named group so `rear-diff-replace`'s checklist can focus it | 2026-07-24 |
 | `service-driveline` | `truckBody` | `docs/reference/truck/08-rear-tandem-axle-top.png`, `09-rear-tandem-fifthwheel-2.png` | same geometry/position as before (short interaxle shaft between the two tandem axles) — **known gap, not fixed this pass**: this is only the interaxle shaft; the existing in-file comment at this location explains the main propshaft (transmission output to forward tandem axle) was deliberately never modeled, both because it crosses from `truckBody`'s rotated local frame into the engine's own top-level `group` frame (real coordinate-risk reason already documented pre-2026-07-24) and because no reference photo shows that underbody area (all `docs/reference/truck/` photos are exterior/engine-bay/interior, none underbody) — per `3d-part-fidelity` §1, this should stay unmodeled until a real photo of that area is available, not be guessed | 2026-07-24 |
+
+## 2026-07-24, x-ray flow system colors changed to match a fixed fluid-color scheme
+
+Not a new part (all 7 flow systems under `flow-points`/`flow-systems` already
+existed and are covered by the pre-2026-07-20 manifest row above), but their
+colors changed per explicit user request — a fixed color-coding scheme:
+blue=coolant (was teal, `0x35e0c8`→`0x2288ff`), white=cold intake air (both
+the intake-duct and cylinder-air systems, was pale blue `0x7fd0ff`/gray
+`0xb9c7d2`→`0xffffff`), green=diesel fuel (was yellow, `0xffe14d`→`0x33cc55`),
+black=exhaust smoke (was orange, `0xff9a55`→dark gray `0x3a3a3a`). Oil
+circulation/splash (gold/amber) were left unchanged — not part of the
+user's requested scheme.
+
+The exhaust system also needed its `makeFlow()` call to opt into
+`THREE.NormalBlending` (new optional param on `makeFlow`, defaults to the
+existing `AdditiveBlending` for every other system) — black particles under
+additive blending contribute nothing and are invisible, the same class of
+bug already hit and fixed on the nasa-project sun's corona. Point size bumped
+0.055→0.07 and rendered against the x-ray void's own near-black background
+(`0x050810`) with dark gray rather than pure black so it still reads as
+visible smoke rather than disappearing into the background.
