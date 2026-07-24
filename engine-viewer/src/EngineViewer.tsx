@@ -2808,6 +2808,20 @@ export default function EngineViewer() {
         }}
       />
 
+      {/* Walk-mode crosshair — clicks raycast from screen center while
+          pointer-locked (see onPointerUp), so this marks what's actually
+          clickable. */}
+      {walkMode && (
+        <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-40">
+          <div className="w-4 h-4 relative">
+            <div className="absolute left-1/2 top-0 -translate-x-1/2 w-px h-1.5 bg-cyan-300/80" />
+            <div className="absolute left-1/2 bottom-0 -translate-x-1/2 w-px h-1.5 bg-cyan-300/80" />
+            <div className="absolute top-1/2 left-0 -translate-y-1/2 h-px w-1.5 bg-cyan-300/80" />
+            <div className="absolute top-1/2 right-0 -translate-y-1/2 h-px w-1.5 bg-cyan-300/80" />
+          </div>
+        </div>
+      )}
+
       {/* Account avatar — top of page, always visible regardless of vehicle/
           loading state. Initials circle + dropdown when signed in, generic
           silhouette circle when not. */}
