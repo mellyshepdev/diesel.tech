@@ -1923,6 +1923,32 @@ export default function EngineViewer() {
       }
     }
     setActiveRepair(null);
+
+    // Work order: turning the job in (however complete) sends the vehicle
+    // back out — the real consequence of an incomplete job isn't just a
+    // smaller payout, it's a graded comeback: a flat penalty on top of the
+    // already-reduced payout, and if the wheels specifically weren't
+    // chocked/torqued (the one universal procStep every job shares), the
+    // rear outer wheel visibly works loose and drops off mid-departure.
+    if (workOrderMode) {
+      const failed = completionPct < 1;
+      const penalty = failed ? 25 : 0;
+      if (penalty > 0) setCoins(c => Math.max(0, c - penalty));
+      setWorkOrderGrade({ pct: completionPct, payout, failed });
+      setWorkOrderStatus('departing');
+      const eg = engineGroupRef.current;
+      if (eg) {
+        if (failed && !wheelsChocked) {
+          const wheel = eg.getObjectByName('truck-wheel-loose');
+          if (wheel) {
+            setTimeout(() => {
+              eg.userData.wheelFailure = { mesh: wheel, vy: 0, settled: false };
+            }, 900); // mid-departure, not at the very start of the drive-away
+          }
+        }
+        eg.userData.vehicleMove = { targetX: VEHICLE_OFFSTAGE_X, onDone: () => setWorkOrderStatus('idle') };
+      }
+    }
   };
 
   // Work orders: toggling the mode sends the vehicle off-screen (or back)
