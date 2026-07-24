@@ -5595,8 +5595,11 @@ export function buildVolvoD13(
   // units full-width at the fender arches per the box above).
   add(new THREE.BoxGeometry(0.1, 0.5, 1.46), paint, { pos: [0.08, 1.18, 0], parent: hood });        // upper face, full width
   add(new THREE.BoxGeometry(0.18, 0.42, 1.28), paint, { pos: [0.18, 0.78, 0], parent: hood });       // mid face, receded + narrower
-  add(new THREE.BoxGeometry(0.28, 0.32, 0.92), lowerBody, { pos: [0.32, 0.44, 0], parent: hood });    // lower chin, receded + narrower, gloss black like the real bumper's lower valance
-  add(new THREE.BoxGeometry(0.34, 0.24, 0.66), lowerBody, { pos: [0.42, 0.16, 0], parent: hood });    // bumper valance, further tucked under
+  const bumper = new THREE.Group();
+  bumper.name = 'service-bumper';
+  hood.add(bumper);
+  add(new THREE.BoxGeometry(0.28, 0.32, 0.92), lowerBody, { pos: [0.32, 0.44, 0], parent: bumper });    // lower chin, receded + narrower, gloss black like the real bumper's lower valance
+  add(new THREE.BoxGeometry(0.34, 0.24, 0.66), lowerBody, { pos: [0.42, 0.16, 0], parent: bumper });    // bumper valance, further tucked under
 
   // Grille — the 2027 VNL860's reworked nose carries one large kite/diamond
   // -shaped dark mesh insert dominating the face, not the classic VNL's
@@ -5640,11 +5643,11 @@ export function buildVolvoD13(
     // Trapezoidal brake-cooling vent in the lower valance (photo 02: dark
     // angular cutout, not a round fog light — fog/turn function moved into
     // the headlight blade above on this restyle).
-    add(new THREE.BoxGeometry(0.05, 0.14, 0.22), M.black, { pos: [0.43, 0.18, s * 0.44], rot: [0, 0, s * 0.12], shadow: false, parent: hood });
+    add(new THREE.BoxGeometry(0.05, 0.14, 0.22), M.black, { pos: [0.43, 0.18, s * 0.44], rot: [0, 0, s * 0.12], shadow: false, parent: bumper });
   });
   // Chrome splitter bar spanning the lower fascia between the two vents
   // (light-colored horizontal strip visible across the bumper in photo 02)
-  add(new THREE.BoxGeometry(0.03, 0.03, 0.7), M.chrome, { pos: [0.46, 0.06, 0], shadow: false, parent: hood });
+  add(new THREE.BoxGeometry(0.03, 0.03, 0.7), M.chrome, { pos: [0.46, 0.06, 0], shadow: false, parent: bumper });
 
   // Small hood-mounted convex spotter mirror (white, body-color shell) —
   // visible low on the fender in photo 01, used for curbing the front wheel.
