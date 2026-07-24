@@ -992,8 +992,9 @@ const buildFlowSystems = (): { flowGroup: THREE.Group; systems: FlowSystem[] } =
   systems.push(makeFlow(flowGroup, 0xffa726, 80, 0.04, 1.4, undefined,
     { x0: -0.95, x1: 0.95, z0: -0.27, z1: 0.27, floor: -0.72, height: 0.35 }));
 
-  // Fuel: left-side filters → around the head → rail run → injector → cylinder
-  systems.push(makeFlow(flowGroup, 0xffe14d, 60, 0.04, 0.05, flowPath([
+  // Fuel: left-side filters → around the head → rail run → injector → cylinder.
+  // Green per the user's fluid-color scheme (was yellow).
+  systems.push(makeFlow(flowGroup, 0x33cc55, 60, 0.04, 0.05, flowPath([
     [-0.35, -0.45, -0.42],
     [-0.5, 0.0, -0.35],
     [-0.75, 0.3, 0.1],
