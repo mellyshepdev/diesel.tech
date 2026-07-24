@@ -3893,6 +3893,17 @@ export default function EngineViewer() {
         >
           🎯 Reset
         </button>
+        <button
+          onClick={() => { if (inspecting) return; setWalkMode(v => !v); }}
+          title="Walk mode: WASD to move, mouse to look (click to lock the cursor; Esc to exit)"
+          className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200"
+          style={walkMode
+            ? { background: 'rgba(0,212,255,0.15)', border: '1px solid rgba(0,212,255,0.5)', color: '#00d4ff' }
+            : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.5)' }
+          }
+        >
+          {walkMode ? '🎮 Walking (Esc to exit)' : '🎮 Walk Mode'}
+        </button>
         {vehicle === 'vnl860' && (
           <button
             onClick={toggleXray}
