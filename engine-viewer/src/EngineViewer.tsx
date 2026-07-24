@@ -5593,12 +5593,21 @@ export function buildVolvoD13(
   // always have your own keys on you). Click grabs them straight into the
   // tray, same as picking a tool out of a drawer (see partClickRef's
   // 'toolbox-vehicle-keys' case). Small keyring: a ring + two blade shapes.
+  // Bug fix: the original offset (-0.35, -0.3) was OUTSIDE the starter
+  // bay's own counter — BAY_W.starter is 26in (half-width ≈0.30 scene
+  // units) and D is 24in (half-depth ≈0.279) — so the keys were hanging
+  // off the edge of the counter, not sitting on it. Moved well inside
+  // those bounds, scaled up, and given its own glowing brass material
+  // (not the shared M.chrome, which every other chrome part reuses) so
+  // it actually reads as a pickable item against a very busy scene.
   const keys = new THREE.Group();
   keys.name = 'toolbox-vehicle-keys';
-  add(new THREE.TorusGeometry(0.028, 0.006, 8, 20), M.chrome, { pos: [0, 0.006, 0], rot: [Math.PI / 2, 0, 0], shadow: false, parent: keys });
+  const keyringGlow = new THREE.MeshStandardMaterial({ color: 0xffcc44, metalness: 0.7, roughness: 0.3, emissive: 0xff9900, emissiveIntensity: 0.7 });
+  add(new THREE.TorusGeometry(0.028, 0.006, 8, 20), keyringGlow, { pos: [0, 0.006, 0], rot: [Math.PI / 2, 0, 0], shadow: false, parent: keys });
   add(new THREE.BoxGeometry(0.008, 0.002, 0.055), M.darkMetal, { pos: [0.04, 0, 0.01], rot: [0, 0.3, 0], shadow: false, parent: keys });
   add(new THREE.BoxGeometry(0.008, 0.002, 0.05), M.brushedMetal, { pos: [0.045, 0, -0.015], rot: [0, -0.25, 0], shadow: false, parent: keys });
-  keys.position.set(-0.35, 0.006, -0.3);
+  keys.scale.setScalar(2.5);
+  keys.position.set(-0.15, 0.015, 0.15);
   toolbox.getObjectByName('toolbox-counter-anchor')?.add(keys);
 
   tick();
