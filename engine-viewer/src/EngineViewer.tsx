@@ -136,26 +136,33 @@ const ENGINE_ORDER: EngineId[] = ['volvo-d13', 'cummins-x15', 'paccar-mx13', 'pa
 // Vehicles — picked from the dropdown BEFORE anything loads.
 // 'vnl860' is the class-8 truck + D13 shop experience; 'sonata2017'
 // is the light-duty car, modeled from the photos in
-// docs/reference/sonata/ (front 3/4, rear, engine bay).
+// docs/reference/sonata/ (front 3/4, rear, engine bay). 'prevost'
+// is the H3-45 motorcoach (docs/reference/prevost/) — it shares the exact
+// same D13 engine as the VNL (Prevost is a Volvo Group subsidiary; see
+// buildPrevostH345), just wrapped in a rear-engine coach body instead of a
+// conventional truck cab/hood, so it rides along on every `vehicle !==
+// 'sonata2017'` branch below (hood-lever gating, repairs, toolbox, etc.)
+// exactly like the VNL does, with no changes needed to those checks.
 // ─────────────────────────────────────────────────────────
 type VehicleId = 'vnl860' | 'sonata2017' | 'prevost';
 
 const VEHICLES: Record<VehicleId, { label: string; blurb: string }> = {
   vnl860: { label: 'Volvo VNL 860 — Class 8 Truck', blurb: 'Heavy-duty diesel: D13 engine, I-Shift, full shop with toolbox & repairs' },
   sonata2017: { label: '2017 Hyundai Sonata — Sedan', blurb: 'Light-duty gas: 2.4L GDi inline-4, walk-around & engine bay' },
-  prevost: { label: 'Prevost H3-45 — Motorcoach (Loki Coach)', blurb: 'Rear-engine diesel pusher, tri-axle — exterior & cockpit walk-around; engine bay/cabin pending reference photos' },
+  prevost: { label: 'Prevost H3-45 — Motorcoach', blurb: 'Same D13 engine as the VNL, rear-engine coach body — full shop with toolbox & repairs' },
 };
 
 /** Info-panel identity for the Prevost. Factory-spec figures for the H3-45's
  *  stock Volvo D13 (well-documented public spec — not geometry, so this
  *  doesn't need a reference photo per 3d-part-fidelity §1, unlike the 3D
- *  model itself). No engine BAY is modeled yet (see buildPrevost), so this
- *  is spec-sheet info only — clicking into an engine bay isn't possible. */
+ *  model itself). buildPrevostH345 reuses the real D13 engine bay wholesale
+ *  (see that function), so this is flavor/spec text alongside the shared
+ *  engine model, not a placeholder for a missing one. */
 const PREVOST_ENGINE: EngineInfo = {
   maker: 'VOLVO',
   makerLetter: 'V',
   model: 'D13 (H3-45)',
-  tagline: '12.8L Inline-6 Diesel Pusher · Prevost H3-45 · Exterior & Cockpit Model',
+  tagline: '12.8L Inline-6 Diesel Pusher · Prevost H3-45 · Full Engine + Cockpit Model',
   hp: '505 HP',
   torque: '1,750 lb·ft',
   specs: [
@@ -1378,10 +1385,14 @@ export default function EngineViewer() {
       }
       setHoodOpen(true);
       // VNL hood tilts FORWARD over the bumper; the Sonata hood is
-      // rear-hinged at the cowl and lifts the other way.
+      // rear-hinged at the cowl and lifts the other way; the Prevost has no
+      // hood at all — a rear engine-access hatch (pusher-coach layout) lifts
+      // from its base instead, same hinge mechanics, different wording.
       setHinge('truck-hood', 'z', vehicle === 'sonata2017' ? -1.0 : 1.15);
       setServiceMsg(vehicle === 'sonata2017'
         ? 'Hood up — 2.4 GDi engine bay exposed.'
+        : vehicle === 'prevost'
+        ? 'Rear engine hatch open — D13 exposed. Repairs are on the 🔧 Repairs panel.'
         : 'Hood tilted forward — engine exposed. Repairs are on the 🔧 Repairs panel.');
       return;
     }
@@ -1979,7 +1990,7 @@ export default function EngineViewer() {
 
     // Build the selected vehicle
     if (vehicle === 'sonata2017') buildSonata2017(engineGroup, setLoadProgress, setIsLoading);
-    else if (vehicle === 'prevost') buildPrevost(engineGroup, setLoadProgress, setIsLoading);
+    else if (vehicle === 'prevost') buildPrevostH345(engineGroup, setLoadProgress, setIsLoading);
     else buildVolvoD13(engineGroup, setLoadProgress, setIsLoading);
 
     // Ground
@@ -5770,6 +5781,262 @@ export function buildSonata2017(
   setTimeout(() => setLoading(false), 400);
 }
 
+// ═══════════════════════════════════════════════════════════
+// PREVOST H3-45 MOTORCOACH — reuses the exact same D13 engine as the VNL
+// (Prevost is a Volvo Group subsidiary; the H3-45 is D13-powered) instead of
+// duplicating ~1000 lines of engine geometry the way buildSonata2017 does
+// for its unrelated 2.4L car engine, which wouldn't make sense here since
+// the whole point is it's the same engine. Built from
+// docs/reference/prevost/ (2027 Prevost "Loki Coach" H3-45 conversion) —
+// see that folder's README for exact photo coverage and known gaps: no
+// rear, opposite-profile, or engine-bay photos exist yet, so the rear
+// engine hatch/bay placement below is reasoned from general H3-45
+// pusher-coach layout, not a specific photo. Flag for a real photo before
+// trusting that placement further, same caveat already on this file's other
+// reasoned-not-measured parts (radiator, starter, etc.).
+// ═══════════════════════════════════════════════════════════
+export function buildPrevostH345(
+  group: THREE.Group,
+  setProgress: (n: number) => void,
+  setLoading: (b: boolean) => void,
+) {
+  let step = 0;
+  const totalSteps = 16;
+  const tick = () => { step++; setProgress(Math.min(96, Math.round((step / totalSteps) * 100))); };
+
+  // Build the full D13 into its own wrapper rather than `group` directly —
+  // buildVolvoD13 also builds its own VNL truck-cab body and toolbox into
+  // whatever group it's given. Both get pulled back out below: truck-cab
+  // discarded (replaced with the coach body), toolbox re-parented to the
+  // top level so it isn't dragged into the engine bay's position/rotation.
+  const engineWrapper = new THREE.Group();
+  buildVolvoD13(engineWrapper, () => {}, () => {});
+  const vnlBody = engineWrapper.getObjectByName('truck-cab');
+  if (vnlBody) engineWrapper.remove(vnlBody);
+  const toolbox = engineWrapper.getObjectByName('toolbox-chest');
+  if (toolbox) { engineWrapper.remove(toolbox); group.add(toolbox); }
+  tick();
+
+  const M = {
+    chrome: new THREE.MeshStandardMaterial({ color: 0xc8c8c8, metalness: 0.96, roughness: 0.08 }),
+    brushedMetal: new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.85, roughness: 0.25 }),
+    darkMetal: new THREE.MeshStandardMaterial({ color: 0x2a2a2a, metalness: 0.82, roughness: 0.32 }),
+    black: new THREE.MeshStandardMaterial({ color: 0x0f0f0f, metalness: 0.25, roughness: 0.65 }),
+    rubber: new THREE.MeshStandardMaterial({ color: 0x141414, metalness: 0.0, roughness: 0.98 }),
+    red: new THREE.MeshStandardMaterial({ color: 0xb01818, metalness: 0.3, roughness: 0.4 }),
+    amber: new THREE.MeshStandardMaterial({ color: 0xff9500, emissive: 0xff8800, emissiveIntensity: 0.85, roughness: 0.4 }),
+  };
+  // Gunmetal-silver two-tone paint with a darker diagonal stripe panel —
+  // this specific "Loki Coach" livery (docs/reference/prevost/01)
+  const paint = new THREE.MeshPhysicalMaterial({ color: 0xa8acb0, metalness: 0.6, roughness: 0.35, clearcoat: 0.6, clearcoatRoughness: 0.15 });
+  const paintDark = new THREE.MeshStandardMaterial({ color: 0x5c6064, metalness: 0.5, roughness: 0.4 });
+  const glass = new THREE.MeshStandardMaterial({ color: 0x0b0f14, metalness: 0.4, roughness: 0.08, transparent: true, opacity: 0.88 });
+  const grilleDark = new THREE.MeshStandardMaterial({ color: 0x101215, metalness: 0.5, roughness: 0.5 });
+  const dashDark = new THREE.MeshStandardMaterial({ color: 0x2b241d, metalness: 0.1, roughness: 0.55 }); // dark carbon-look trim, photo 03
+  const dashTan = new THREE.MeshStandardMaterial({ color: 0xc7b89a, metalness: 0, roughness: 0.8 }); // beige leather/trim, photo 03
+
+  const add = (geo: THREE.BufferGeometry, mat: THREE.Material, opts?: { pos?: [number, number, number]; rot?: [number, number, number]; shadow?: boolean; parent?: THREE.Group }) => {
+    const mesh = new THREE.Mesh(geo, mat);
+    if (opts?.pos) mesh.position.set(...opts.pos);
+    if (opts?.rot) mesh.rotation.set(...opts.rot);
+    if (opts?.shadow !== false) { mesh.castShadow = true; mesh.receiveShadow = true; }
+    (opts?.parent ?? coach).add(mesh);
+    return mesh;
+  };
+
+  // Coach body — own independent scale (like the Sonata car-body), sized to
+  // comfortably wrap the reused D13 engine bay at the tail rather than
+  // matching any strict real-world 45ft-coach-to-VNL ratio (the two
+  // vehicles were never meant to share one global scene scale — see the
+  // part-manifest's scale-basis caveat). Rotated 180° like the VNL/Sonata
+  // so the nose faces the walk-up camera (+x world); door/hood groups reuse
+  // the 'truck-door'/'truck-hood' names for the shared walk-around hinges.
+  const coach = new THREE.Group();
+  coach.name = 'truck-cab';
+  coach.rotation.y = Math.PI;
+  group.add(coach);
+
+  const NOSE = -4.5, TAIL = 4.5; // local x range, nose toward −x per the rotation above
+  const GY = -0.85; // ground/frame reference
+
+  // Main fuselage — single-level monocoque, tall flat lower rocker below
+  // the beltline (photo 01/02)
+  add(new THREE.BoxGeometry(TAIL - NOSE - 0.6, 1.5, 2.3), paint, { pos: [0.3, GY + 1.15, 0], parent: coach });
+  add(new THREE.BoxGeometry(TAIL - NOSE - 0.6, 0.55, 2.34), paintDark, { pos: [0.3, GY + 0.3, 0], parent: coach }); // lower rocker band, darker two-tone
+  // Diagonal stripe accent sweeping up from the front wheel arch toward the
+  // windshield base (photo 01's signature diagonal graphic on this livery)
+  add(new THREE.BoxGeometry(2.2, 0.5, 0.03), paintDark, { pos: [-2.6, GY + 1.0, 1.16], rot: [0, 0, 0.35], shadow: false, parent: coach });
+  // Roof — slightly domed toward the front over the windshield header
+  add(new THREE.BoxGeometry(TAIL - NOSE - 1.0, 0.14, 2.2), paint, { pos: [0.2, GY + 1.95, 0], parent: coach });
+  add(new THREE.BoxGeometry(1.6, 0.1, 2.1), paint, { pos: [-2.8, GY + 2.02, 0], parent: coach }); // domed header over the windshield
+  tick();
+
+  // Front fascia — rounded nose per photo 01/02: full-width windshield
+  // wrapping into the side glass, a body-color header above it, a dark
+  // grille insert with "PREVOST" lettering, LED headlight clusters at the
+  // outer corners, and a lower bumper.
+  add(new THREE.BoxGeometry(0.3, 1.6, 2.1), paint, { pos: [NOSE + 0.15, GY + 1.2, 0], parent: coach }); // nose cap, rounded via the glass sweep below
+  add(new THREE.BoxGeometry(0.05, 1.0, 1.9), glass, { pos: [NOSE + 0.55, GY + 1.55, 0], rot: [0, 0, -0.5], parent: coach }); // raked windshield, split by a thin center pillar
+  add(new THREE.BoxGeometry(0.03, 1.0, 0.04), M.darkMetal, { pos: [NOSE + 0.7, GY + 1.55, 0], shadow: false, parent: coach }); // center windshield pillar
+  add(new THREE.BoxGeometry(0.28, 0.55, 1.7), grilleDark, { pos: [NOSE + 0.2, GY + 0.75, 0], parent: coach }); // grille insert
+  add(new THREE.BoxGeometry(0.05, 0.06, 0.9), M.chrome, { pos: [NOSE + 0.33, GY + 0.75, 0], shadow: false, parent: coach }); // "PREVOST" lettering bar (stylized, not lettered geometry)
+  [1, -1].forEach(s => {
+    add(new THREE.BoxGeometry(0.06, 0.16, 0.34), M.chrome, { pos: [NOSE + 0.3, GY + 0.95, s * 0.85], rot: [0, 0, s * 0.15], shadow: false, parent: coach }); // headlight cluster housing
+    add(new THREE.BoxGeometry(0.03, 0.13, 0.3), new THREE.MeshStandardMaterial({ color: 0xf5f7ff, emissive: 0xdfe6ff, emissiveIntensity: 0.75, roughness: 0.25 }), { pos: [NOSE + 0.34, GY + 0.95, s * 0.85], rot: [0, 0, s * 0.15], shadow: false, parent: coach }); // lens
+    // Mirror arm off the A-pillar (photo 02: two long articulated arms)
+    const arm = new THREE.Group();
+    arm.position.set(NOSE + 0.65, GY + 1.85, s * 1.05);
+    coach.add(arm);
+    add(new THREE.BoxGeometry(0.04, 0.05, 0.3), M.darkMetal, { pos: [0, 0, s * 0.14], parent: arm });
+    add(new THREE.BoxGeometry(0.09, 0.26, 0.16), paint, { pos: [0, -0.16, s * 0.3], parent: arm });
+  });
+  add(new THREE.BoxGeometry(0.26, 0.3, 1.9), paintDark, { pos: [NOSE + 0.2, GY + 0.25, 0], parent: coach }); // lower bumper valance
+  tick();
+
+  // Side — luggage bay doors along the lower flank (photo 01), a full
+  // window strip above the beltline, and passenger door near the front.
+  const BAY_Z = 1.16;
+  [1, -1].forEach(s => {
+    for (let i = 0; i < 6; i++) {
+      add(new THREE.BoxGeometry(0.55, 0.4, 0.015), M.darkMetal, { pos: [-2.0 + i * 0.62, GY + 0.55, s * BAY_Z], shadow: false, parent: coach });
+    }
+    // Window strip
+    add(new THREE.BoxGeometry(6.2, 0.55, 0.03), glass, { pos: [0.3, GY + 1.55, s * BAY_Z], shadow: false, parent: coach });
+  });
+  // "LOKI COACH H3" livery decal on the driver-side luggage bay (photo 01) —
+  // a canvas texture reads as actual legible lettering, unlike a plain
+  // chrome bar standin; same technique the concurrent buildPrevost() draft
+  // below uses for this exact decal, ported over rather than reinvented.
+  {
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = 80;
+    const g = c.getContext('2d')!;
+    g.fillStyle = '#e8e8ea';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = 'bold 44px sans-serif';
+    g.fillText('LOKI COACH H3', c.width / 2, c.height / 2);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const decalMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.14), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
+    decalMesh.name = 'prevost-decal';
+    decalMesh.position.set(-1.6, GY + 0.55, -BAY_Z - 0.01);
+    decalMesh.rotation.y = Math.PI / 2;
+    coach.add(decalMesh);
+  }
+  tick();
+
+  // Passenger/entry door — front-left per a real H3-45's layout, reuses the
+  // 'truck-door' name for the shared walk-around hinge. Group origin sits at
+  // the door's front (hinge) edge, panel offset +x from there — same
+  // pivot-at-an-edge convention the VNL door uses (door.position at its
+  // front edge, panel meshes offset +0.45 x from it), so setHinge's
+  // y-rotation swings the door open instead of spinning it around its own
+  // center.
+  const door = new THREE.Group();
+  door.name = 'truck-door';
+  door.position.set(NOSE + 1.1, GY + 0.9, -1.16);
+  coach.add(door);
+  add(new THREE.BoxGeometry(0.7, 1.5, 0.04), paint, { pos: [0.35, 0, 0], parent: door });
+  add(new THREE.BoxGeometry(0.68, 0.5, 0.03), glass, { pos: [0.35, 0.35, -0.005], shadow: false, parent: door });
+  tick();
+
+  // Tri-axle running gear: single steer axle at the nose, close-coupled
+  // drive+tag pair at the tail (photo 01 — the two rear axles sit much
+  // closer together than the VNL's evenly-spaced tandem, per a real H3-45's
+  // non-driven tag axle configuration)
+  const wheelAt = (wx: number, wz: number) => {
+    add(new THREE.CylinderGeometry(0.46, 0.46, 0.3, 24), M.rubber, { pos: [wx, GY + 0.46, wz], rot: [Math.PI / 2, 0, 0], parent: coach });
+    add(new THREE.CylinderGeometry(0.2, 0.2, 0.31, 16), M.chrome, { pos: [wx, GY + 0.46, wz], rot: [Math.PI / 2, 0, 0], shadow: false, parent: coach });
+  };
+  [1, -1].forEach(s => wheelAt(NOSE + 1.4, s * 1.1));
+  [1, -1].forEach(s => { wheelAt(TAIL - 1.6, s * 1.1); wheelAt(TAIL - 0.75, s * 1.1); });
+  tick();
+
+  // Rear engine hatch — H3-45 is a rear-engine ("pusher") coach, no
+  // equivalent to the VNL's front hood. Reuses the 'truck-hood' name so
+  // clickHood()/the existing hinge logic works unmodified; opens the same
+  // way the VNL hood does even though geometrically this is a rear panel.
+  // UNVERIFIED placement — no rear photo exists yet (see the prevost
+  // README's known-gaps note).
+  // Group origin sits at the panel's BOTTOM edge (not its center) — same
+  // pivot-at-an-edge trick the VNL hood uses (hood.position at the bumper,
+  // panel meshes offset from there), so setHinge's z-rotation lifts the
+  // whole panel from its base instead of spinning it in place around its
+  // own center.
+  const hatch = new THREE.Group();
+  hatch.name = 'truck-hood';
+  hatch.position.set(TAIL - 0.3, GY + 0.35, 0);
+  coach.add(hatch);
+  add(new THREE.BoxGeometry(0.05, 1.3, 2.0), paint, { pos: [0, 0.65, 0], parent: hatch });
+  add(new THREE.BoxGeometry(0.02, 0.06, 1.8), M.darkMetal, { pos: [0.03, 0.65, 0], shadow: false, parent: hatch }); // vent louvers hint
+  tick();
+
+  // The reused D13 engine bay, tucked in behind the hatch. Position/scale
+  // is reasoned (no engine-bay photo for this coach exists), not measured —
+  // sized so the engine's own ~3.5-unit footprint (starter x −1.19 to the
+  // radiator-adjacent fan x 1.55) fits between the tag axle and the hatch.
+  engineWrapper.position.set(TAIL - 2.2, GY + 1.3, 0);
+  engineWrapper.rotation.y = Math.PI / 2;
+  coach.add(engineWrapper);
+  tick();
+
+  // Cockpit — steering wheel, digital cluster, and center touchscreen
+  // (docs/reference/prevost/03): thick-rimmed wheel with a large chrome-
+  // ringed "PREVOST" badge low on the hub (same convention the VNL's
+  // Volvo badge uses), a horizontal digital cluster visible through the
+  // rim, and a large center touchscreen infotainment display — much bigger
+  // and more prominent than the VNL's small radio/climate stack.
+  const wheel = new THREE.Group();
+  wheel.position.set(NOSE + 1.35, GY + 1.35, -0.55);
+  wheel.rotation.set(1.15, 0, 0);
+  coach.add(wheel);
+  add(new THREE.TorusGeometry(0.17, 0.03, 12, 24), M.black, { pos: [0, 0, 0], parent: wheel });
+  [-1, 1].forEach(s => {
+    add(new THREE.BoxGeometry(0.13, 0.07, 0.02), M.black, { pos: [s * 0.11, 0, 0], parent: wheel });
+  });
+  add(new THREE.CylinderGeometry(0.075, 0.075, 0.05, 20), M.black, { pos: [0, -0.11, 0.01], rot: [Math.PI / 2, 0, 0], parent: wheel });
+  add(new THREE.TorusGeometry(0.07, 0.008, 10, 24), M.chrome, { pos: [0, -0.11, 0.036], parent: wheel });
+  add(new THREE.CylinderGeometry(0.058, 0.058, 0.012, 20), new THREE.MeshStandardMaterial({ color: 0x1a1c1f, metalness: 0.4, roughness: 0.35 }), { pos: [0, -0.11, 0.038], rot: [Math.PI / 2, 0, 0], shadow: false, parent: wheel });
+  add(new THREE.BoxGeometry(0.06, 0.15, 0.22), dashDark, { pos: [NOSE + 1.28, GY + 1.45, -0.55], rot: [0.15, 0, 0], parent: coach }); // gauge-cluster hood
+  add(new THREE.BoxGeometry(0.01, 0.1, 0.17), new THREE.MeshStandardMaterial({ color: 0x1b2a22, roughness: 0.3 }), { pos: [NOSE + 1.31, GY + 1.455, -0.55], rot: [0.15, 0, 0], shadow: false, parent: coach }); // display face
+  // Dash sweep + large center touchscreen
+  add(new THREE.BoxGeometry(0.2, 0.35, 1.4), dashDark, { pos: [NOSE + 1.25, GY + 1.15, 0.15], parent: coach });
+  add(new THREE.BoxGeometry(0.04, 0.32, 0.24), M.black, { pos: [NOSE + 1.36, GY + 1.2, 0.35], rot: [0, 0.25, 0], shadow: false, parent: coach }); // touchscreen bezel
+  add(new THREE.BoxGeometry(0.015, 0.28, 0.2), new THREE.MeshStandardMaterial({ color: 0x0d1a33, emissive: 0x1a3a8f, emissiveIntensity: 0.5, roughness: 0.2 }), { pos: [NOSE + 1.38, GY + 1.2, 0.35], rot: [0, 0.25, 0], shadow: false, parent: coach }); // screen
+  // Driver seat
+  add(new THREE.CylinderGeometry(0.1, 0.13, 0.24, 12), dashDark, { pos: [NOSE + 1.7, GY + 0.55, -0.55], parent: coach });
+  add(new THREE.BoxGeometry(0.46, 0.09, 0.44), dashTan, { pos: [NOSE + 1.7, GY + 0.7, -0.55], parent: coach }); // cushion
+  add(new THREE.BoxGeometry(0.42, 0.5, 0.42), dashTan, { pos: [NOSE + 1.55, GY + 0.98, -0.55], rot: [0, 0, 0.08], parent: coach }); // seatback
+  tick();
+
+  // Marker lights (amber, roofline) — every North American coach/bus carries these
+  add(new THREE.BoxGeometry(0.03, 0.03, 1.7), M.darkMetal, { pos: [NOSE + 0.75, GY + 2.05, 0], parent: coach });
+  [-0.6, -0.3, 0, 0.3, 0.6].forEach(z => {
+    add(new THREE.CylinderGeometry(0.025, 0.025, 0.02, 10), M.amber, { pos: [NOSE + 0.76, GY + 2.05, z], rot: [Math.PI / 2, 0, 0], shadow: false, parent: coach });
+  });
+  tick();
+
+  // Complete loading
+  tick(); tick();
+  setProgress(100);
+  setTimeout(() => setLoading(false), 400);
+}
+
+// ═══════════════════════════════════════════════════════════
+// NOTE: buildPrevost() below was an independent, concurrently-written first
+// draft of the Prevost H3-45 (built by another session's autosave process at
+// the same time as buildPrevostH345 above). It is NOT currently wired up —
+// buildPrevostH345 is the one referenced by the vehicle-build dispatch and
+// the VehicleId type — but it's kept here rather than deleted (this
+// project's "never delete, only add" rule) since it has real merit: a more
+// conservative reading of 3d-part-fidelity §1 (it deliberately builds
+// nothing for the rear/engine-bay/curbside since no photo of those exists,
+// rather than buildPrevostH345's reasoned-but-unverified rear hatch), a
+// proper CIN-based real-inch scale derivation, and a nicer canvas-decal
+// livery treatment (ported into buildPrevostH345's coach body above rather
+// than duplicated here again). If the Prevost is revisited with more
+// reference photos, both approaches are worth a look before picking one.
+// ═══════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════
 // PREVOST H3-45 — a "Loki Coach" conversion (gray/silver, diagonal two-tone
 // stripe, "LOKI COACH H3" decal on the driver-side luggage bay). Built from
