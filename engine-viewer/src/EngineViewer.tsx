@@ -2474,6 +2474,31 @@ export default function EngineViewer() {
     renderer.domElement.addEventListener('pointerdown', onPointerDown);
     renderer.domElement.addEventListener('pointerup', onPointerUp);
 
+    // Walk mode mouse look: while pointer-locked on the canvas, movementX/Y
+    // drive yaw/pitch straight on the camera quaternion (YXZ Euler order,
+    // the standard FPS convention) instead of orbiting a target. Registered
+    // unconditionally but a no-op unless actually locked, so it doesn't
+    // need its own walkMode-gated effect wiring.
+    const onMouseMove = (e: MouseEvent) => {
+      if (document.pointerLockElement !== renderer.domElement) return;
+      const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+      euler.setFromQuaternion(camera.quaternion);
+      euler.y -= e.movementX * 0.0022;
+      euler.x -= e.movementY * 0.0022;
+      euler.x = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, euler.x));
+      camera.quaternion.setFromEuler(euler);
+    };
+    document.addEventListener('mousemove', onMouseMove);
+
+    // Losing the lock (Escape, alt-tab) should drop walk mode too, so the
+    // toggle button/UI stays truthful and OrbitControls gets handed back.
+    const onPointerLockChange = () => {
+      if (document.pointerLockElement !== renderer.domElement && walkModeRef.current) {
+        setWalkMode(false);
+      }
+    };
+    document.addEventListener('pointerlockchange', onPointerLockChange);
+
     // Resize
     const handleResize = () => {
       if (!container) return;
@@ -2487,6 +2512,8 @@ export default function EngineViewer() {
       window.removeEventListener('resize', handleResize);
       renderer.domElement.removeEventListener('pointerdown', onPointerDown);
       renderer.domElement.removeEventListener('pointerup', onPointerUp);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('pointerlockchange', onPointerLockChange);
       cancelAnimationFrame(animFrameRef.current);
       renderer.dispose();
       if (container.contains(renderer.domElement)) {
@@ -2494,6 +2521,32 @@ export default function EngineViewer() {
       }
     };
   }, [vehicle]);
+
+  // Enter/exit walk mode: request or release pointer lock and hand the
+  // camera between OrbitControls (orbit mode) and direct quaternion control
+  // (onMouseMove above). Runs whenever the toggle button flips `walkMode`,
+  // or when losing the lock flips it back via onPointerLockChange.
+  useEffect(() => {
+    const controls = controlsRef.current;
+    const renderer = rendererRef.current;
+    const camera = cameraRef.current;
+    if (!controls || !renderer || !camera) return;
+    if (walkMode) {
+      controls.enabled = false;
+      controls.autoRotate = false;
+      setAutoRotate(false);
+      renderer.domElement.requestPointerLock?.();
+    } else {
+      // Re-aim OrbitControls' target to where the camera was just looking
+      // so re-enabling it doesn't snap the view back to the old orbit point.
+      const look = new THREE.Vector3();
+      camera.getWorldDirection(look);
+      controls.target.copy(camera.position).addScaledVector(look, 3);
+      controls.enabled = true;
+      controls.update();
+      if (document.pointerLockElement === renderer.domElement) document.exitPointerLock();
+    }
+  }, [walkMode]);
 
   // 3D click routing: with the right tool in hand, clicking a fastener in
   // the scene starts the removal immediately (assigned every render so it
