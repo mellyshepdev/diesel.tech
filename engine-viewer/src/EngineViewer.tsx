@@ -2325,14 +2325,36 @@ export default function EngineViewer() {
         }
       }
 
-      // Keyboard nav: arrows walk the rig (camera + target move together,
-      // same offset preserved — equivalent to OrbitControls' own panning),
-      // WASD turns the view (only the target orbits the fixed camera
-      // position, like turning your head) — kept as two separate schemes
-      // per how the player asked for them, not the more common "WASD moves"
-      // convention.
       const keys = keysHeldRef.current;
-      if (keys.size) {
+      if (walkModeRef.current) {
+        // Walk mode: WASD moves relative to where the camera is actually
+        // facing (mouse look, via onMouseMove below, aims it) — real FPS
+        // convention. Forward is flattened to the horizontal plane so
+        // looking up/down doesn't fly you into the floor or ceiling.
+        if (keys.size) {
+          const forward = new THREE.Vector3();
+          camera.getWorldDirection(forward);
+          forward.y = 0;
+          if (forward.lengthSq() > 0) forward.normalize();
+          const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
+          const move = new THREE.Vector3();
+          if (keys.has('w') || keys.has('arrowup')) move.add(forward);
+          if (keys.has('s') || keys.has('arrowdown')) move.sub(forward);
+          if (keys.has('d') || keys.has('arrowright')) move.add(right);
+          if (keys.has('a') || keys.has('arrowleft')) move.sub(right);
+          if (move.lengthSq() > 0) {
+            move.normalize().multiplyScalar(0.05);
+            camera.position.add(move);
+          }
+        }
+      } else if (keys.size) {
+        // Orbit mode's own keyboard nav: arrows walk the rig (camera +
+        // target move together, same offset preserved — equivalent to
+        // OrbitControls' own panning), WASD turns the view (only the
+        // target orbits the fixed camera position, like turning your
+        // head) — kept as two separate schemes per how the player asked
+        // for them, not the more common "WASD moves" convention. Left
+        // untouched by walk mode; only active while walk mode is off.
         controls.autoRotate = false;
         setAutoRotate(false);
         const forward = new THREE.Vector3();
