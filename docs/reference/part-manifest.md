@@ -149,3 +149,12 @@ their `GENERIC_CHECKLISTS` entries. Bumper/fairing/rear-diff still pending
 |---|---|---|---|---|
 | `service-water-pump` | engine group (`buildVolvoD13`'s `group`) | none dedicated — inherits the front-end-drive/fan anchor already established for the 2026-07-21 water-pump-side-bug-fix (x 0.98, matching the FED_X 1.26/fan-end convention) | same geometry/position as before, just wrapped in a named `THREE.Group` (pump housing cylinder + box, thermostat outlet stub) instead of loose meshes on the engine group directly | 2026-07-24 |
 | `service-radiator` | `truck-hood` (`hood` group) | `docs/reference/truck/11-engine-bay-steer-axle.png`, `12-engine-bay-hood-open.png` (fin texture, reasoned spacing per existing comment) | same geometry/position as before (core, fin ribbing ×9, top/bottom tanks, fan shroud ring), just wrapped in a named `THREE.Group` instead of loose meshes parented directly to `hood` | 2026-07-24 |
+
+## Entries added 2026-07-24, naming previously-unnamed fairing/bumper geometry
+
+Continuing the water-pump/radiator naming pass above, same session.
+
+| name | parent group | source photo(s) | scale basis / anchor | added |
+|---|---|---|---|---|
+| `service-fairing` | `truckBody` | `docs/reference/truck/04-exterior-side-profile-driver.png` | same geometry/position as before (two side skirt panels at z ±0.86, flush with cab side faces) — the "two-tone lower body/rocker skirt" row above already described this as "fairing", now it's actually named that in the scene graph | 2026-07-24 |
+| `service-bumper` | `truck-hood` (`hood` group) | `docs/reference/truck/01-exterior-front-3q.png`, `02-exterior-front-straight-on.png` | same geometry/position as before (lower chin + valance panels, both brake-cooling vents, chrome splitter bar) — previously loose meshes parented directly to `hood`, now grouped under one name so `bumper-replace`'s checklist can focus the actual part | 2026-07-24 |
