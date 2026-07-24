@@ -5031,10 +5031,18 @@ export function buildVolvoD13(
   if (typeof window !== 'undefined' && window.location.search.includes('bare')) truckBody.visible = false;
 
   // Frame rails + crossmembers
+  // Bug fix: rails used to run [-2.65, 3.55] (length 6.2 centered 0.45) —
+  // that's shorter than the cab's own footprint (BoxGeometry(2.2,1.22,1.7)
+  // at x 2.55, spanning [1.45, 3.65]), so the tandem axles/fifth wheel
+  // (below, all shifted +2.2 for the same reason) had nowhere to sit but
+  // directly under the cab, with zero visible open frame behind it like a
+  // real tractor has. Extended the rear end to 6.0 (front/nose end at
+  // -2.65 unchanged) and added a 4th crossmember to match, keeping the
+  // existing ~2.2-unit crossmember spacing.
   [-0.42, 0.42].forEach(rz => {
-    add(new THREE.BoxGeometry(6.2, 0.12, 0.1), M.darkMetal, { pos: [0.45, -0.62, rz], parent: truckBody });
+    add(new THREE.BoxGeometry(8.65, 0.12, 0.1), M.darkMetal, { pos: [1.675, -0.62, rz], parent: truckBody });
   });
-  [-2.2, 0, 2.2].forEach(rx => {
+  [-2.2, 0, 2.2, 4.4].forEach(rx => {
     add(new THREE.BoxGeometry(0.08, 0.1, 0.86), M.darkMetal, { pos: [rx, -0.62, 0], parent: truckBody });
   });
   // Wheels (front steer + rear duals) with chrome hubs. The "duals" half of
