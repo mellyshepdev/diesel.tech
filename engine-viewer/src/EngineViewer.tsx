@@ -5062,7 +5062,7 @@ export function buildVolvoD13(
     wheelAt(wx, wz + outward * 0.30);
   };
   [[-1.5, 0.75], [-1.5, -0.75]].forEach(([wx, wz]) => wheelAt(wx, wz));
-  [[2.4, 0.78], [2.4, -0.78], [3.3, 0.78], [3.3, -0.78]].forEach(([wx, wz]) => dualWheelAt(wx, wz));
+  [[4.6, 0.78], [4.6, -0.78], [5.5, 0.78], [5.5, -0.78]].forEach(([wx, wz]) => dualWheelAt(wx, wz));
 
   // Tandem rear suspension + interaxle driveline, per docs/reference/truck/
   // 08-rear-tandem-axle-top.png and 09-rear-tandem-fifthwheel-2.png: two
@@ -5073,7 +5073,7 @@ export function buildVolvoD13(
   // rotated local frame into the engine's own top-level `group` frame, which
   // isn't worth the coordinate risk for a driveline part that's mostly
   // hidden behind the wheels anyway.)
-  const AXLE1_X = 2.4, AXLE2_X = 3.3;
+  const AXLE1_X = 4.6, AXLE2_X = 5.5;
   [AXLE1_X, AXLE2_X].forEach(ax => {
     add(new THREE.CylinderGeometry(0.045, 0.045, 1.62, 12), M.darkMetal, { pos: [ax, -0.64, 0], rot: [Math.PI / 2, 0, 0], parent: truckBody });
     add(new THREE.SphereGeometry(0.11, 14, 12), M.darkMetal, { pos: [ax, -0.64, 0], parent: truckBody });
