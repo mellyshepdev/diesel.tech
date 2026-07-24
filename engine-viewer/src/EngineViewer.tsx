@@ -1035,6 +1035,11 @@ export default function EngineViewer() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [playerName, setPlayerName] = useState<string | null>(null);
   const [progressLoaded, setProgressLoaded] = useState(false);
+  // Top-of-page account avatar dropdown: initials circle + menu when signed
+  // in, generic silhouette circle when not — this is now the one login
+  // control (replaced the old inline header pill).
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+  const avatarInitial = (playerName?.trim()?.[0] ?? '?').toUpperCase();
   useEffect(() => {
     (async () => {
       const justLoggedIn = await kcHandleRedirect();
@@ -2567,23 +2572,6 @@ export default function EngineViewer() {
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-400/10 border border-yellow-400/30 text-yellow-300 font-mono">
                   🪙 {coins}
                 </span>
-                {loggedIn ? (
-                  <button
-                    onClick={kcLogout}
-                    className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/5 border border-white/15 text-gray-300 hover:text-white hover:border-white/30 pointer-events-auto"
-                    title="Sign out"
-                  >
-                    👤 {playerName ?? 'signed in'} · sign out
-                  </button>
-                ) : (
-                  <button
-                    onClick={kcLogin}
-                    className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-400/10 border border-cyan-400/30 text-cyan-300 hover:bg-cyan-400/20 pointer-events-auto"
-                    title="Sign in to save your level/coins to your account, not just this browser"
-                  >
-                    🔑 Sign in to save progress
-                  </button>
-                )}
               </div>
             )}
             {/* Engine selector */}
