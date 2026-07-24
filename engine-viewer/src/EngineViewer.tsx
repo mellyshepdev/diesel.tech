@@ -492,6 +492,15 @@ const REPAIRS: { id: RepairId; icon: string; label: string; desc: string; tier: 
     coinReward: 20,
   },
   {
+    id: 'air-intake-service',
+    icon: '🌪️',
+    label: 'Air Intake System Service',
+    desc: 'Per the QRG: fresh air enters above the back of the cab, ducted to the paper filter assembly on the bulkhead under the hood (room for a second filter in extreme environments), then through a pressure/temperature sensor pipe to the turbo — that sensor is what actually flags a dirty filter. Inspect the duct, swap the element(s), reseal and verify no leaks.',
+    tier: 2,
+    unlockLevel: 2,
+    coinReward: 20,
+  },
+  {
     id: 'hood-cable',
     icon: '🪝',
     label: 'Hood Release Cable Repair',
