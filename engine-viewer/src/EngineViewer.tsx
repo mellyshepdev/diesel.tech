@@ -293,12 +293,12 @@ const GENERIC_CHECKLISTS: Partial<Record<RepairId, { icon: string; label: string
   ],
   'radiator-replace': [
     { icon: '🧊', label: 'Drain the coolant system' },
-    { icon: '🔧', label: 'Disconnect the upper & lower radiator hoses' },
-    { icon: '🔩', label: 'Disconnect the fan shroud' },
-    { icon: '🔩', label: 'Remove the radiator mounting bolts' },
-    { icon: '📤', label: 'Lift the radiator out of the cradle' },
-    { icon: '📥', label: 'Set the new radiator, mount & torque bolts' },
-    { icon: '💧', label: 'Reconnect hoses & shroud, refill coolant, bleed & pressure-test' },
+    { icon: '🔧', label: 'Disconnect the upper & lower radiator hoses', focus: 'service-radiator' },
+    { icon: '🔩', label: 'Disconnect the fan shroud', focus: 'service-radiator' },
+    { icon: '🔩', label: 'Remove the radiator mounting bolts', focus: 'service-radiator' },
+    { icon: '📤', label: 'Lift the radiator out of the cradle', focus: 'service-radiator' },
+    { icon: '📥', label: 'Set the new radiator, mount & torque bolts', focus: 'service-radiator' },
+    { icon: '💧', label: 'Reconnect hoses & shroud, refill coolant, bleed & pressure-test', focus: 'service-radiator' },
   ],
   'venturi-replace': [
     { icon: '🔧', label: 'Disconnect the coolant transfer tube fittings', focus: 'service-egr-venturi' },
@@ -5659,20 +5659,23 @@ export function buildVolvoD13(
   // an actual render screenshot — no headless browser was available in
   // this pass, so treat this placement as reasoned-but-unverified until a
   // render-reference-diff pass (or the dev server) confirms it.
-  add(new THREE.BoxGeometry(0.08, 1.05, 1.3), M.darkMetal, { pos: [0.45, 0.85, 0], parent: hood });
+  const radiator = new THREE.Group();
+  radiator.name = 'service-radiator';
+  hood.add(radiator);
+  add(new THREE.BoxGeometry(0.08, 1.05, 1.3), M.darkMetal, { pos: [0.45, 0.85, 0], parent: radiator });
   // Core fin ribbing — thin horizontal brushed-metal bands across the face
   // so the core reads as finned rather than a flat slab (visible texture in
   // docs/reference/truck/11-engine-bay-steer-axle.png and
   // 12-engine-bay-hood-open.png, though neither is a clean straight-on shot
   // of the core itself — spacing here is reasoned, not photo-measured).
   for (let i = 0; i < 9; i++) {
-    add(new THREE.BoxGeometry(0.005, 0.02, 1.28), M.brushedMetal, { pos: [0.495, 0.42 + i * 0.11, 0], shadow: false, parent: hood });
+    add(new THREE.BoxGeometry(0.005, 0.02, 1.28), M.brushedMetal, { pos: [0.495, 0.42 + i * 0.11, 0], shadow: false, parent: radiator });
   }
   // Top and bottom plastic tanks
-  add(new THREE.BoxGeometry(0.1, 0.1, 1.34), M.black, { pos: [0.45, 1.38, 0], parent: hood });
-  add(new THREE.BoxGeometry(0.1, 0.1, 1.34), M.black, { pos: [0.45, 0.32, 0], parent: hood });
+  add(new THREE.BoxGeometry(0.1, 0.1, 1.34), M.black, { pos: [0.45, 1.38, 0], parent: radiator });
+  add(new THREE.BoxGeometry(0.1, 0.1, 1.34), M.black, { pos: [0.45, 0.32, 0], parent: radiator });
   // Fan shroud ring, just behind the core, facing the engine's viscous fan
-  add(new THREE.TorusGeometry(0.42, 0.035, 10, 20), M.black, { pos: [0.62, 0.85, 0], rot: [0, Math.PI / 2, 0], parent: hood });
+  add(new THREE.TorusGeometry(0.42, 0.035, 10, 20), M.black, { pos: [0.62, 0.85, 0], rot: [0, Math.PI / 2, 0], parent: radiator });
   tick();
 
   // ══════════════════════════════════════

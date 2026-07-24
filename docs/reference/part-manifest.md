@@ -136,3 +136,16 @@ real merit — see that in-file note for why. It is **not** referenced by the
 |---|---|---|---|---|
 | `prevost-body` (`buildPrevost()`, unreferenced): front cap (windshield/pillar/header, grille bar + PREVOST decal, headlight clusters, bumper + corner markers, wipers, mirror arms, roof-cap taper), driver-side exterior (basement/window-band body shell, diagonal two-tone stripe, 6 luggage-bay doors, LOKI COACH H3 decal — this specific decal technique was ported into `buildPrevostH345`'s coach body instead of duplicated), roof marker lights, tri-axle wheels, and cockpit interior (dash, wheel w/ Prevost badge boss, digital cluster + center touchscreen decals, rocker-switch panel, tan driver seat, shifter console) | top-level (`group`), returned by `buildPrevost` | `docs/reference/prevost/01-exterior-front-3q.webp`, `02-exterior-front-straight-on.webp`, `03-interior-dash-cockpit.webp` | `CIN = 1/56` scene-units-per-inch, chosen so the real ~540in (45ft) coach comes out ≈9.6 units long — a cleaner real-world-derived scale basis than `buildPrevostH345`'s "sized to fit the reused engine" approach | 2026-07-21 |
 | Deliberately NOT modeled in this draft: rear body/engine hatch, curbside (passenger-side) exterior detail, passenger-cabin interior — all blocked on missing reference photos per 3d-part-fidelity §1, and no `truck-door`/`truck-hood` objects exist so the pre-trip/hood-release/repair flow is gated off entirely for this vehicle rather than faked. A more conservative scope than `buildPrevostH345`'s reasoned-but-unverified rear hatch + reused engine bay | n/a | n/a — explicitly asked for in the prevost README's "Known gaps" section | n/a | 2026-07-21 |
+
+## Entries added 2026-07-24, naming previously-unnamed water pump/radiator geometry
+
+Per the "Water pump, radiator, bumper, fairing, and rear diff exist as unnamed
+meshes / inspection-only geometry today" note at `EngineViewer.tsx` ~line 236
+— these two now have proper names/groups and `focus` targets wired into
+their `GENERIC_CHECKLISTS` entries. Bumper/fairing/rear-diff still pending
+(same session, in progress).
+
+| name | parent group | source photo(s) | scale basis / anchor | added |
+|---|---|---|---|---|
+| `service-water-pump` | engine group (`buildVolvoD13`'s `group`) | none dedicated — inherits the front-end-drive/fan anchor already established for the 2026-07-21 water-pump-side-bug-fix (x 0.98, matching the FED_X 1.26/fan-end convention) | same geometry/position as before, just wrapped in a named `THREE.Group` (pump housing cylinder + box, thermostat outlet stub) instead of loose meshes on the engine group directly | 2026-07-24 |
+| `service-radiator` | `truck-hood` (`hood` group) | `docs/reference/truck/11-engine-bay-steer-axle.png`, `12-engine-bay-hood-open.png` (fin texture, reasoned spacing per existing comment) | same geometry/position as before (core, fin ribbing ×9, top/bottom tanks, fan shroud ring), just wrapped in a named `THREE.Group` instead of loose meshes parented directly to `hood` | 2026-07-24 |
