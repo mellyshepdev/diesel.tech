@@ -346,7 +346,7 @@ const REPAIRS: { id: RepairId; icon: string; label: string; desc: string; tier: 
     desc: 'No teardown — check and top off engine oil (dipstick), coolant surge tank, windshield washer, and DEF from the shop\'s jugs, then grease every zerk fitting on the chassis. One of the two jobs every tech starts on.',
     tier: 1,
     unlockLevel: 1,
-    coinReward: 60,
+    coinReward: 15,
   },
   {
     id: 'annual-inspection',
@@ -355,7 +355,7 @@ const REPAIRS: { id: RepairId; icon: string; label: string; desc: string; tier: 
     desc: 'DOT annual: torque-check the rear axle housing and differential carrier bolts, inspect the fifth wheel (grease/kingpin/mounts), check tire tread & pressure, inspect brake pads/shoes and drums/rotors. The other job every tech starts on — no teardown, no specialty tool.',
     tier: 1,
     unlockLevel: 1,
-    coinReward: 110,
+    coinReward: 10,
   },
   {
     id: 'oil-change',
@@ -1083,6 +1083,21 @@ export default function EngineViewer() {
   // rather than raycast clicks on those (unnamed) meshes.
   const [axleChecked, setAxleChecked] = useState({ rearAxle: false, diff: false, fifthWheel: false, tires: false, brakes: false });
   const allAxleChecked = Object.values(axleChecked).every(Boolean);
+  // Checklist-style repairs added for GENERIC_CHECKLISTS ids (starter, CCV,
+  // bumper, fairing, water pump, air compressor, radiator, venturi, EGR
+  // cooler, rear diff): one boolean array per repair, keyed by RepairId,
+  // indexed the same as that repair's GENERIC_CHECKLISTS entry.
+  const [genericChecklist, setGenericChecklist] = useState<Partial<Record<RepairId, boolean[]>>>({});
+  const toggleGenericStep = (id: RepairId, i: number) => {
+    const steps = GENERIC_CHECKLISTS[id]!;
+    setGenericChecklist(prev => {
+      const cur = prev[id] ?? Array(steps.length).fill(false);
+      const next = [...cur];
+      next[i] = !next[i];
+      return { ...prev, [id]: next };
+    });
+    if (steps[i].focus) focusTruckPart(steps[i].focus!);
+  };
   // Hood Release Cable Repair: linear step-through per the Volvo TSB (trim
   // off → old cable released → new cable routed & bracket swapped → trim
   // back on & torqued → release lever tested), distilled from the source
@@ -2372,7 +2387,14 @@ export default function EngineViewer() {
                   ]
                 : activeRepair === 'hood-cable'
                   ? HOOD_CABLE_STEPS.map((label, i) => ({ id: i + 1, label, done: hoodCableStep > i, requiredTool: null }))
-                  : [];
+                  : activeRepair && GENERIC_CHECKLISTS[activeRepair]
+                    ? GENERIC_CHECKLISTS[activeRepair]!.map((step, i) => ({
+                        id: i + 1,
+                        label: step.label,
+                        done: !!genericChecklist[activeRepair]?.[i],
+                        requiredTool: null,
+                      }))
+                    : [];
 
   /** Switch to a vehicle (or back to the dropdown with null): reset every
    *  walk-around / service state so the freshly built scene starts clean. */
