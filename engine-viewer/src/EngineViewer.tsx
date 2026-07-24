@@ -2260,6 +2260,20 @@ export default function EngineViewer() {
         const y = (-v.y * 0.5 + 0.5) * container.clientHeight;
         newPositions[hs.id] = { x, y, visible: v.z < 1 };
       });
+      // Truck door's actual world position — the "Climb into the cab"
+      // button tracks this (wherever the door swung to, or its closed spot
+      // if not opened) instead of sitting in a fixed screen corner.
+      const doorObj = engineGroup.getObjectByName('truck-door');
+      if (doorObj) {
+        const dv = new THREE.Vector3();
+        doorObj.getWorldPosition(dv);
+        dv.project(camera);
+        newPositions['truck-door'] = {
+          x: (dv.x * 0.5 + 0.5) * container.clientWidth,
+          y: (-dv.y * 0.5 + 0.5) * container.clientHeight,
+          visible: dv.z < 1,
+        };
+      }
       setScreenPositions(newPositions);
 
       controls.update();
