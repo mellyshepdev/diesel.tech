@@ -3250,14 +3250,26 @@ export default function EngineViewer() {
         )
       )}
 
-      {/* Climb into the cab */}
+      {/* Climb into the cab — tracks the truck door's actual screen
+          position (see the 'truck-door' entry in screenPositions) so it
+          sits right where the open door is, instead of a fixed corner. */}
       {vehicle !== 'prevost' && !isLoading && doorOpen && !inCab && !inspecting && (
-        <button
-          onClick={() => setInCab(true)}
-          className="absolute bottom-24 right-6 z-20 px-4 py-2 rounded-full text-sm font-bold bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:shadow-lg pointer-events-auto"
-        >
-          🪜 Climb into the cab
-        </button>
+        screenPositions['truck-door']?.visible ? (
+          <button
+            onClick={() => setInCab(true)}
+            style={{ left: screenPositions['truck-door'].x, top: screenPositions['truck-door'].y }}
+            className="absolute z-20 -translate-x-1/2 -translate-y-1/2 px-4 py-2 rounded-full text-sm font-bold bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:shadow-lg pointer-events-auto whitespace-nowrap"
+          >
+            🪜 Climb into the cab
+          </button>
+        ) : (
+          <button
+            onClick={() => setInCab(true)}
+            className="absolute bottom-24 right-6 z-20 px-4 py-2 rounded-full text-sm font-bold bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:shadow-lg pointer-events-auto"
+          >
+            🪜 Climb into the cab
+          </button>
+        )
       )}
 
       {/* In-cab view — dash controls modeled from the VNL 860 interior photos */}
