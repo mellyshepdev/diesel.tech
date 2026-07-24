@@ -2969,6 +2969,27 @@ export default function EngineViewer() {
                 </div>
               )}
 
+              {activeRepair && GENERIC_CHECKLISTS[activeRepair] && (
+                <div className="space-y-1.5">
+                  {GENERIC_CHECKLISTS[activeRepair]!.map((step, i) => {
+                    const done = !!genericChecklist[activeRepair]?.[i];
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => toggleGenericStep(activeRepair, i)}
+                        className={`w-full flex items-center gap-2 p-2 rounded-lg border text-left transition ${
+                          done ? 'border-green-500/40 bg-green-500/10' : 'border-white/10 bg-white/5 hover:border-amber-400/40'
+                        }`}
+                      >
+                        <span>{done ? '✅' : step.icon}</span>
+                        <span className="text-xs text-white flex-1">{step.label}</span>
+                        <span className="text-[11px] text-gray-400">{done ? 'Done' : 'Do it'}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
               {(activeRepair === 'oil-change' || activeRepair === 'pan-gasket') && (<>
               {/* Tools */}
               <div className="space-y-1.5">
