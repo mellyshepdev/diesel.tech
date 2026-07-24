@@ -3562,6 +3562,49 @@ export default function EngineViewer() {
         </div>
       </div>
 
+      {/* Floating Tool Tray — always visible (not just while a drawer's
+          open), draggable side to side via the ⋮⋮ handle so it can be
+          pushed out of the way. See onTrayDragStart/trayOffsetX above. */}
+      {!isLoading && (
+        <div
+          className="absolute bottom-6 z-30 pointer-events-auto"
+          style={{ left: '50%', transform: `translateX(calc(-50% + ${trayOffsetX}px))` }}
+        >
+          <div className="flex items-center gap-2 rounded-xl border border-cyan-400/25 bg-black/75 backdrop-blur-md p-2 max-w-[90vw]">
+            <button
+              onPointerDown={onTrayDragStart}
+              className="shrink-0 px-1 text-gray-500 hover:text-white cursor-grab active:cursor-grabbing select-none touch-none"
+              title="Drag to move the tray"
+            >
+              ⋮⋮
+            </button>
+            <span className="shrink-0 text-cyan-300 text-[10px] font-bold uppercase tracking-widest">
+              🧲 Tray{tray.length > 0 ? ` (${tray.length})` : ''}
+            </span>
+            {tray.length === 0 ? (
+              <span className="text-gray-500 text-[11px] pr-1">Empty — grab tools from the chest</span>
+            ) : (
+              <div className="flex gap-1 overflow-x-auto pr-1">
+                {tray.map(tool => (
+                  <button
+                    key={tool}
+                    onClick={() => setSelectedTool(prev => (prev === tool ? null : tool))}
+                    title={`${TOOLS[tool].name} — click to hold`}
+                    className={`shrink-0 flex items-center gap-1 rounded-md border px-1.5 py-1 text-[11px] transition-all ${
+                      selectedTool === tool
+                        ? 'border-blue-500 bg-blue-600/30 text-white shadow shadow-blue-500/20'
+                        : 'border-white/15 bg-white/5 text-gray-200 hover:bg-white/15'
+                    }`}
+                  >
+                    <span>{TOOLS[tool].icon}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* RPM / Engine status (bottom-left). Gated on height as well as width —
           `md:` alone triggers on a short "widescreen" mobile-landscape phone
           (width ≥768px but height only ~375-430px), where this panel and the
