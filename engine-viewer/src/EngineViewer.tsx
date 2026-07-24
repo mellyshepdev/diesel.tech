@@ -2456,6 +2456,23 @@ export default function EngineViewer() {
     let downAt: [number, number] | null = null;
     const onPointerDown = (e: PointerEvent) => { downAt = [e.clientX, e.clientY]; };
     const onPointerUp = (e: PointerEvent) => {
+      // Pointer-locked (walk mode): the OS cursor is hidden and clientX/Y
+      // stay frozen wherever the lock started, so a click always means
+      // "whatever's under the crosshair at screen center" instead of a
+      // literal cursor position.
+      if (document.pointerLockElement === renderer.domElement) {
+        downAt = null;
+        ptrVec.x = 0;
+        ptrVec.y = 0;
+        raycaster.setFromCamera(ptrVec, camera);
+        const hits = raycaster.intersectObjects(engineGroup.children, true);
+        for (const h of hits) {
+          let o: THREE.Object3D | null = h.object;
+          while (o && !o.name.startsWith('service-') && !o.name.startsWith('truck-') && !o.name.startsWith('toolbox-')) o = o.parent;
+          if (o) { partClickRef.current(o.name); return; }
+        }
+        return;
+      }
       if (!downAt) return;
       const moved = Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]);
       downAt = null;
