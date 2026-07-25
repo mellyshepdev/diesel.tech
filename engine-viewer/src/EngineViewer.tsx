@@ -5355,7 +5355,10 @@ export function buildVolvoD13(
     wheelAt(wx, wz);
     wheelAt(wx, wz + outward * 0.30, outerName);
   };
-  [[-1.5, 0.75], [-1.5, -0.75]].forEach(([wx, wz]) => wheelAt(wx, wz));
+  // Driver-side steer wheel named for the work-order "arrives with a flat"
+  // symptom (see WORK_ORDER_SYMPTOMS) — the other steer wheel is plain.
+  wheelAt(-1.5, 0.75, 'truck-wheel-flat');
+  wheelAt(-1.5, -0.75);
   [[4.6, 0.78], [4.6, -0.78]].forEach(([wx, wz]) => dualWheelAt(wx, wz));
   // Rearmost passenger-side outer dual: the wheel a work-order QA failure
   // (lugs left un-torqued) can visibly shed on pull-out.
