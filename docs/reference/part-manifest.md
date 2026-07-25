@@ -186,3 +186,36 @@ bug already hit and fixed on the nasa-project sun's corona. Point size bumped
 0.055→0.07 and rendered against the x-ray void's own near-black background
 (`0x050810`) with dark gray rather than pure black so it still reads as
 visible smoke rather than disappearing into the background.
+
+## 2026-07-24, work order system: new named parts
+
+New feature (`workOrderMode`/`workOrderStatus`/`WORK_ORDER_SYMPTOMS` in
+EngineViewer.tsx) — vehicle only appears once a "🚛 Request Work Order" is
+made (engineGroup animates in from x=-14 off-stage, toolbox position-
+compensated to stay visually stationary since it's a sibling child, not
+part of the vehicle), arrives already showing a real visible symptom tied
+to a specific repair (filtered to what the tech's level/owned tools
+actually allow), and pull-out grades job completion — an incomplete job
+(specifically: wheels not chocked) drops a wheel off mid-departure and
+docks coins on top of the already-reduced payout.
+
+| name | parent group | source photo(s) | scale basis / anchor | added |
+|---|---|---|---|---|
+| `truck-wheel-flat` | `truckBody` | none dedicated — reuses the existing wheel geometry/anchor (driver-side steer axle, x=-1.5/z=0.75) | wheel radius 0.5 (existing anchor); "flat" is a runtime scale.y squash to 0.45 + y-offset, not new geometry | 2026-07-24 |
+| `truck-wheel-loose` | `truckBody` | none dedicated — reuses existing dual-wheel geometry (rearmost passenger-side outer, x=5.5/z=1.08) | same wheel radius anchor as above; this is the QA-failure wheel (see `wheelFailure` in the animate loop), a different individual wheel than `truck-wheel-flat` | 2026-07-24 |
+| `wo-coolant-puddle` | engine group (`buildVolvoD13`'s `group`) | none dedicated — positioned near `service-water-pump` (x 0.9) at ground level (y -1.09), same y-anchor as the existing turbo puddles | radius 0.35, smaller than the turbo puddles (0.4) | 2026-07-24 |
+| `wo-exhaust-smoke` | engine group | none dedicated — positioned at the exhaust flow system's own downpipe-outlet waypoint (x 1.7, y -0.55, z 0.95), so it lines up with the already-established exhaust route rather than a new guessed position | 4 spheres, radii 0.09-0.18, gently pulsing/drifting in the animate loop while visible | 2026-07-24 |
+| `service-rear-diff` / `service-driveline` | (already documented above, same session) | | | |
+
+**Known gaps, honestly scoped rather than silently incomplete**: only 4 of
+~20 RepairIds have a work-order symptom modeled (`annual-inspection` flat
+tire, `water-pump-replace` coolant drip, `turbo-replace` oil/coolant leak
+reusing the existing failure-puddle meshes, `dpf-service` black smoke) —
+adding a symptom for more repairs (e.g. a visible fuel drip for
+`fuel-filter-replace`, a squealing-belt cue for `drive-belt-replace`) is a
+natural next addition, following the same `WORK_ORDER_SYMPTOMS` pattern,
+not a redesign. The grading penalty is currently tied only to the
+universal "chock the wheels" procStep (whichever repair is active) rather
+than a per-repair-specific quality check (e.g. an actual coolant-fill
+verification for the water-pump job) — same reasoning, a real v1 rather
+than a fully generalized QA system.
