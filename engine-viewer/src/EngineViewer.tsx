@@ -1954,6 +1954,10 @@ export default function EngineViewer() {
       setWorkOrderStatus('departing');
       const eg = engineGroupRef.current;
       if (eg) {
+        // The original complaint is resolved (or the tech's given up on
+        // it either way) once the job's turned in — clear it before the
+        // truck drives off, whether or not the repair actually fixed it.
+        setWorkOrderSymptomVisible(eg, workOrderRepairId, false);
         if (failed && !wheelsChocked) {
           const wheel = eg.getObjectByName('truck-wheel-loose');
           if (wheel) {
@@ -1964,6 +1968,7 @@ export default function EngineViewer() {
         }
         eg.userData.vehicleMove = { targetX: VEHICLE_OFFSTAGE_X, onDone: () => setWorkOrderStatus('idle') };
       }
+      setWorkOrderRepairId(null);
     }
   };
 
@@ -1971,6 +1976,32 @@ export default function EngineViewer() {
   // instantly — no request has happened yet, so there's nothing to animate.
   // The toolbox (a stationary child of engineGroup, see part-manifest.md)
   // is position-compensated so it doesn't jump when the vehicle does.
+  // Toggle a symptom mesh's visibility/pose. Turbo leak shows both puddles
+  // (matching the existing turboSpill failure visual); flat tire squashes
+  // the named wheel instead of swapping meshes; everything else is a plain
+  // visible on/off.
+  const setWorkOrderSymptomVisible = (eg: THREE.Group, repairId: RepairId | null, visible: boolean) => {
+    const symptom = repairId ? WORK_ORDER_SYMPTOMS[repairId] : undefined;
+    if (!symptom) return;
+    if (repairId === 'annual-inspection') {
+      const wheel = eg.getObjectByName('truck-wheel-flat');
+      if (wheel) {
+        wheel.scale.set(1, visible ? 0.45 : 1, 1);
+        wheel.position.y = visible ? -0.09 : 0;
+      }
+      return;
+    }
+    if (repairId === 'turbo-replace') {
+      ['turbo-oil-puddle', 'turbo-coolant-puddle'].forEach(n => {
+        const p = eg.getObjectByName(n);
+        if (p) { p.visible = visible; p.scale.set(visible ? 1 : 0.01, visible ? 1 : 0.01, visible ? 1 : 0.01); }
+      });
+      return;
+    }
+    const mesh = eg.getObjectByName(symptom.meshName);
+    if (mesh) mesh.visible = visible;
+  };
+
   const toggleWorkOrderMode = () => {
     setWorkOrderMode(prev => {
       const next = !prev;
@@ -1984,26 +2015,54 @@ export default function EngineViewer() {
         eg.userData.wheelFailure = undefined;
         const wheel = eg.getObjectByName('truck-wheel-loose');
         if (wheel) { wheel.position.y = 0; wheel.rotation.set(0, 0, 0); }
+        setWorkOrderSymptomVisible(eg, workOrderRepairId, false);
       }
       setWorkOrderStatus('idle');
       setWorkOrderGrade(null);
+      setWorkOrderRepairId(null);
       return next;
     });
   };
 
   const requestWorkOrder = () => {
     if (workOrderStatus !== 'idle') return;
+    // Only ailments the tech can actually handle right now: level-gated
+    // same as openRepair below, and tool-gated the same way — a work order
+    // for a job requiring a tool the tech hasn't bought never gets sent.
+    const eligible = (Object.keys(WORK_ORDER_SYMPTOMS) as RepairId[]).filter(id => {
+      const repair = REPAIRS.find(r => r.id === id);
+      if (!repair || mechanicLevel.level < repair.unlockLevel) return false;
+      const neededTool = REPAIR_REQUIRED_TOOL[id];
+      if (neededTool && !ownedTools.has(neededTool)) return false;
+      return true;
+    });
+    if (eligible.length === 0) {
+      setServiceMsg('📋 No work orders available at your current level/tools yet — level up or buy more tools.');
+      return;
+    }
+    const picked = eligible[Math.floor(Math.random() * eligible.length)];
+    setWorkOrderRepairId(picked);
     setWorkOrderGrade(null);
     setWorkOrderStatus('arriving');
     const eg = engineGroupRef.current;
     if (eg) {
-      eg.userData.vehicleMove = { targetX: 0, onDone: () => setWorkOrderStatus('active') };
+      eg.userData.vehicleMove = {
+        targetX: 0,
+        onDone: () => {
+          setWorkOrderStatus('active');
+          setWorkOrderSymptomVisible(eg, picked, true);
+        },
+      };
     }
   };
 
   const openRepair = (id: RepairId) => {
     if (workOrderMode && workOrderStatus !== 'active') {
       setServiceMsg('🚛 Request a work order first — the vehicle isn\'t in the bay yet.');
+      return;
+    }
+    if (workOrderMode && workOrderRepairId && id !== workOrderRepairId) {
+      setServiceMsg(`📋 This work order is for: ${WORK_ORDER_SYMPTOMS[workOrderRepairId]!.label}. That's not the job in the bay right now.`);
       return;
     }
     const repair = REPAIRS.find(r => r.id === id)!;
