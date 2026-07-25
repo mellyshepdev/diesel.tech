@@ -1061,6 +1061,14 @@ export default function EngineViewer() {
   // in the key handlers themselves, so holding a key moves smoothly at frame
   // rate instead of jumping once per OS key-repeat event.
   const keysHeldRef = useRef<Set<string>>(new Set());
+  // Mobile dual joysticks: x=right(+)/left(-), y=forward(+)/back(-), each
+  // in [-1, 1] — analog, unlike the digital keyboard input. Read alongside
+  // keysHeldRef in the animate loop's movement/look blocks below (same
+  // WASD=move / arrows-or-mouse=look mapping, left thumb = move, right
+  // thumb = look). Updated by the JoystickPad components rendered near the
+  // bottom of this file's JSX; invisible until touched.
+  const touchMoveRef = useRef({ x: 0, y: 0 });
+  const touchLookRef = useRef({ x: 0, y: 0 });
   useEffect(() => {
     const isTypingTarget = (el: EventTarget | null) =>
       el instanceof HTMLElement && (el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.isContentEditable);
