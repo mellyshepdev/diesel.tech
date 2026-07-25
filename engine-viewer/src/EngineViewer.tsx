@@ -2595,43 +2595,64 @@ export default function EngineViewer() {
       }
 
       const keys = keysHeldRef.current;
+      // Blend digital keyboard input with the analog touch joysticks into
+      // one [-1,1]-clamped x/y pair each — same combined-input approach for
+      // both walk and orbit mode below, so mobile and desktop drive
+      // identical code paths rather than a parallel touch-only system.
+      const moveIn = { x: 0, y: 0 };
+      if (keys.has('w')) moveIn.y += 1;
+      if (keys.has('s')) moveIn.y -= 1;
+      if (keys.has('d')) moveIn.x += 1;
+      if (keys.has('a')) moveIn.x -= 1;
+      moveIn.x += touchMoveRef.current.x;
+      moveIn.y += touchMoveRef.current.y;
+      const moveLen = Math.hypot(moveIn.x, moveIn.y);
+      if (moveLen > 1) { moveIn.x /= moveLen; moveIn.y /= moveLen; }
+      const lookIn = { x: 0, y: 0 };
+      if (keys.has('arrowleft'))  lookIn.x -= 1;
+      if (keys.has('arrowright')) lookIn.x += 1;
+      if (keys.has('arrowup'))    lookIn.y += 1;
+      if (keys.has('arrowdown'))  lookIn.y -= 1;
+      lookIn.x += touchLookRef.current.x;
+      lookIn.y += touchLookRef.current.y;
+      const lookLen = Math.hypot(lookIn.x, lookIn.y);
+      if (lookLen > 1) { lookIn.x /= lookLen; lookIn.y /= lookLen; }
+
       if (walkModeRef.current) {
-        // Walk mode: WASD moves relative to where the camera is actually
-        // facing (mouse OR arrow keys look — settings.controls.invertLook
-        // flips pitch on both). Forward is flattened to the horizontal
-        // plane so looking up/down doesn't fly you into the floor/ceiling.
-        if (keys.has('w') || keys.has('a') || keys.has('s') || keys.has('d')) {
+        // Walk mode: WASD/left-joystick moves relative to where the camera
+        // is actually facing (mouse, arrow keys, OR the right joystick look
+        // — settings.controls.invertLook flips pitch on all three). Forward
+        // is flattened to the horizontal plane so looking up/down doesn't
+        // fly you into the floor/ceiling.
+        if (moveLen > 0.001) {
           const forward = new THREE.Vector3();
           camera.getWorldDirection(forward);
           forward.y = 0;
           if (forward.lengthSq() > 0) forward.normalize();
           const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
-          const move = new THREE.Vector3();
-          if (keys.has('w')) move.add(forward);
-          if (keys.has('s')) move.sub(forward);
-          if (keys.has('d')) move.add(right);
-          if (keys.has('a')) move.sub(right);
+          const move = new THREE.Vector3()
+            .addScaledVector(forward, moveIn.y)
+            .addScaledVector(right, moveIn.x);
           if (move.lengthSq() > 0) {
-            move.normalize().multiplyScalar(0.05);
+            move.normalize().multiplyScalar(0.05 * Math.min(1, moveLen));
             camera.position.add(move);
           }
         }
-        // Arrow-key look: same euler yaw/pitch the mouse (onMouseMove
-        // below) drives, just keyboard-driven instead of movementX/Y —
-        // lets a mouse-less/trackpad user still look around in walk mode.
-        if (keys.has('arrowup') || keys.has('arrowdown') || keys.has('arrowleft') || keys.has('arrowright')) {
+        // Arrow-key/right-joystick look: same euler yaw/pitch the mouse
+        // (onMouseMove below) drives, just not pointer-movement-driven —
+        // lets a mouse-less/trackpad/touch user still look around in walk
+        // mode.
+        if (lookLen > 0.001) {
           const lookSpeed = 0.03;
           const invert = controlSettingsRef.current.invertLook ? -1 : 1;
           const euler = new THREE.Euler(0, 0, 0, 'YXZ');
           euler.setFromQuaternion(camera.quaternion);
-          if (keys.has('arrowleft'))  euler.y += lookSpeed;
-          if (keys.has('arrowright')) euler.y -= lookSpeed;
-          if (keys.has('arrowup'))    euler.x += lookSpeed * invert;
-          if (keys.has('arrowdown'))  euler.x -= lookSpeed * invert;
+          euler.y -= lookIn.x * lookSpeed;
+          euler.x += lookIn.y * lookSpeed * invert;
           euler.x = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, euler.x));
           camera.quaternion.setFromEuler(euler);
         }
-      } else if (keys.size) {
+      } else if (keys.size || moveLen > 0.001 || lookLen > 0.001) {
         // Orbit mode's own keyboard nav: WASD moves the rig (camera +
         // target move together, same offset preserved — equivalent to
         // OrbitControls' own panning), arrows turn the view (only the
