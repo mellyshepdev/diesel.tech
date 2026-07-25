@@ -4454,6 +4454,17 @@ export default function EngineViewer() {
         >🔍-</button>
       </div>
 
+      {/* Mobile dual joysticks — left thumb moves (WASD-equivalent), right
+          thumb looks (arrows/mouse-equivalent), matching the desktop
+          scheme exactly (see touchMoveRef/touchLookRef read in the animate
+          loop). Touch-device-only, see isTouchDevice. */}
+      {isTouchDevice && !isLoading && (
+        <>
+          <JoystickPad corner="left" onVector={(x, y) => { touchMoveRef.current = { x, y }; }} />
+          <JoystickPad corner="right" onVector={(x, y) => { touchLookRef.current = { x, y }; }} />
+        </>
+      )}
+
       {/* Interaction hint — hidden below 520px height for the same reason as
           the RPM panel above, and also hidden while a tool is in hand since
           it sits right where the HandHUD graphic renders bottom-right. */}
