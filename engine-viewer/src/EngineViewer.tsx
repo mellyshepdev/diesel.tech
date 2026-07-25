@@ -1269,6 +1269,7 @@ export default function EngineViewer() {
   const [workOrderMode, setWorkOrderMode] = useState(false);
   const [workOrderStatus, setWorkOrderStatus] = useState<'idle' | 'arriving' | 'active' | 'departing'>('idle');
   const [workOrderGrade, setWorkOrderGrade] = useState<{ pct: number; payout: number; failed: boolean } | null>(null);
+  const [workOrderRepairId, setWorkOrderRepairId] = useState<RepairId | null>(null);
   const VEHICLE_OFFSTAGE_X = -14;
   // Checklist-style repairs added for GENERIC_CHECKLISTS ids (starter, CCV,
   // bumper, fairing, water pump, air compressor, radiator, venturi, EGR
