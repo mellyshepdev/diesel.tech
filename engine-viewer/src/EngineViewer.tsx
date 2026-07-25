@@ -8,6 +8,86 @@ import ProcedurePanel, { type ProcStep } from './components/ProcedurePanel';
 import ReferencePanel from './components/ReferencePanel';
 import { kcLogin, kcLogout, kcHandleRedirect, kcIsLoggedIn, kcCurrentUser, kcApiFetch } from './keycloakAuth';
 
+// Mobile joystick: invisible until touched, then a base ring + thumb appear
+// wherever the finger landed (not fixed to a drawn icon) — classic mobile
+// FPS convention. Deliberately a *small, corner-anchored* touch-capture
+// zone (140px, bottom-left/right corners) rather than a half-screen drag
+// zone: a full-half-screen zone would swallow every tap meant for the 3D
+// scene itself (hood, fasteners, drawers) since those interactions live in
+// the same screen space. Writes straight into a ref via onVector — no
+// React state/re-render per touchmove, same reasoning as the keyboard's
+// keysHeldRef being a ref rather than state.
+function JoystickPad({ corner, onVector }: { corner: 'left' | 'right'; onVector: (x: number, y: number) => void }) {
+  const baseRef = useRef<HTMLDivElement>(null);
+  const thumbRef = useRef<HTMLDivElement>(null);
+  const touchIdRef = useRef<number | null>(null);
+  const originRef = useRef({ x: 0, y: 0 });
+  const MAX_R = 42;
+
+  const zoneRect = () => (corner === 'left'
+    ? { left: 0, bottom: 0, w: 150, h: 150 }
+    : { right: 0, bottom: 0, w: 150, h: 150 });
+
+  const showAt = (x: number, y: number) => {
+    if (!baseRef.current) return;
+    baseRef.current.style.left = `${x - 55}px`;
+    baseRef.current.style.top = `${y - 55}px`;
+    baseRef.current.style.opacity = '1';
+  };
+  const hide = () => {
+    if (baseRef.current) baseRef.current.style.opacity = '0';
+    if (thumbRef.current) thumbRef.current.style.transform = 'translate(0px, 0px)';
+    onVector(0, 0);
+  };
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (touchIdRef.current !== null) return; // one finger per pad
+    const t = e.changedTouches[0];
+    touchIdRef.current = t.identifier;
+    originRef.current = { x: t.clientX, y: t.clientY };
+    showAt(t.clientX, t.clientY);
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    const t = Array.from(e.changedTouches).find(x => x.identifier === touchIdRef.current);
+    if (!t) return;
+    let dx = t.clientX - originRef.current.x;
+    let dy = t.clientY - originRef.current.y;
+    const len = Math.hypot(dx, dy);
+    if (len > MAX_R) { dx = (dx / len) * MAX_R; dy = (dy / len) * MAX_R; }
+    if (thumbRef.current) thumbRef.current.style.transform = `translate(${dx}px, ${dy}px)`;
+    onVector(dx / MAX_R, -dy / MAX_R); // screen-down is negative "forward"
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (!Array.from(e.changedTouches).some(x => x.identifier === touchIdRef.current)) return;
+    touchIdRef.current = null;
+    hide();
+  };
+
+  const r = zoneRect();
+  return (
+    <div
+      className="fixed z-40 touch-none select-none"
+      style={{ left: 'left' in r ? r.left : undefined, right: 'right' in r ? r.right : undefined, bottom: r.bottom, width: r.w, height: r.h }}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchEnd}
+    >
+      <div
+        ref={baseRef}
+        className="absolute rounded-full border-2 pointer-events-none opacity-0 transition-opacity duration-150"
+        style={{ width: 110, height: 110, borderColor: 'rgba(0,212,255,0.4)', background: 'rgba(0,212,255,0.08)' }}
+      >
+        <div
+          ref={thumbRef}
+          className="absolute rounded-full"
+          style={{ left: '50%', top: '50%', width: 50, height: 50, marginLeft: -25, marginTop: -25, background: 'rgba(0,212,255,0.35)' }}
+        />
+      </div>
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────
 // Data
 // ─────────────────────────────────────────────────────────
