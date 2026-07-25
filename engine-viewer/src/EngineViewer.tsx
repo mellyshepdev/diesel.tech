@@ -2653,41 +2653,39 @@ export default function EngineViewer() {
           camera.quaternion.setFromEuler(euler);
         }
       } else if (keys.size || moveLen > 0.001 || lookLen > 0.001) {
-        // Orbit mode's own keyboard nav: WASD moves the rig (camera +
-        // target move together, same offset preserved — equivalent to
-        // OrbitControls' own panning), arrows turn the view (only the
-        // target orbits the fixed camera position, like turning your
-        // head). Swapped 2026-07-24 per the player's chosen scheme —
-        // WASD=move/arrows=look, the more common convention (previously
-        // arrows moved / WASD looked, the reverse). Left untouched by
-        // walk mode; only active while walk mode is off.
+        // Orbit mode's own keyboard/touch nav: WASD/left-joystick moves the
+        // rig (camera + target move together, same offset preserved —
+        // equivalent to OrbitControls' own panning), arrows/right-joystick
+        // turn the view (only the target orbits the fixed camera position,
+        // like turning your head). Swapped 2026-07-24 per the player's
+        // chosen scheme — WASD=move/arrows=look, the more common convention
+        // (previously arrows moved / WASD looked, the reverse). Left
+        // untouched by walk mode; only active while walk mode is off.
         controls.autoRotate = false;
         setAutoRotate(false);
-        const forward = new THREE.Vector3();
-        camera.getWorldDirection(forward);
-        forward.y = 0;
-        if (forward.lengthSq() > 0) forward.normalize();
-        const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
-        const move = new THREE.Vector3();
-        if (keys.has('w')) move.add(forward);
-        if (keys.has('s')) move.sub(forward);
-        if (keys.has('d')) move.add(right);
-        if (keys.has('a')) move.sub(right);
-        if (move.lengthSq() > 0) {
-          move.normalize().multiplyScalar(0.06);
-          camera.position.add(move);
-          controls.target.add(move);
+        if (moveLen > 0.001) {
+          const forward = new THREE.Vector3();
+          camera.getWorldDirection(forward);
+          forward.y = 0;
+          if (forward.lengthSq() > 0) forward.normalize();
+          const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
+          const move = new THREE.Vector3()
+            .addScaledVector(forward, moveIn.y)
+            .addScaledVector(right, moveIn.x);
+          if (move.lengthSq() > 0) {
+            move.normalize().multiplyScalar(0.06 * Math.min(1, moveLen));
+            camera.position.add(move);
+            controls.target.add(move);
+          }
         }
-        if (keys.has('arrowleft') || keys.has('arrowright') || keys.has('arrowup') || keys.has('arrowdown')) {
+        if (lookLen > 0.001) {
           const lookSpeed = 0.022;
           const invert = controlSettingsRef.current.invertLook ? -1 : 1;
           const offset = new THREE.Vector3().subVectors(controls.target, camera.position);
-          if (keys.has('arrowleft'))  offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), lookSpeed);
-          if (keys.has('arrowright')) offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), -lookSpeed);
-          if (keys.has('arrowup') || keys.has('arrowdown')) {
+          offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), -lookIn.x * lookSpeed);
+          if (Math.abs(lookIn.y) > 0.001) {
             const pitchAxis = new THREE.Vector3().crossVectors(offset, camera.up).normalize();
-            const pitchDir = (keys.has('arrowup') ? 1 : -1) * invert;
-            const pitched = offset.clone().applyAxisAngle(pitchAxis, pitchDir * lookSpeed);
+            const pitched = offset.clone().applyAxisAngle(pitchAxis, lookIn.y * invert * lookSpeed);
             // Clamp so looking up/down can't flip past straight overhead/underfoot.
             const horiz = Math.sqrt(pitched.x * pitched.x + pitched.z * pitched.z);
             if (Math.abs(Math.atan2(pitched.y, horiz)) < Math.PI * 0.47) offset.copy(pitched);
