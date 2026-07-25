@@ -2573,6 +2573,19 @@ export default function EngineViewer() {
         }
       }
 
+      // Work-order black-smoke symptom: gentle drifting/pulsing puffs
+      // rather than a static dark blob, only while the DPF-service symptom
+      // is actually showing (see setWorkOrderSymptomVisible).
+      const smokeGroup = engineGroup.getObjectByName('wo-exhaust-smoke');
+      if (smokeGroup && smokeGroup.visible) {
+        smokeGroup.children.forEach(puff => {
+          const phase = (puff.userData.puffPhase as number) ?? 0;
+          const s = 1 + 0.15 * Math.sin(t * 1.5 + phase);
+          puff.scale.set(s, s, s);
+          puff.position.y = phase * 0.08 + Math.sin(t * 0.8 + phase) * 0.03;
+        });
+      }
+
       const keys = keysHeldRef.current;
       if (walkModeRef.current) {
         // Walk mode: WASD moves relative to where the camera is actually
