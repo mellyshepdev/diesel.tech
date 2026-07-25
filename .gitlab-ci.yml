@@ -7,11 +7,9 @@ stages:
   - deploy
 
 workflow:
+  auto_cancel:
+    on_new_commit: interruptible
   rules:
-    # autosave.sh pushes every minute — don't burn CI minutes on checkpoints
-    # (manual runs from the web UI / API still work on any commit)
-    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_TITLE =~ /^Autosave/'
-      when: never
     - when: always
 
 variables:
