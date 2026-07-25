@@ -4688,6 +4688,27 @@ export function buildVolvoD13(
   turboCoolPuddle.scale.set(0.01, 0.01, 0.01);
   tick();
 
+  // Work-order arrival symptoms — visible, always-on faults (not gated to
+  // x-ray mode) representing why the customer actually brought the truck
+  // in, per WORK_ORDER_SYMPTOMS below. Hidden by default; toggled on
+  // vehicle arrival, off once that job's turned in.
+  const woCoolantPuddle = add(new THREE.CircleGeometry(0.35, 20), coolantMat, { pos: [0.9, -1.09, 0.16], rot: [-Math.PI / 2, 0, 0], shadow: false });
+  woCoolantPuddle.name = 'wo-coolant-puddle';
+  woCoolantPuddle.visible = false;
+  const woSmokeGroup = new THREE.Group();
+  woSmokeGroup.name = 'wo-exhaust-smoke';
+  woSmokeGroup.visible = false;
+  woSmokeGroup.position.set(1.7, -0.55, 0.95); // downpipe outlet, per the exhaust flow path's last waypoint
+  group.add(woSmokeGroup);
+  const smokeMat = new THREE.MeshBasicMaterial({ color: 0x2a2a2a, transparent: true, opacity: 0.45, depthWrite: false });
+  for (let i = 0; i < 4; i++) {
+    const puff = new THREE.Mesh(new THREE.SphereGeometry(0.09 + i * 0.03, 8, 6), smokeMat);
+    puff.position.set(i * 0.14, i * 0.08, 0);
+    puff.userData.puffPhase = i;
+    woSmokeGroup.add(puff);
+  }
+  tick();
+
   // ══════════════════════════════════════
   // 7. INTAKE MANIFOLD (left side, −z) + EGR COOLER + CHARGE PIPE
   // Layout per the QRG side views and the factory photos: intake on the
