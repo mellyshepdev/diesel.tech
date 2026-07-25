@@ -409,6 +409,21 @@ const REPAIR_REQUIRED_TOOL: Partial<Record<RepairId, Tool>> = {
   'turbo-replace': 'lineWrench',
 };
 
+// Work orders: a vehicle that arrives already showing a real, visible fault
+// instead of just "pick any unlocked job from the menu" — the customer's
+// actual complaint. Deliberately spans unlockLevel so a level-1 tech's
+// pool isn't empty (annual-inspection is the level-1 floor, same as the
+// REPAIRS comment above), and only repairs with a real physical symptom
+// modeled belong here — this is additive, more repairs can get a symptom
+// and join the pool later, same as every other "never delete, only add"
+// system in this file.
+const WORK_ORDER_SYMPTOMS: Partial<Record<RepairId, { label: string; meshName: string }>> = {
+  'annual-inspection':   { label: 'Flat tire — driver-side steer axle',        meshName: 'truck-wheel-flat' },
+  'water-pump-replace':  { label: 'Coolant leak — dripping under the engine',   meshName: 'wo-coolant-puddle' },
+  'turbo-replace':       { label: 'Oil & coolant leak — turbo center housing',  meshName: 'turbo-oil-puddle' }, // coolant puddle shown alongside, see showWorkOrderSymptom
+  'dpf-service':         { label: 'Heavy black smoke from the stack',          meshName: 'wo-exhaust-smoke' },
+};
+
 // Mechanic career ladder: each repair sits at a tier, pays coins on
 // completion, and stays locked until the player's level (derived from total
 // coins earned, see `levelForCoins`) reaches `unlockLevel`. PM Service and
