@@ -3422,10 +3422,8 @@ export default function EngineViewer() {
         </div>
       )}
 
-      {/* Controls settings — currently just look-inversion; the fuller
-          remap UI (rebinding move/look, mobile joystick swap) is still
-          pending, this is the first real settings surface backing
-          controlSettingsRef so it isn't dead state. */}
+      {/* Controls settings: invert-look, and the swap toggles for both the
+          keyboard scheme and which mobile joystick pad drives which. */}
       {settingsOpen && !isLoading && (
         <div className="absolute right-4 top-32 w-72 max-w-[92vw] bg-black/75 backdrop-blur-md border border-cyan-400/25 rounded-xl p-3 z-30 space-y-3">
           <div className="flex items-center justify-between px-1">
@@ -3433,8 +3431,8 @@ export default function EngineViewer() {
             <button onClick={() => setSettingsOpen(false)} className="text-gray-500 hover:text-white text-sm">✕</button>
           </div>
           <div className="px-1 text-[11px] text-gray-400 leading-snug">
-            Move: <span className="text-gray-200 font-mono">WASD</span> &nbsp;·&nbsp;
-            Look: <span className="text-gray-200 font-mono">arrows / mouse</span>
+            Move: <span className="text-gray-200 font-mono">{controlSettings.swapMoveLook ? 'arrows / right pad' : 'WASD / left pad'}</span> &nbsp;·&nbsp;
+            Look: <span className="text-gray-200 font-mono">{controlSettings.swapMoveLook ? 'WASD / left pad' : 'arrows / mouse / right pad'}</span>
           </div>
           <label className="flex items-center justify-between px-1 py-1.5 rounded-lg hover:bg-white/5 cursor-pointer">
             <span className="text-xs text-gray-300">Invert look (pitch)</span>
@@ -3442,6 +3440,24 @@ export default function EngineViewer() {
               type="checkbox"
               checked={controlSettings.invertLook}
               onChange={(e) => setControlSettings(prev => ({ ...prev, invertLook: e.target.checked }))}
+              className="accent-cyan-400"
+            />
+          </label>
+          <label className="flex items-center justify-between px-1 py-1.5 rounded-lg hover:bg-white/5 cursor-pointer">
+            <span className="text-xs text-gray-300">Swap move / look keys (WASD ⇄ arrows)</span>
+            <input
+              type="checkbox"
+              checked={controlSettings.swapMoveLook}
+              onChange={(e) => setControlSettings(prev => ({ ...prev, swapMoveLook: e.target.checked }))}
+              className="accent-cyan-400"
+            />
+          </label>
+          <label className="flex items-center justify-between px-1 py-1.5 rounded-lg hover:bg-white/5 cursor-pointer">
+            <span className="text-xs text-gray-300">Swap joystick sides (mobile)</span>
+            <input
+              type="checkbox"
+              checked={controlSettings.swapJoysticks}
+              onChange={(e) => setControlSettings(prev => ({ ...prev, swapJoysticks: e.target.checked }))}
               className="accent-cyan-400"
             />
           </label>
