@@ -2687,22 +2687,34 @@ export default function EngineViewer() {
       // one [-1,1]-clamped x/y pair each — same combined-input approach for
       // both walk and orbit mode below, so mobile and desktop drive
       // identical code paths rather than a parallel touch-only system.
+      // swapMoveLook flips which KEY SET drives which (WASD/arrows);
+      // swapJoysticks flips which TOUCH PAD drives which (left/right) —
+      // independent settings since a player might want one swapped but not
+      // the other (e.g. desktop keys fine as-is, but prefers look on the
+      // left thumb).
+      const wasdKeys = { u: keys.has('w'), d: keys.has('s'), r: keys.has('d'), l: keys.has('a') };
+      const arrowKeys = { u: keys.has('arrowup'), d: keys.has('arrowdown'), r: keys.has('arrowright'), l: keys.has('arrowleft') };
+      const moveKeys = controlSettingsRef.current.swapMoveLook ? arrowKeys : wasdKeys;
+      const lookKeys = controlSettingsRef.current.swapMoveLook ? wasdKeys : arrowKeys;
+      const moveTouch = controlSettingsRef.current.swapJoysticks ? touchLookRef.current : touchMoveRef.current;
+      const lookTouch = controlSettingsRef.current.swapJoysticks ? touchMoveRef.current : touchLookRef.current;
+
       const moveIn = { x: 0, y: 0 };
-      if (keys.has('w')) moveIn.y += 1;
-      if (keys.has('s')) moveIn.y -= 1;
-      if (keys.has('d')) moveIn.x += 1;
-      if (keys.has('a')) moveIn.x -= 1;
-      moveIn.x += touchMoveRef.current.x;
-      moveIn.y += touchMoveRef.current.y;
+      if (moveKeys.u) moveIn.y += 1;
+      if (moveKeys.d) moveIn.y -= 1;
+      if (moveKeys.r) moveIn.x += 1;
+      if (moveKeys.l) moveIn.x -= 1;
+      moveIn.x += moveTouch.x;
+      moveIn.y += moveTouch.y;
       const moveLen = Math.hypot(moveIn.x, moveIn.y);
       if (moveLen > 1) { moveIn.x /= moveLen; moveIn.y /= moveLen; }
       const lookIn = { x: 0, y: 0 };
-      if (keys.has('arrowleft'))  lookIn.x -= 1;
-      if (keys.has('arrowright')) lookIn.x += 1;
-      if (keys.has('arrowup'))    lookIn.y += 1;
-      if (keys.has('arrowdown'))  lookIn.y -= 1;
-      lookIn.x += touchLookRef.current.x;
-      lookIn.y += touchLookRef.current.y;
+      if (lookKeys.l) lookIn.x -= 1;
+      if (lookKeys.r) lookIn.x += 1;
+      if (lookKeys.u) lookIn.y += 1;
+      if (lookKeys.d) lookIn.y -= 1;
+      lookIn.x += lookTouch.x;
+      lookIn.y += lookTouch.y;
       const lookLen = Math.hypot(lookIn.x, lookIn.y);
       if (lookLen > 1) { lookIn.x /= lookLen; lookIn.y /= lookLen; }
 
