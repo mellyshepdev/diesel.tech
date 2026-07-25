@@ -2215,12 +2215,14 @@ export default function EngineViewer() {
   // the old default), look = mouse+arrows (walk) / arrows (orbit-turn).
   // invertLook flips pitch on both look inputs. Settings UI (Task: Settings
   // menu) will read/write this; the movement code above already honors it.
-  const [controlSettings, setControlSettings] = useState<{ invertLook: boolean }>(() => {
-    if (typeof window === 'undefined') return { invertLook: false };
+  type ControlSettings = { invertLook: boolean; swapMoveLook: boolean; swapJoysticks: boolean };
+  const CONTROL_SETTINGS_DEFAULT: ControlSettings = { invertLook: false, swapMoveLook: false, swapJoysticks: false };
+  const [controlSettings, setControlSettings] = useState<ControlSettings>(() => {
+    if (typeof window === 'undefined') return CONTROL_SETTINGS_DEFAULT;
     try {
-      return { invertLook: false, ...JSON.parse(window.localStorage.getItem('diesel-tech-control-settings') ?? '{}') };
+      return { ...CONTROL_SETTINGS_DEFAULT, ...JSON.parse(window.localStorage.getItem('diesel-tech-control-settings') ?? '{}') };
     } catch {
-      return { invertLook: false };
+      return CONTROL_SETTINGS_DEFAULT;
     }
   });
   const controlSettingsRef = useRef(controlSettings);
