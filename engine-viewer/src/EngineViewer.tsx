@@ -1252,6 +1252,12 @@ export default function EngineViewer() {
   }, [ownedSections]);
   const [sectionsPanelOpen, setSectionsPanelOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Joystick pads only render on touch-capable devices — on desktop their
+  // corner touch-capture zones would otherwise sit on top of the canvas
+  // and silently swallow mouse clicks in those corners (pointer-events
+  // can't be conditioned on input type in CSS alone).
+  const [isTouchDevice] = useState(() =>
+    typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0));
   const buySection = (id: ToolboxSectionId) => {
     if (ownedSections.has(id)) return;
     const section = TOOLBOX_SECTIONS.find(s => s.id === id)!;
