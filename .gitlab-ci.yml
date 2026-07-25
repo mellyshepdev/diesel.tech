@@ -18,6 +18,7 @@ variables:
 
 frontend:
   stage: build
+  interruptible: true
   script:
     - cd frontend
     - npm ci --prefer-offline
@@ -34,6 +35,7 @@ frontend:
 
 backend:
   stage: build
+  interruptible: true
   script:
     - cd backend
     - npm ci --prefer-offline --omit=dev
@@ -46,6 +48,7 @@ backend:
 # Builds the 3D engine viewer and exposes it on GitLab Pages
 create-pages:
   stage: deploy
+  interruptible: true
   pages:
     # The folder that contains the files to be exposed at the Page URL
     publish: public
